@@ -1,6 +1,6 @@
-url: https://github.com/AhaCrazy/dsh-action-hub
+﻿url: https://github.com/AhaCrazy/dsh-action-hub
 name: AhaCrazy/dsh-action-hub
 category: workflow
 description:
-  en: 'Spotlight-style Action shelf for reusable prompts and flows: Skill-style references, rebindable shortcut, categories, pinning, Skill import, zero context cost.'
-  zh: 'Spotlight 式 Action 收藏夹：Skill 式引用、可重绑快捷键、分类置顶、从 Skill 导入，不占上下文。'
+  en: 'Spotlight-style Action shelf for reusable prompts and flows: Action references, rebindable shortcut, categories, pinning, Skill import, zero context cost.'
+  zh: 'Spotlight 寮?Action 鏀惰棌澶癸細Skill 寮忓紩鐢ㄣ€佸彲閲嶇粦蹇嵎閿€佸垎绫荤疆椤躲€佷粠 Skill 瀵煎叆锛屼笉鍗犱笂涓嬫枃銆?

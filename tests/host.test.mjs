@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { internals, parseActionCommand } from '../index.js';
 
-const { originAllowed, exportable, planActionSkills } = internals;
+const { originAllowed, exportable, planActionRefs, referencedActions, actionInvocationMessage } = internals;
 
 function fakeCtx(origin) {
   return { webServer: { getOrigin: () => origin } };
@@ -87,12 +87,33 @@ test('parseActionCommand refuses ambiguous matches', () => {
   assert.match(prefix.error, /多个 Action/);
 });
 
-test('planActionSkills mints stable, unique, kebab-case handles', () => {
-  const first = planActionSkills([{ id: 'a', name: '代码审查' }, { id: 'b', name: 'Code Review' }]);
+test('planActionRefs mints stable, unique, opaque handles', () => {
+  const first = planActionRefs([{ id: 'a', name: '代码审查' }, { id: 'b', name: 'Code Review' }]);
   assert.equal(first.entries.length, 2);
   for (const entry of first.entries) assert.match(entry.name, /^ah-[0-9a-f]{10}$/u);
   assert.notEqual(first.entries[0].name, first.entries[1].name);
   assert.equal(new Set(first.handles.values()).size, 2);
-  const renamed = planActionSkills([{ id: 'a', name: 'Renamed entirely' }]);
+  const renamed = planActionRefs([{ id: 'a', name: 'Renamed entirely' }]);
   assert.equal(renamed.handles.get('a'), first.handles.get('a'));
+});
+
+test('referencedActions only scans direct user text and known markers', () => {
+  const known = new Set(['ah-0123456789', 'ah-abcdefabcdef']);
+  const messages = [
+    { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'please /ah-0123456789 now' }] },
+    { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'again /ah-0123456789' }] },
+    { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: 'unknown /ah-ffffffffffff' }] },
+    { role: 'user', source: { kind: 'skill-invocation' }, content: [{ type: 'text', text: '/ah-abcdefabcdef' }] },
+    { role: 'assistant', source: { kind: 'model' }, content: [{ type: 'text', text: '/ah-abcdefabcdef' }] },
+  ];
+  assert.deepEqual(referencedActions(messages, known), ['ah-0123456789']);
+});
+
+test('actionInvocationMessage wraps the body with the Action name', () => {
+  const message = actionInvocationMessage({ name: '代码审查', prompt: 'body\n{{args}}' });
+  assert.equal(message.role, 'user');
+  assert.equal(message.source.kind, 'action');
+  assert.match(message.content[0].text, /^<action_content name="代码审查">/u);
+  assert.match(message.content[0].text, /body/u);
+  assert.match(message.content[0].text, /<\/action_content>$/u);
 });

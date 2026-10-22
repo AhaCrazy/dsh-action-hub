@@ -34,36 +34,36 @@ export const inject = ['webServer'];
 const ROUTE = '/api/dsh-action-hub';
 const MAX_BODY = 4 * 1024 * 1024;
 const IMPORT_CATEGORY = '导入';
-const SKILL_PREFIX = 'ah-';
+const ACTION_PREFIX = 'ah-';
+const MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{6,20})(?=\s|$)/gu;
 
 /**
- * Stable, opaque runtime-skill handle for one Action. The id survives renames,
- * so a reference chip already sitting in a draft keeps resolving.
+ * Stable, opaque reference marker for one Action. The id survives renames, so
+ * a marker already sitting in a draft keeps resolving.
  *
  * @param {string} id
  * @returns {string}
  */
-function skillHandle(id) {
-  return `${SKILL_PREFIX}${createHash('sha1').update(String(id)).digest('hex').slice(0, 10)}`;
+function actionMarker(id) {
+  return `${ACTION_PREFIX}${createHash('sha1').update(String(id)).digest('hex').slice(0, 10)}`;
 }
 
 /**
- * Map every Action to the runtime skill that carries its body when the user
- * references it as `/ah-...`. The hash is intentionally not the display name:
- * the transcript chip shows the Action name, while this handle is only the
- * wire spelling.
+ * Map every Action to the opaque `/ah-…` marker that references it. The hash is
+ * intentionally not the display name: the transcript chip shows the Action name,
+ * while this handle is only the wire spelling.
  *
  * @param {readonly object[]} actions
  * @returns {{ handles: Map<string, string>, entries: Array<{ action: object, name: string }> }}
  */
-export function planActionSkills(actions) {
+export function planActionRefs(actions) {
   const used = new Set();
   const handles = new Map();
   const entries = [];
   for (const action of actions) {
-    let name = skillHandle(action.id);
+    let name = actionMarker(action.id);
     let suffix = 2;
-    while (used.has(name)) name = `${skillHandle(action.id)}-${suffix++}`;
+    while (used.has(name)) name = `${actionMarker(action.id)}-${suffix++}`;
     used.add(name);
     handles.set(action.id, name);
     entries.push({ action, name });
@@ -72,73 +72,89 @@ export function planActionSkills(actions) {
 }
 
 /**
- * Mirror the current collection into user-invocable runtime skills. Registering
- * a skill is how DSH already turns a `/name` gesture in a user message into a
- * `<skill_content>` injection, so Actions need no tool, no prompt section and no
- * custom pre-step hook. `modelInvocable: false` keeps them out of the model's
- * own skill catalog.
+ * Collect the references a claimed batch of direct user messages carries.
+ * Only `source.kind === 'user'` text is scanned, so injected context can never
+ * forge an invocation.
+ *
+ * @param {readonly object[]} messages
+ * @param {ReadonlySet<string>} known - markers that resolve to an existing Action.
+ * @returns {string[]} unique markers, in first-seen order.
+ */
+export function referencedActions(messages, known) {
+  const found = [];
+  for (const message of messages) {
+    if (message?.role !== 'user' || message.source?.kind !== 'user') continue;
+    for (const block of Array.isArray(message.content) ? message.content : []) {
+      if (block?.type !== 'text' || typeof block.text !== 'string') continue;
+      for (const match of block.text.matchAll(MARKER_PATTERN)) {
+        const marker = match[2];
+        if (marker !== undefined && known.has(marker) && !found.includes(marker)) found.push(marker);
+      }
+    }
+  }
+  return found;
+}
+
+/**
+ * Build the durable, model-facing injection for one explicitly invoked Action.
+ * It is appended to the step like a Skill invocation, so later steps keep it in
+ * history, but it uses our own source kind — Action references are not Skills
+ * and never appear in the Skill catalog or the `/` menu.
+ *
+ * @param {object} action
+ * @returns {object} a plain user-role message.
+ */
+export function actionInvocationMessage(action) {
+  const name = String(action.name).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+  const body = expandPrompt(action.prompt, { date: new Date() });
+  return {
+    id: `action-${globalThis.crypto.randomUUID()}`,
+    role: 'user',
+    content: [{
+      type: 'text',
+      text: `<action_content name="${name}">\n${body}\n</action_content>`,
+    }],
+    source: { kind: 'action', name: action.name, form: 'instructions' },
+  };
+}
+
+/**
+ * Install the user-invoked Action expander. A `/ah-…` marker in a direct user
+ * message becomes an `<action_content>` message for the model; the durable log
+ * still holds the marker, so the transcript can show only the Action name.
  *
  * @param {object} ctx
  * @param {ReturnType<typeof createStore>} store
  */
-function createActionSkillSync(ctx, store) {
-  /** @type {Map<string, { dispose: () => void, content: string }>} */
-  const registered = new Map();
-  let generation = 0;
-  let lastHandles = new Map();
-
-  async function run() {
-    const skills = ctx.get('skills');
-    if (skills === undefined) return;
-    const current = ++generation;
-    const state = await store.read();
-    if (current !== generation) return;
-    const plan = planActionSkills(sortActions(state.actions));
-    lastHandles = plan.handles;
-    const desired = new Map();
-    for (const entry of plan.entries) {
-      const description = entry.action.description || entry.action.name;
-      desired.set(entry.name, {
-        content: expandPrompt(entry.action.prompt, {}),
-        description: String(description).slice(0, 400),
-        name: entry.action.name,
-      });
+function installActionInvocations(ctx, store) {
+  return ctx.on('agent/pre-step', async ({ messages, signal }, next) => {
+    const decision = await next();
+    if (decision.kind === 'reject' || signal.aborted) return decision;
+    const direct = messages.filter((message) => message?.source?.kind === 'user');
+    if (direct.length === 0) return decision;
+    const hasMarker = direct.some((message) => (message.content ?? []).some(
+      (block) => block?.type === 'text' && typeof block.text === 'string' && /(^|\s)\/ah-[0-9a-f]{6,20}(?=\s|$)/.test(block.text),
+    ));
+    if (!hasMarker) return decision;
+    let plan;
+    try {
+      const state = await store.read();
+      plan = planActionRefs(sortActions(state.actions));
+    } catch (error) {
+      ctx.logger?.warn?.(`dsh-action-hub: could not read Actions for an invocation: ${describe(error)}`);
+      return decision;
     }
-    for (const [name, entry] of registered) {
-      const next = desired.get(name);
-      if (next !== undefined && next.content === entry.content) continue;
-      entry.dispose();
-      registered.delete(name);
-    }
-    for (const [name, spec] of desired) {
-      if (registered.has(name)) continue;
-      try {
-        const dispose = skills.register({
-          name,
-          description: spec.description,
-          content: spec.content,
-          source: 'action-hub',
-          invocation: { modelInvocable: false, userInvocable: true },
-        });
-        registered.set(name, { dispose, content: spec.content });
-      } catch (error) {
-        // A handle clash with another runtime skill must not break the plugin.
-        ctx.logger?.warn?.(`dsh-action-hub: could not register reference skill "${name}": ${describe(error)}`);
-      }
-    }
-  }
-
-  function dispose() {
-    generation += 1;
-    for (const entry of registered.values()) entry.dispose();
-    registered.clear();
-  }
-
-  return {
-    run,
-    dispose,
-    handles: () => lastHandles,
-  };
+    const byHandle = new Map(plan.entries.map((entry) => [entry.name, entry.action]));
+    const markers = referencedActions(messages, new Set(byHandle.keys()));
+    if (markers.length === 0) return decision;
+    return {
+      ...decision,
+      messages: [
+        ...decision.messages,
+        ...markers.map((marker) => actionInvocationMessage(byHandle.get(marker))),
+      ],
+    };
+  });
 }
 
 /**
@@ -152,9 +168,7 @@ export function apply(ctx, config = {}) {
     ? config.dataDir.trim()
     : defaultDataDir();
   const store = createStore({ dataDir, seed: config.seed !== false });
-  const sync = createActionSkillSync(ctx, store);
-  ctx.effect(() => () => sync.dispose(), 'action-hub: reference skills');
-  void sync.run().catch(() => {});
+  ctx.effect(() => installActionInvocations(ctx, store), 'action-hub: action invocations');
 
   // The command registry may finish activating after this row; a child context
   // waits for it instead of dropping the command when it is momentarily absent.
@@ -174,7 +188,7 @@ export function apply(ctx, config = {}) {
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: ROUTE,
-    handler: (req, res) => handle(ctx, store, sync, req, res),
+    handler: (req, res) => handle(ctx, store, req, res),
   }), 'action-hub: API route');
 }
 
@@ -250,12 +264,11 @@ function buildCommand(ctx, store) {
  *
  * @param {object} ctx
  * @param {ReturnType<typeof createStore>} store
- * @param {ReturnType<typeof createActionSkillSync>} sync
  * @param {import('node:http').IncomingMessage} req
  * @param {import('node:http').ServerResponse} res
  * @returns {Promise<void>}
  */
-async function handle(ctx, store, sync, req, res) {
+async function handle(ctx, store, req, res) {
   try {
     if (!originAllowed(ctx, req)) {
       sendJson(res, 403, { ok: false, error: '拒绝跨站请求' });
@@ -268,7 +281,7 @@ async function handle(ctx, store, sync, req, res) {
     if (method === 'GET' && route === '/state') {
       const state = await store.read();
       const actions = sortActions(state.actions);
-      const plan = planActionSkills(actions);
+      const plan = planActionRefs(actions);
       sendJson(res, 200, {
         ok: true,
         version: state.version,
@@ -277,7 +290,7 @@ async function handle(ctx, store, sync, req, res) {
           dataFile: store.filePath(),
           dataFileDisplay: displayPath(store.filePath()),
           skills: ctx.get('skills') !== undefined,
-          referencing: ctx.get('skills') !== undefined,
+          referencing: true,
           handles: Object.fromEntries(plan.handles),
         },
       });
@@ -348,7 +361,6 @@ async function handle(ctx, store, sync, req, res) {
         }
         draft.actions = [...draft.actions, action];
       });
-      await sync.run();
       sendJson(res, 200, { ok: true, action, actions: sortActions(state.actions) });
       return;
     }
@@ -378,7 +390,6 @@ async function handle(ctx, store, sync, req, res) {
         sendJson(res, 400, { ok: false, error: result.invalid.message, code: result.invalid.code });
         return;
       }
-      await sync.run();
       sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
       return;
     }
@@ -390,7 +401,6 @@ async function handle(ctx, store, sync, req, res) {
         draft.actions = draft.actions.filter((entry) => entry.id !== id);
         return { removed: before - draft.actions.length };
       });
-      await sync.run();
       sendJson(res, 200, { ok: true, removed: result.removed, actions: sortActions(state.actions) });
       return;
     }
@@ -416,7 +426,6 @@ async function handle(ctx, store, sync, req, res) {
         sendJson(res, 404, { ok: false, error: 'Action 不存在' });
         return;
       }
-      await sync.run();
       sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
       return;
     }
@@ -456,7 +465,6 @@ async function handle(ctx, store, sync, req, res) {
         draft.actions = merged.actions;
         return merged;
       });
-      await sync.run();
       sendJson(res, 200, {
         ok: true,
         mode,
@@ -495,7 +503,6 @@ async function handle(ctx, store, sync, req, res) {
       const { state } = await store.mutate((draft) => {
         draft.actions = [...draft.actions, action];
       });
-      await sync.run();
       sendJson(res, 200, { ok: true, action, actions: sortActions(state.actions) });
       return;
     }
@@ -512,7 +519,6 @@ async function handle(ctx, store, sync, req, res) {
         });
         return { changed };
       });
-      await sync.run();
       sendJson(res, 200, { ok: true, changed: result.changed, actions: sortActions(state.actions) });
       return;
     }
@@ -528,7 +534,6 @@ async function handle(ctx, store, sync, req, res) {
         });
         return { changed };
       });
-      await sync.run();
       sendJson(res, 200, { ok: true, changed: result.changed, actions: sortActions(state.actions) });
       return;
     }
@@ -701,5 +706,7 @@ export const internals = {
   exportable,
   expandPrompt,
   MAX_PROMPT,
-  planActionSkills,
+  planActionRefs,
+  referencedActions,
+  actionInvocationMessage,
 };

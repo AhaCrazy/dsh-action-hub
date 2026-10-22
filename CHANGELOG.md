@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.2.0 — 2026-10-22
+
+- **Action references no longer register Skills.** 1.1.0 implemented name-only
+  references by mirroring every Action into a user-invocable runtime Skill, which
+  made them show up in the Skills catalog, the `/` menu, and the context panel.
+  The Host now expands a `/ah-…` marker itself at `agent/pre-step` and appends an
+  `<action_content>` message for that step; nothing is added to the skill registry,
+  so the Skills list and `/` menu contain only real Skills again. The durable log
+  keeps the marker, so the transcript still shows only the Action name.
+- **Unchanged.** Zero tool, zero prompt section, zero skill-catalog cost; arguments
+  still insert the full body, and the rest of the palette/library/settings work is
+  untouched.
+
 ## 1.1.0 — 2026-10-22
 
 - **Action references.** Picking an Action now inserts it like a Skill: the composer
