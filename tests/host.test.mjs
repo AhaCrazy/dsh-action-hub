@@ -48,7 +48,7 @@ test('exportable drops per-machine usage counters but keeps content', () => {
     extra: 'dropped',
   });
   assert.deepEqual(Object.keys(exported).sort(), [
-    'argsHint', 'category', 'createdAt', 'description', 'id', 'name', 'prompt', 'source', 'tags', 'updatedAt',
+    'argsHint', 'category', 'createdAt', 'description', 'id', 'name', 'pinned', 'prompt', 'source', 'tags', 'updatedAt',
   ]);
   assert.equal(exported.usage, undefined);
   assert.equal(exported.extra, undefined);

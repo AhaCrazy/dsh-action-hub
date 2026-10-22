@@ -1,8 +1,8 @@
 {
   "meta": {
-    "title": "Action Shelf",
-    "description": "Keep reusable prompts and flows as user-invoked Actions: no context cost, no automatic trigger, one click from the composer."
+    "title": "Action Hub",
+    "description": "A Spotlight-style Action shelf for reusable prompts and flows: search, categories, pinning, Skill import, zero context cost."
   },
-  "title": "Action Shelf",
-  "description": "Keep reusable prompts and flows as user-invoked Actions: no context cost, no automatic trigger, one click from the composer."
+  "title": "Action Hub",
+  "description": "A Spotlight-style Action shelf for reusable prompts and flows: search, categories, pinning, Skill import, zero context cost."
 }

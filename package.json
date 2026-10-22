@@ -1,9 +1,9 @@
 {
   "name": "dsh-action-hub",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "DeepSeek Harness plugin: a user-invoked Action shelf for reusable prompts and flows, with a management page, search, categories, skill import, and no context injection.",
+  "description": "DeepSeek Harness plugin: a Spotlight-style Action shelf for reusable prompts and flows, with search, categories, pinned items, Skill import, and zero context cost.",
   "keywords": [
     "dsh",
     "dsh-plugin",
@@ -12,6 +12,7 @@
     "actions",
     "prompt",
     "snippet",
+    "palette",
     "cordis"
   ],
   "license": "MIT",
@@ -26,8 +27,8 @@
   },
   "icon": "./icon.svg",
   "meta": {
-    "title": "Action 收藏夹",
-    "description": "把常用提示词与流程存成 Action：不占上下文、不自动触发，需要时从输入框下方一键取用。"
+    "title": "Action Hub",
+    "description": "Spotlight 式 Action 收藏夹：搜索、分类、置顶与 Skill 导入，插入不占上下文。"
   },
   "scripts": {
     "test": "node tests/store.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
@@ -47,8 +48,11 @@
     "cordis.patch.yml",
     "icon.svg",
     "locale/*.json",
+    "assets/**",
+    "screenshots.json",
     "README.md",
     "README.en.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "dsh": {

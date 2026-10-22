@@ -131,6 +131,9 @@ export function normalizeAction(input, options = {}) {
     count: Number.isFinite(usageSource.count) && usageSource.count > 0 ? Math.floor(usageSource.count) : 0,
     lastAt: Number.isFinite(usageSource.lastAt) && usageSource.lastAt > 0 ? Math.round(usageSource.lastAt) : 0,
   };
+  const pinned = typeof source.pinned === 'boolean'
+    ? source.pinned
+    : previous.pinned === true;
   const sourceRef = previous.source !== null && typeof previous.source === 'object'
     ? previous.source
     : source.source !== null && typeof source.source === 'object' ? source.source : undefined;
@@ -142,6 +145,7 @@ export function normalizeAction(input, options = {}) {
     tags,
     prompt: prompt !== '' ? prompt : typeof previous.prompt === 'string' ? previous.prompt : '',
     argsHint: text(source.argsHint).slice(0, 120) || text(previous.argsHint).slice(0, 120),
+    pinned,
     createdAt,
     updatedAt: now,
     usage,
@@ -174,12 +178,17 @@ export function validateAction(action) {
 }
 
 /**
- * Sort Actions for display: recently used first, then by category, then name.
+ * Sort Actions for display: pinned first, then most recently used, then by
+ * category and name. The palette and the management page both consume this
+ * order, so a pinned Action is one keystroke away after "star" is toggled.
+ *
  * @param {readonly object[]} actions
  * @returns {object[]}
  */
 export function sortActions(actions) {
   return [...actions].sort((left, right) => {
+    const pinned = (right.pinned === true ? 1 : 0) - (left.pinned === true ? 1 : 0);
+    if (pinned !== 0) return pinned;
     const usedLeft = left.usage?.lastAt ?? 0;
     const usedRight = right.usage?.lastAt ?? 0;
     if (usedLeft !== usedRight) return usedRight - usedLeft;

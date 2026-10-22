@@ -82,13 +82,24 @@ test('validateAction rejects missing name or prompt', () => {
   assert.equal(validateAction({ name: 'x', prompt: 'y' }).ok, true);
 });
 
-test('sortActions puts recently used first, then category and name', () => {
+test('sortActions puts pinned first, then recently used, category and name', () => {
   const actions = [
     { name: 'b', category: 'z', usage: { lastAt: 0 } },
     { name: 'a', category: 'z', usage: { lastAt: 0 } },
     { name: 'c', category: 'a', usage: { lastAt: 5 } },
+    { name: 'pinned', category: 'z', usage: { lastAt: 0 }, pinned: true },
   ];
-  assert.deepEqual(sortActions(actions).map((action) => action.name), ['c', 'a', 'b']);
+  assert.deepEqual(sortActions(actions).map((action) => action.name), ['pinned', 'c', 'a', 'b']);
+});
+
+test('normalizeAction keeps and toggles pinned without disturbing identity', () => {
+  const base = normalizeAction({ name: 'Pin me', prompt: 'body' });
+  assert.equal(base.pinned, false);
+  const pinned = normalizeAction({ pinned: true }, { id: base.id, previous: base });
+  assert.equal(pinned.pinned, true);
+  assert.equal(pinned.name, 'Pin me');
+  const kept = normalizeAction({ name: 'Pin me again' }, { id: base.id, previous: pinned });
+  assert.equal(kept.pinned, true);
 });
 
 test('matchesQuery searches name, description, category, tags, and prompt', () => {

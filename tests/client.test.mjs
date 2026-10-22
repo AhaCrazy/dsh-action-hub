@@ -36,15 +36,20 @@ const module = registration === null
     throw new Error(`unexpected module request: ${id}`);
   });
 
-test('client registers under the package name with the expected slots', () => {
+test('client registers under the package name with every product surface', () => {
   assert.equal(registration.id, 'dsh-action-hub');
   assert.equal(module.name, 'dsh-action-hub');
   assert.deepEqual(module.inject, ['slots', 'locale']);
   assert.equal(typeof module.apply, 'function');
   assert.match(source, /ctx\.slots\.inject\('main'/);
   assert.match(source, /'sidebar\.panellist'/);
-  assert.match(source, /'conversation\.composer\.dock'/);
-  assert.match(source, /inputActions\.setDraft/);
+  assert.match(source, /'conversation\.input\.left'/);
+  assert.match(source, /'conversation\.input\.overlay'/);
+  assert.match(source, /'shell\.overlay'/);
+  assert.match(source, /'settings\.section'/);
+  assert.match(source, /captureInsertion/);
+  assert.match(source, /insertText/);
+  assert.match(source, /keydown/);
 });
 
 test('the client half never registers a tool or prompt section', () => {
@@ -71,18 +76,44 @@ test('composeDraft appends instead of destroying the current draft', () => {
   assert.equal(composeDraft('typed', ''), 'typed');
 });
 
-test('matches and sortActions mirror the store behaviour', () => {
-  const { matches, sortActions } = module.internals;
-  const action = { name: 'Review', description: 'diff', category: 'dev', tags: ['git'], prompt: 'inspect' };
-  assert.equal(matches(action, 'git'), true);
-  assert.equal(matches(action, 'nope'), false);
+test('searchScore prefers names, requires every token, and rejects misses', () => {
+  const { searchScore } = module.internals;
+  const action = { name: 'Code Review', description: 'diff reader', category: 'dev', tags: ['git'], prompt: 'inspect changes' };
+  assert.ok(searchScore(action, 'code') > 0);
+  assert.ok(searchScore(action, 'code') > searchScore(action, 'diff'));
+  assert.ok(searchScore(action, 'git dev') > 0);
+  assert.equal(searchScore(action, 'code missing'), -1);
+  assert.equal(searchScore(action, '  '), 0);
+});
+
+test('visibleActions filters, scores, and keeps pinned entries first', () => {
+  const { visibleActions } = module.internals;
+  const actions = [
+    { id: 'a', name: 'Alpha', category: 'dev', pinned: false, prompt: 'x', tags: [], usage: { lastAt: 5 } },
+    { id: 'b', name: 'Beta', category: 'dev', pinned: true, prompt: 'y', tags: [], usage: { lastAt: 1 } },
+    { id: 'c', name: 'Gamma', category: 'ops', pinned: false, prompt: 'z', tags: [], usage: { lastAt: 9 } },
+  ];
+  assert.deepEqual(visibleActions(actions).map((entry) => entry.id), ['b', 'c', 'a']);
+  assert.deepEqual(visibleActions(actions, { category: 'dev' }).map((entry) => entry.id), ['b', 'a']);
+  assert.deepEqual(visibleActions(actions, { uncategorized: true }), []);
+  assert.deepEqual(visibleActions(actions, { query: 'gamma' }).map((entry) => entry.id), ['c']);
+});
+
+test('sortActions and categoriesOf shape the library', () => {
+  const { sortActions, categoriesOf } = module.internals;
   assert.deepEqual(
     sortActions([
-      { name: 'b', usage: { lastAt: 0 } },
-      { name: 'a', usage: { lastAt: 9 } },
+      { name: 'b', category: 'x', usage: { lastAt: 0 }, pinned: false },
+      { name: 'a', category: 'x', usage: { lastAt: 9 }, pinned: false },
     ]).map((entry) => entry.name),
     ['a', 'b'],
   );
+  assert.deepEqual(categoriesOf([
+    { category: 'dev' },
+    { category: 'dev' },
+    { category: 'ops' },
+    { category: '' },
+  ]), [['dev', 2], ['ops', 1]]);
 });
 
 test('relativeTime renders a non-empty label for a past timestamp', () => {

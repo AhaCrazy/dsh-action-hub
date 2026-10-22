@@ -1,15 +1,17 @@
 /**
  * dsh-action-hub — Client half (Web UI).
  *
- * Three registrations:
- *   - `main` keyed by PANEL_ID: the full management page (create/edit/delete/
- *     import/export, search, categories);
- *   - `sidebar.panellist`: the panel icon that opens that page;
- *   - `conversation.composer.dock`: a quick launcher that inserts one Action's
- *     prompt into the current composer through the shipped `inputActions` API.
+ * Product surfaces:
+ *   - `conversation.input.left`: a compact "Actions" trigger in the composer tool row.
+ *   - `conversation.input.overlay`: a session bridge that hands the palette the
+ *     live composer facade (inputActions / input state) it needs to insert text.
+ *   - `shell.overlay`: the Spotlight-style palette (Ctrl/⌘+Shift+A), rendered at
+ *     the frame level so it is never clipped by the composer card.
+ *   - `main` + `sidebar.panellist`: the management library.
+ *   - `settings.section`: preferences and data controls.
  *
- * The dock is the only place an Action reaches a conversation, and it happens
- * because the user clicked it. Nothing here registers a tool or prompt section.
+ * Nothing here registers a tool or prompt section: an Action reaches a model
+ * only through a user action in this UI.
  */
 window.__ModuleLoader__.load({
   id: 'dsh-action-hub',
@@ -21,298 +23,487 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-
-    /** Placeholder spellings replaced at insertion time; keep in sync with store.js. */
+    const VERSION = '1.0.0';
+    const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
+    const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
 
     const CSS = `
-      .dsah-root { box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; height: 100%; min-height: 0; padding: 22px 26px 26px; color: var(--dsw-alias-label-primary); }
-      .dsah-head { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-      .dsah-head-main { flex: 1 1 320px; min-width: 0; }
-      .dsah-title { margin: 0; font-size: 18px; font-weight: 650; letter-spacing: .01em; }
-      .dsah-subtitle { margin: 6px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary); max-width: 72ch; }
-      .dsah-head-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      .dsah-btn { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; line-height: 1.2; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; }
-      .dsah-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
-      .dsah-btn:disabled { opacity: .5; cursor: not-allowed; }
-      .dsah-btn-primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: #fff; }
-      .dsah-btn-primary:hover { filter: brightness(1.06); background: var(--dsw-alias-brand-primary); }
-      .dsah-btn-danger { color: var(--dsw-alias-state-error-primary); }
-      .dsah-btn-quiet { background: transparent; border-color: transparent; color: var(--dsw-alias-label-secondary); }
-      .dsah-btn-quiet:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); }
-      .dsah-toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-      .dsah-search { flex: 1 1 240px; min-width: 180px; position: relative; }
-      .dsah-search input, .dsah-input, .dsah-select, .dsah-textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-family: inherit; font-size: 13px; padding: 8px 10px; outline: none; }
-      .dsah-search input:focus, .dsah-input:focus, .dsah-select:focus, .dsah-textarea:focus { border-color: var(--dsw-alias-brand-primary); }
-      .dsah-search input { padding-left: 30px; }
-      .dsah-search-mark { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--dsw-alias-label-secondary); pointer-events: none; display: flex; }
-      .dsah-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-      .dsah-chip { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
-      .dsah-chip:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
-      .dsah-chip[data-active="true"] { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
-      .dsah-count { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
-      .dsah-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
-      .dsah-card { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 10px; padding: 12px 14px; display: flex; gap: 14px; align-items: flex-start; }
-      .dsah-card:hover { border-color: var(--dsw-alias-border-l2); }
-      .dsah-card-body { flex: 1 1 auto; min-width: 0; }
-      .dsah-card-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-      .dsah-name { font-size: 14px; font-weight: 600; word-break: break-word; }
-      .dsah-badge { font-size: 11px; line-height: 1; padding: 4px 7px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; }
-      .dsah-badge-accent { color: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); background: transparent; }
-      .dsah-desc { margin: 6px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); word-break: break-word; }
-      .dsah-preview { margin: 8px 0 0; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 11.5px; line-height: 1.5; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-base); border: 1px dashed var(--dsw-alias-border-l1); border-radius: 8px; padding: 8px 10px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; word-break: break-word; }
-      .dsah-card-actions { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: flex-end; flex: 0 0 auto; max-width: 260px; }
-      .dsah-empty { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed var(--dsw-alias-border-l1); border-radius: 12px; padding: 46px 24px; text-align: center; color: var(--dsw-alias-label-secondary); }
-      .dsah-empty-title { font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); }
-      .dsah-empty-copy { font-size: 12.5px; line-height: 1.7; max-width: 60ch; }
-      .dsah-notice { font-size: 12.5px; line-height: 1.6; border-radius: 8px; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
-      .dsah-notice[data-kind="error"] { color: var(--dsw-alias-state-error-primary); border-color: var(--dsw-alias-state-error-primary); }
-      .dsah-notice[data-kind="ok"] { color: var(--dsw-alias-state-success-primary); border-color: var(--dsw-alias-state-success-primary); }
-      .dsah-modal-backdrop { position: fixed; inset: 0; background: rgba(8, 10, 14, .55); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 60; }
-      .dsah-modal { width: min(720px, 100%); max-height: min(84vh, 900px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; box-shadow: 0 24px 64px rgba(0,0,0,.42); overflow: hidden; }
-      .dsah-modal-head { padding: 16px 20px 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; gap: 10px; }
-      .dsah-modal-title { margin: 0; font-size: 15px; font-weight: 650; flex: 1 1 auto; }
-      .dsah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
-      .dsah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; justify-content: flex-end; gap: 8px; align-items: center; }
-      .dsah-field { display: flex; flex-direction: column; gap: 6px; }
-      .dsah-field-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }
-      .dsah-field-hint { font-size: 11.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); }
-      .dsah-field-row { display: flex; gap: 12px; flex-wrap: wrap; }
-      .dsah-field-row > .dsah-field { flex: 1 1 220px; min-width: 160px; }
-      .dsah-textarea { resize: vertical; min-height: 150px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px; line-height: 1.6; }
-      .dsah-radio-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
-      .dsah-radio-row label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
-      .dsah-tabs { display: flex; gap: 6px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-      .dsah-tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--dsw-alias-label-secondary); font-family: inherit; font-size: 13px; padding: 8px 10px; cursor: pointer; }
-      .dsah-tab[data-active="true"] { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-brand-primary); }
-      .dsah-skill-list { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; }
-      .dsah-skill { border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; padding: 8px 10px; display: flex; gap: 10px; align-items: center; }
-      .dsah-skill-main { flex: 1 1 auto; min-width: 0; }
-      .dsah-skill-name { font-size: 13px; font-weight: 600; }
-      .dsah-skill-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .dsah-hidden { display: none; }
-      .dsah-launch { position: relative; display: inline-flex; }
-      .dsah-launch-btn { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 999px; padding: 3px 10px; font-size: 11.5px; line-height: 1.6; display: inline-flex; gap: 6px; align-items: center; cursor: pointer; font-family: inherit; }
-      .dsah-launch-btn:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
-      .dsah-launch-btn[data-open="true"] { color: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); }
-      .dsah-pop { position: fixed; z-index: 70; width: min(460px, calc(100vw - 24px)); max-height: min(62vh, 560px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 12px; box-shadow: 0 18px 48px rgba(0,0,0,.45); overflow: hidden; }
-      .dsah-pop-head { padding: 10px 12px 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 8px; }
-      .dsah-pop-title-row { display: flex; align-items: center; gap: 8px; }
-      .dsah-pop-title { font-size: 12.5px; font-weight: 650; flex: 1 1 auto; }
-      .dsah-pop-head .dsah-search { flex: none; }
-      .dsah-pop-args { padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-      .dsah-pop-list { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; }
-      .dsah-item { appearance: none; border: 1px solid transparent; background: transparent; border-radius: 8px; padding: 8px 10px; text-align: left; cursor: pointer; font-family: inherit; color: var(--dsw-alias-label-primary); display: flex; flex-direction: column; gap: 3px; }
-      .dsah-item:hover, .dsah-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l1); }
-      .dsah-item-top { display: flex; align-items: center; gap: 8px; }
-      .dsah-item-name { font-size: 13px; font-weight: 600; flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .dsah-item-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .dsah-pop-foot { border-top: 1px solid var(--dsw-alias-border-l1); padding: 8px 10px; display: flex; gap: 8px; align-items: center; }
-      .dsah-pop-hint { font-size: 11px; color: var(--dsw-alias-label-secondary); flex: 1 1 auto; }
+      .ah-page { box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; height: 100%; min-height: 0; padding: 24px 26px 26px; color: var(--dsw-alias-label-primary); }
+      .ah-head { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+      .ah-head-main { flex: 1 1 320px; min-width: 0; }
+      .ah-title { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 660; letter-spacing: .01em; }
+      .ah-sub { margin: 7px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--dsw-alias-label-secondary); max-width: 74ch; }
+      .ah-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ah-btn { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 9px; height: 32px; padding: 0 12px; font: inherit; font-size: 12.5px; line-height: 1; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
+      .ah-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
+      .ah-btn:active { transform: translateY(.5px); }
+      .ah-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+      .ah-btn-primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: #fff; }
+      .ah-btn-primary:hover { background: var(--dsw-alias-brand-primary); filter: brightness(1.07); border-color: transparent; }
+      .ah-btn-ghost { background: transparent; border-color: transparent; color: var(--dsw-alias-label-secondary); }
+      .ah-btn-ghost:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border-color: transparent; }
+      .ah-btn-danger { color: var(--dsw-alias-state-error-primary); }
+      .ah-btn-icon { width: 32px; padding: 0; justify-content: center; }
+      .ah-btn-sm { height: 28px; font-size: 12px; padding: 0 10px; border-radius: 8px; }
+      .ah-btn-sm.ah-btn-icon { width: 28px; padding: 0; }
+      .ah-btn[data-active="true"] { border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-brand-primary); background: transparent; }
+      .ah-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .ah-search { position: relative; flex: 1 1 260px; min-width: 200px; }
+      .ah-search input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 12px 0 32px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; outline: none; }
+      .ah-search input:focus { border-color: var(--dsw-alias-brand-primary); }
+      .ah-search-mark { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; color: var(--dsw-alias-label-secondary); pointer-events: none; }
+      .ah-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .ah-chip { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 999px; height: 26px; padding: 0 10px; font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+      .ah-chip:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
+      .ah-chip[data-active="true"] { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
+      .ah-chip-count { font-size: 10.5px; opacity: .7; }
+      .ah-count { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+      .ah-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 16px; }
+      .ah-nav { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; min-height: 0; }
+      .ah-nav-label { font-size: 10.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--dsw-alias-label-secondary); padding: 8px 10px 6px; }
+      .ah-nav-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+      .ah-nav-item { appearance: none; border: 1px solid transparent; background: transparent; border-radius: 8px; color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; height: 32px; padding: 0 10px; display: flex; align-items: center; gap: 8px; cursor: pointer; text-align: left; }
+      .ah-nav-item:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-nav-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l1); font-weight: 600; }
+      .ah-nav-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-nav-count { font-size: 11px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+      .ah-nav-foot { margin-top: auto; padding-top: 8px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 2px; }
+      .ah-main { display: flex; flex-direction: column; min-height: 0; gap: 10px; }
+      .ah-main-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ah-main-bar .ah-search { flex: 1 1 220px; }
+      .ah-sort { display: flex; align-items: center; gap: 4px; }
+      .ah-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+      .ah-row { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 10px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+      .ah-row:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
+      .ah-row[data-selected="true"] { border-color: var(--dsw-alias-brand-primary); }
+      .ah-row-star { appearance: none; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; flex: 0 0 auto; }
+      .ah-row-star:hover { color: var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-bg-layer-2); }
+      .ah-row-star[data-on="true"] { color: var(--dsw-alias-state-warn-primary); }
+      .ah-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+      .ah-row-title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ah-name { font-size: 13.5px; font-weight: 620; word-break: break-word; }
+      .ah-badge { font-size: 10.5px; line-height: 1; height: 18px; padding: 0 7px; border-radius: 999px; background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); border: 1px solid var(--dsw-alias-border-l1); white-space: nowrap; display: inline-flex; align-items: center; }
+      .ah-badge-accent { color: var(--dsw-alias-brand-primary); border-color: color-mix(in srgb, var(--dsw-alias-brand-primary) 45%, transparent); background: transparent; }
+      .ah-badge-warn { color: var(--dsw-alias-state-warn-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 45%, transparent); background: transparent; }
+      .ah-desc { margin: 0; font-size: 12px; line-height: 1.55; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-meta { font-size: 11px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+      .ah-row-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; opacity: .55; }
+      .ah-row:hover .ah-row-actions, .ah-row:focus-within .ah-row-actions { opacity: 1; }
+      .ah-empty { flex: 1 1 auto; min-height: 240px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; border: 1px dashed var(--dsw-alias-border-l1); border-radius: 12px; padding: 46px 24px; text-align: center; }
+      .ah-empty-icon { color: var(--dsw-alias-label-secondary); opacity: .8; }
+      .ah-empty-title { font-size: 14px; font-weight: 620; }
+      .ah-empty-copy { font-size: 12.5px; line-height: 1.7; color: var(--dsw-alias-label-secondary); max-width: 56ch; }
+      .ah-empty-actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; justify-content: center; }
+      .ah-notice { font-size: 12px; line-height: 1.55; border-radius: 8px; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
+      .ah-notice[data-kind="error"] { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 55%, transparent); }
+      .ah-notice[data-kind="ok"] { color: var(--dsw-alias-state-success-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 55%, transparent); }
+      .ah-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 5px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-size: 10.5px; font-family: inherit; line-height: 1; }
+      /* modal */
+      .ah-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(9, 11, 16, .42); display: flex; align-items: center; justify-content: center; padding: 24px; }
+      .ah-backdrop[data-palette="true"] { align-items: flex-start; padding-top: max(10vh, 48px); backdrop-filter: blur(4px); }
+      .ah-modal { width: min(680px, 100%); max-height: min(86vh, 880px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); color: var(--dsw-alias-label-primary); border: 1px solid var(--dsw-alias-border-l2); border-radius: 14px; box-shadow: 0 26px 70px rgba(0, 0, 0, .46); overflow: hidden; outline: none; }
+      .ah-modal-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px 13px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+      .ah-modal-title { margin: 0; font-size: 15px; font-weight: 650; flex: 1 1 auto; }
+      .ah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+      .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+      .ah-field { display: flex; flex-direction: column; gap: 6px; }
+      .ah-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }
+      .ah-hint { font-size: 11.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); }
+      .ah-field-row { display: flex; gap: 14px; flex-wrap: wrap; }
+      .ah-field-row > .ah-field { flex: 1 1 200px; min-width: 150px; }
+      .ah-input, .ah-textarea { width: 100%; box-sizing: border-box; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 13px; padding: 9px 11px; outline: none; }
+      .ah-input:focus, .ah-textarea:focus { border-color: var(--dsw-alias-brand-primary); }
+      .ah-textarea { resize: vertical; min-height: 160px; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 12.5px; line-height: 1.65; }
+      .ah-code { margin: 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow: auto; }
+      .ah-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+      .ah-tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12.5px; height: 34px; padding: 0 10px; cursor: pointer; }
+      .ah-tab[data-active="true"] { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-brand-primary); }
+      .ah-list-plain { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+      .ah-plain-item { border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; padding: 9px 11px; display: flex; align-items: center; gap: 10px; }
+      .ah-plain-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .ah-plain-name { font-size: 12.5px; font-weight: 600; }
+      .ah-plain-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-radio-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+      .ah-radio-row label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+      .ah-hidden { display: none !important; }
+      /* palette */
+      .ah-palette { width: min(820px, 100%); max-height: min(68vh, 620px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
+      .ah-palette-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
+      .ah-palette-search .ah-search { flex: 1 1 auto; }
+      .ah-palette-search input { height: 38px; font-size: 14px; border-radius: 10px; }
+      .ah-palette-cats { display: flex; align-items: center; gap: 6px; padding: 0 16px 10px; overflow-x: auto; }
+      .ah-palette-cats::-webkit-scrollbar { height: 0; }
+      .ah-palette-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: minmax(0, 42%) minmax(0, 58%); border-top: 1px solid var(--dsw-alias-border-l1); }
+      .ah-results { overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 2px; border-right: 1px solid var(--dsw-alias-border-l1); }
+      .ah-result { appearance: none; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 9px; text-align: left; font: inherit; cursor: pointer; }
+      .ah-result:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-result[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-result-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+      .ah-result-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .ah-result-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-result-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-result-star { color: var(--dsw-alias-state-warn-primary); flex: 0 0 auto; }
+      .ah-preview { padding: 16px 18px; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+      .ah-preview-head { display: flex; align-items: flex-start; gap: 10px; }
+      .ah-preview-title { margin: 0; font-size: 15px; font-weight: 650; word-break: break-word; flex: 1 1 auto; }
+      .ah-preview-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .ah-preview-desc { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
+      .ah-preview-body { flex: 1 1 auto; min-height: 90px; }
+      .ah-preview-empty { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--dsw-alias-label-secondary); font-size: 12.5px; text-align: center; padding: 24px; }
+      .ah-palette-foot { border-top: 1px solid var(--dsw-alias-border-l1); padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+      .ah-args { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-width: 160px; }
+      .ah-args .ah-input { height: 30px; font-size: 12px; padding: 0 10px; }
+      .ah-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .ah-hints { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--dsw-alias-label-secondary); flex-wrap: wrap; }
+      .ah-toast { margin: 0 14px; padding: 7px 11px; border-radius: 8px; font-size: 12px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
+      .ah-toast[data-kind="ok"] { color: var(--dsw-alias-state-success-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 50%, transparent); }
+      .ah-toast[data-kind="error"] { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 50%, transparent); }
+      .ah-capture { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+      .ah-trigger { appearance: none; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+      .ah-trigger:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l1); }
+      .ah-trigger[data-open="true"] { color: var(--dsw-alias-brand-primary); }
+      /* settings */
+      .ah-settings { display: flex; flex-direction: column; gap: 18px; }
+      .ah-settings-card { border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+      .ah-settings-title { margin: 0; font-size: 13px; font-weight: 650; }
+      .ah-settings-row { display: flex; align-items: center; gap: 16px; }
+      .ah-settings-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+      .ah-settings-row-title { font-size: 12.5px; font-weight: 600; }
+      .ah-settings-row-desc { font-size: 11.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); }
+      .ah-switch { appearance: none; width: 36px; height: 20px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); position: relative; cursor: pointer; flex: 0 0 auto; padding: 0; transition: background .15s ease; }
+      .ah-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--dsw-alias-label-secondary); transition: transform .15s ease, background .15s ease; }
+      .ah-switch[aria-checked="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); }
+      .ah-switch[aria-checked="true"]::after { transform: translateX(16px); background: #fff; }
+      @media (max-width: 760px) {
+        .ah-body { grid-template-columns: minmax(0, 1fr); }
+        .ah-nav { display: none; }
+        .ah-palette-body { grid-template-columns: minmax(0, 1fr); }
+        .ah-preview { display: none; }
+      }
     `;
 
     const TEXT = {
       zh: {
-        'panel.title': 'Actions',
-        'panel.subtitle': '把常用的提示词和流程存成 Action：不占上下文、不会自动触发，需要时从收藏夹里取用。',
-        'panel.new': '新建 Action',
-        'panel.import': '导入',
-        'panel.export': '导出',
-        'panel.refresh': '刷新',
-        'panel.search': '搜索名称、描述、分类、标签或正文…',
-        'panel.all': '全部',
-        'panel.uncategorized': '未分类',
-        'panel.count': '共 {count} 个 Action',
-        'panel.countFiltered': '匹配 {count} / {total}',
-        'panel.emptyTitle': '收藏夹还是空的',
-        'panel.emptyCopy': '把经常重复输入的提示词存成 Action。之后只需要在输入框下方点一下，正文就会插入当前输入框，按 Enter 发送即可。',
-        'panel.emptyFiltered': '没有匹配的 Action，换个关键词或分类试试。',
-        'panel.openComposer': '在任意会话的输入框下方使用「Actions」按钮调用；这里负责管理。',
-        'panel.copy': '复制',
-        'panel.edit': '编辑',
-        'panel.duplicate': '复制一份',
-        'panel.delete': '删除',
-        'panel.copied': '提示词已复制到剪贴板',
-        'panel.copyFailed': '复制失败，请手动选择正文复制',
-        'panel.saved': '已保存',
-        'panel.deleted': '已删除',
-        'panel.duplicated': '已创建副本',
-        'panel.tags': '标签',
-        'panel.updated': '更新于 {time}',
-        'panel.used': '用过 {count} 次',
-        'panel.editorCreate': '新建 Action',
-        'panel.editorEdit': '编辑 Action',
-        'panel.fieldName': '名称',
-        'panel.fieldNameHint': '在收藏夹里显示的名字，例如「代码审查」。',
-        'panel.fieldCategory': '分类',
-        'panel.fieldCategoryHint': '自由填写；已有分类会作为候选提示。',
-        'panel.fieldTags': '标签',
-        'panel.fieldTagsHint': '用逗号分隔，方便搜索，例如 git, commit。',
-        'panel.fieldArgs': '参数提示',
-        'panel.fieldArgsHint': '正文里的 {{args}} 会被替换成调用时填写的参数；留空表示没有参数。',
-        'panel.fieldDescription': '描述',
-        'panel.fieldDescriptionHint': '一句话说明它做什么，搜索时会用到。',
-        'panel.fieldPrompt': '提示词正文',
-        'panel.fieldPromptHint': '可以写多段 Markdown。{{args}} 是参数占位符，{{date}} 是当天日期。',
-        'panel.save': '保存',
-        'panel.cancel': '取消',
-        'panel.deleteTitle': '删除这个 Action？',
-        'panel.deleteCopy': '「{name}」将从收藏夹移除，此操作不可撤销。',
-        'panel.deleteConfirm': '确认删除',
-        'panel.importTitle': '导入 Actions',
-        'panel.importPaste': '粘贴 JSON',
-        'panel.importSkill': '从 Skill 导入',
-        'panel.importJsonHint': '粘贴本插件导出的 JSON，或选择文件。',
-        'panel.importMode': '导入方式',
-        'panel.importMerge': '合并（同 id 覆盖）',
-        'panel.importReplace': '替换全部',
-        'panel.importChooseFile': '选择文件…',
-        'panel.importRun': '开始导入',
-        'panel.imported': '导入完成：新增 {added}，更新 {updated}',
-        'panel.importInvalid': '无法解析这份 JSON',
-        'panel.skillCwd': '项目目录（可选）',
-        'panel.skillCwdHint': '留空使用当前 Profile 的默认目录；项目级 skill 需要填项目根目录。',
-        'panel.skillLoad': '读取 Skills',
-        'panel.skillEmpty': '没有找到 Skill。检查目录是否正确。',
-        'panel.skillImport': '导入为 Action',
-        'panel.skillImported': '已从 Skill 导入：{name}',
-        'panel.skillUnavailable': '当前 Profile 未启用 Skills 服务',
-        'panel.categoryManage': '管理分类',
-        'panel.categoryTitle': '分类管理',
-        'panel.categoryRename': '重命名',
-        'panel.categoryDelete': '删除分类',
-        'panel.categoryDeleteCopy': '分类里的 Action 会移到「未分类」。',
-        'panel.loading': '加载中…',
-        'panel.loadFailed': '读取 Actions 失败：{error}',
-        'panel.retry': '重试',
-        'panel.catEmpty': '没有分类',
-        'panel.renameCategoryTitle': '重命名分类',
-        'panel.newCategoryName': '新名称',
-        'launcher.label': 'Actions',
-        'launcher.title': '选择一个 Action',
-        'launcher.search': '搜索 Action…',
-        'launcher.args': '参数（可选，会替换正文里的 {{args}}）',
-        'launcher.empty': '还没有 Action。到 Actions 面板新建一个。',
-        'launcher.noMatch': '没有匹配项',
-        'launcher.manage': '管理 Actions',
-        'launcher.hint': '点击插入到输入框',
-        'launcher.inserted': '已插入输入框，按 Enter 发送',
-        'launcher.insertFailed': '这个会话暂时无法写入输入框',
-        'launcher.insertAndSend': '插入并发送',
-        'launcher.loadFailed': '读取 Actions 失败',
-        'launcher.shortcut': '快捷调用',
+        'app.title': 'Action Hub',
+        'app.subtitle': '把常用的提示词和流程存成 Action。它们不占上下文、不会被 Agent 自动调用，只在需要时由你从面板里取用。',
+        'app.name': 'Actions',
+        'action.new': '新建 Action',
+        'action.import': '导入',
+        'action.export': '导出',
+        'action.refresh': '刷新',
+        'action.save': '保存',
+        'action.cancel': '取消',
+        'action.delete': '删除',
+        'action.deleteForever': '确认删除',
+        'action.edit': '编辑',
+        'action.duplicate': '复制一份',
+        'action.copy': '复制正文',
+        'action.pin': '置顶',
+        'action.unpin': '取消置顶',
+        'action.open': '查看',
+        'action.close': '关闭',
+        'lib.all': '全部',
+        'lib.uncategorized': '未分类',
+        'lib.categories': '分类',
+        'lib.manageCategories': '管理分类',
+        'lib.search': '搜索名称、描述、分类、标签或正文…',
+        'lib.count': '{count} 个 Action',
+        'lib.countFiltered': '{count} / {total}',
+        'lib.sortRecent': '最近使用',
+        'lib.sortName': '名称',
+        'lib.sortCreated': '最近创建',
+        'lib.sortLabel': '排序',
+        'lib.emptyTitle': '收藏夹还是空的',
+        'lib.emptyCopy': '把经常重复输入的提示词存成 Action：从右侧新建，或让面板把当前草稿收进来。',
+        'lib.emptyFiltered': '没有匹配的 Action。换个关键词或分类试试。',
+        'lib.emptyCta': '新建第一个 Action',
+        'lib.loading': '读取中…',
+        'lib.loadFailed': '读取 Actions 失败：{error}',
+        'lib.retry': '重试',
+        'lib.copied': '正文已复制',
+        'lib.copyFailed': '复制失败，请手动选择正文',
+        'lib.saved': '已保存',
+        'lib.deleted': '已删除',
+        'lib.duplicated': '已创建副本',
+        'lib.pinned': '已置顶',
+        'lib.unpinned': '已取消置顶',
+        'lib.updated': '更新于 {time}',
+        'lib.used': '用过 {count} 次',
+        'lib.skill': 'Skill',
+        'lib.detailTitle': 'Action 详情',
+        'lib.detailMeta': '分类 {category}',
+        'lib.useInChat': '在任意会话输入框左侧的 Actions 按钮中调用',
+        'editor.createTitle': '新建 Action',
+        'editor.editTitle': '编辑 Action',
+        'editor.name': '名称',
+        'editor.namePlaceholder': '例如：代码审查',
+        'editor.nameHint': '显示在收藏夹与面板中的名字。',
+        'editor.category': '分类',
+        'editor.categoryPlaceholder': '开发 / 效率 / …',
+        'editor.categoryHint': '自由填写，已有分类会作为候选。',
+        'editor.tags': '标签',
+        'editor.tagsPlaceholder': 'git, commit',
+        'editor.tagsHint': '逗号分隔，参与搜索。',
+        'editor.description': '描述',
+        'editor.descriptionPlaceholder': '一句话说明它做什么',
+        'editor.descriptionHint': '显示在列表里，也参与搜索。',
+        'editor.args': '参数提示',
+        'editor.argsPlaceholder': '例如：分支名',
+        'editor.argsHint': '调用时会提示填写；正文里的 {{args}} 会被替换。',
+        'editor.prompt': '提示词正文',
+        'editor.promptPlaceholder': '把要发给 Agent 的提示词写在这里…',
+        'editor.promptHint': '支持多段 Markdown；{{args}} 是参数，{{date}} 是当天日期。',
+        'editor.pinned': '置顶',
+        'editor.required': '请填写名称与正文。',
+        'delete.title': '删除这个 Action？',
+        'delete.copy': '「{name}」会从收藏夹永久移除。',
+        'import.title': '导入 Actions',
+        'import.jsonTab': '粘贴 JSON',
+        'import.skillTab': '从 Skill 导入',
+        'import.jsonHint': '粘贴本插件导出的 JSON，或选择文件。',
+        'import.chooseFile': '选择文件…',
+        'import.mode': '导入方式',
+        'import.merge': '合并（同 id 覆盖）',
+        'import.replace': '替换全部',
+        'import.run': '开始导入',
+        'import.invalid': '无法解析这份 JSON',
+        'import.done': '导入完成：新增 {added}，更新 {updated}',
+        'import.skillCwd': '项目目录（可选）',
+        'import.skillCwdHint': '留空扫描 Profile 默认目录；项目级 Skill 需要填写项目根目录。',
+        'import.skillLoad': '读取 Skills',
+        'import.skillEmpty': '没有找到 Skill，检查目录是否正确。',
+        'import.skillImport': '导入为 Action',
+        'import.skillDone': '已导入：{name}',
+        'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
+        'category.title': '分类管理',
+        'category.empty': '还没有分类',
+        'category.rename': '重命名',
+        'category.delete': '删除分类',
+        'category.deleteHint': '分类里的 Action 会移到未分类。',
+        'category.name': '新名称',
+        'category.count': '{count} 个',
+        'palette.title': '选择一个 Action',
+        'palette.search': '搜索 Action…',
+        'palette.empty': '还没有 Action',
+        'palette.emptyCopy': '新建一条，或把当前草稿存成 Action，之后在这里一搜即用。',
+        'palette.noMatch': '没有匹配的 Action',
+        'palette.args': '参数（可选，替换 {{args}}）',
+        'palette.insert': '插入',
+        'palette.send': '发送',
+        'palette.capture': '存当前草稿',
+        'palette.manage': '管理',
+        'palette.inserted': '已插入输入框',
+        'palette.insertedAtCaret': '已插入到光标处',
+        'palette.sent': '已插入并发送',
+        'palette.insertFailed': '当前会话暂时无法写入输入框',
+        'palette.sendFailed': '发送失败，草稿已保留',
+        'palette.busy': '正在发送，稍后再试',
+        'palette.captureTitle': '把当前草稿存为 Action',
+        'palette.captureEmpty': '草稿是空的，先写点内容再存。',
+        'palette.capturePrompt': '正文',
+        'palette.captureDone': '已存为 Action：{name}',
+        'palette.hintNav': '选择',
+        'palette.hintInsert': '插入',
+        'palette.hintSend': '发送',
+        'palette.hintClose': '关闭',
+        'palette.hintTab': '切换分类',
+        'palette.noSession': '先在对话中打开输入框，再使用 Actions。',
+        'palette.skillsHint': '需要批量导入？在管理页「导入 → 从 Skill 导入」。',
+        'palette.usage': '用过 {count} 次',
+        'palette.pinned': '已置顶',
+        'trigger.label': 'Actions',
+        'trigger.tooltip': 'Actions 收藏夹（{keys}）',
+        'settings.nav': 'Action Hub',
+        'settings.title': 'Action Hub',
+        'settings.desc': '快捷面板、插入行为与数据位置。',
+        'settings.behavior': '行为',
+        'settings.closeAfterInsert': '插入后关闭面板',
+        'settings.closeAfterInsertDesc': '关闭后可以直接按 Enter 发送；关闭此项则留在面板里连续插入。',
+        'settings.hotkey': '全局快捷键',
+        'settings.hotkeyDesc': '在任意会话里打开 Actions 面板。',
+        'settings.trigger': '在输入框工具行显示按钮',
+        'settings.triggerDesc': '关闭后仍可用快捷键 ⌘/Ctrl+Shift+A 打开。',
+        'settings.data': '数据',
+        'settings.dataDesc': 'Actions 保存在本机（{path}），共 {count} 条。',
+        'settings.openLibrary': '打开管理页',
+        'settings.export': '导出全部',
+        'settings.about': '关于',
+        'settings.aboutDesc': 'Action Hub {version} · 不注册 Agent Tool、不注入上下文。',
+        'settings.hotkeyKeys': 'Ctrl + Shift + A',
+        'settings.saved': '设置已保存',
+        'notice.savedLocally': '已保存在本机',
+        'skill.source': '从 Skill 导入',
       },
       en: {
-        'panel.title': 'Actions',
-        'panel.subtitle': 'Keep reusable prompts and flows as Actions: no context cost, no automatic trigger — take one from the shelf when you need it.',
-        'panel.new': 'New Action',
-        'panel.import': 'Import',
-        'panel.export': 'Export',
-        'panel.refresh': 'Refresh',
-        'panel.search': 'Search name, description, category, tag, or body…',
-        'panel.all': 'All',
-        'panel.uncategorized': 'Uncategorized',
-        'panel.count': '{count} Actions',
-        'panel.countFiltered': '{count} of {total} match',
-        'panel.emptyTitle': 'Your shelf is empty',
-        'panel.emptyCopy': 'Save the prompts you keep retyping. Later, one click below the composer inserts the text into the composer; press Enter to send it.',
-        'panel.emptyFiltered': 'No Action matches. Try another keyword or category.',
-        'panel.openComposer': 'Call them with the “Actions” button under any composer; this page manages them.',
-        'panel.copy': 'Copy',
-        'panel.edit': 'Edit',
-        'panel.duplicate': 'Duplicate',
-        'panel.delete': 'Delete',
-        'panel.copied': 'Prompt copied to the clipboard',
-        'panel.copyFailed': 'Copy failed; select the body and copy manually',
-        'panel.saved': 'Saved',
-        'panel.deleted': 'Deleted',
-        'panel.duplicated': 'Duplicate created',
-        'panel.tags': 'Tags',
-        'panel.updated': 'Updated {time}',
-        'panel.used': 'Used {count}×',
-        'panel.editorCreate': 'New Action',
-        'panel.editorEdit': 'Edit Action',
-        'panel.fieldName': 'Name',
-        'panel.fieldNameHint': 'Shown in the shelf, e.g. “Code review”.',
-        'panel.fieldCategory': 'Category',
-        'panel.fieldCategoryHint': 'Free text; existing categories are suggested.',
-        'panel.fieldTags': 'Tags',
-        'panel.fieldTagsHint': 'Comma separated, e.g. git, commit.',
-        'panel.fieldArgs': 'Argument hint',
-        'panel.fieldArgsHint': '{{args}} in the body is replaced by the value typed at call time; empty means no argument.',
-        'panel.fieldDescription': 'Description',
-        'panel.fieldDescriptionHint': 'One line on what it does; also searched.',
-        'panel.fieldPrompt': 'Prompt body',
-        'panel.fieldPromptHint': 'Markdown is fine. {{args}} is the argument slot; {{date}} is today.',
-        'panel.save': 'Save',
-        'panel.cancel': 'Cancel',
-        'panel.deleteTitle': 'Delete this Action?',
-        'panel.deleteCopy': '“{name}” leaves the shelf permanently.',
-        'panel.deleteConfirm': 'Delete',
-        'panel.importTitle': 'Import Actions',
-        'panel.importPaste': 'Paste JSON',
-        'panel.importSkill': 'From Skill',
-        'panel.importJsonHint': 'Paste JSON exported by this plugin, or choose a file.',
-        'panel.importMode': 'Import mode',
-        'panel.importMerge': 'Merge (same id overwrites)',
-        'panel.importReplace': 'Replace all',
-        'panel.importChooseFile': 'Choose file…',
-        'panel.importRun': 'Import',
-        'panel.imported': 'Imported: {added} added, {updated} updated',
-        'panel.importInvalid': 'That JSON could not be parsed',
-        'panel.skillCwd': 'Project directory (optional)',
-        'panel.skillCwdHint': 'Empty uses the profile default; project-level skills need the project root.',
-        'panel.skillLoad': 'Load Skills',
-        'panel.skillEmpty': 'No Skills found. Check the directory.',
-        'panel.skillImport': 'Import as Action',
-        'panel.skillImported': 'Imported from Skill: {name}',
-        'panel.skillUnavailable': 'The Skills service is not enabled in this profile',
-        'panel.categoryManage': 'Categories',
-        'panel.categoryTitle': 'Categories',
-        'panel.categoryRename': 'Rename',
-        'panel.categoryDelete': 'Delete category',
-        'panel.categoryDeleteCopy': 'Its Actions move to Uncategorized.',
-        'panel.loading': 'Loading…',
-        'panel.loadFailed': 'Could not load Actions: {error}',
-        'panel.retry': 'Retry',
-        'panel.catEmpty': 'No categories',
-        'panel.renameCategoryTitle': 'Rename category',
-        'panel.newCategoryName': 'New name',
-        'launcher.label': 'Actions',
-        'launcher.title': 'Pick an Action',
-        'launcher.search': 'Search Actions…',
-        'launcher.args': 'Arguments (optional; replaces {{args}})',
-        'launcher.empty': 'No Actions yet. Create one on the Actions page.',
-        'launcher.noMatch': 'No match',
-        'launcher.manage': 'Manage Actions',
-        'launcher.hint': 'Click to insert into the composer',
-        'launcher.inserted': 'Inserted; press Enter to send',
-        'launcher.insertFailed': 'This session cannot be written to right now',
-        'launcher.insertAndSend': 'Insert and send',
-        'launcher.loadFailed': 'Could not load Actions',
-        'launcher.shortcut': 'Quick call',
+        'app.title': 'Action Hub',
+        'app.subtitle': 'Keep reusable prompts and flows as Actions. They never enter context and are never triggered by the agent — you take one from the palette when you need it.',
+        'app.name': 'Actions',
+        'action.new': 'New Action',
+        'action.import': 'Import',
+        'action.export': 'Export',
+        'action.refresh': 'Refresh',
+        'action.save': 'Save',
+        'action.cancel': 'Cancel',
+        'action.delete': 'Delete',
+        'action.deleteForever': 'Delete',
+        'action.edit': 'Edit',
+        'action.duplicate': 'Duplicate',
+        'action.copy': 'Copy body',
+        'action.pin': 'Pin',
+        'action.unpin': 'Unpin',
+        'action.open': 'Open',
+        'action.close': 'Close',
+        'lib.all': 'All',
+        'lib.uncategorized': 'Uncategorized',
+        'lib.categories': 'Categories',
+        'lib.manageCategories': 'Manage categories',
+        'lib.search': 'Search name, description, category, tag, or body…',
+        'lib.count': '{count} Actions',
+        'lib.countFiltered': '{count} / {total}',
+        'lib.sortRecent': 'Recently used',
+        'lib.sortName': 'Name',
+        'lib.sortCreated': 'Recently created',
+        'lib.sortLabel': 'Sort',
+        'lib.emptyTitle': 'Your shelf is empty',
+        'lib.emptyCopy': 'Save the prompts you keep retyping. Create one here, or capture the current draft from the palette.',
+        'lib.emptyFiltered': 'No Action matches. Try another keyword or category.',
+        'lib.emptyCta': 'Create your first Action',
+        'lib.loading': 'Loading…',
+        'lib.loadFailed': 'Could not load Actions: {error}',
+        'lib.retry': 'Retry',
+        'lib.copied': 'Prompt copied',
+        'lib.copyFailed': 'Copy failed; select the body and copy manually',
+        'lib.saved': 'Saved',
+        'lib.deleted': 'Deleted',
+        'lib.duplicated': 'Duplicate created',
+        'lib.pinned': 'Pinned',
+        'lib.unpinned': 'Unpinned',
+        'lib.updated': 'Updated {time}',
+        'lib.used': 'Used {count}×',
+        'lib.skill': 'Skill',
+        'lib.detailTitle': 'Action details',
+        'lib.detailMeta': 'Category: {category}',
+        'lib.useInChat': 'Call it from the Actions button left of any composer',
+        'editor.createTitle': 'New Action',
+        'editor.editTitle': 'Edit Action',
+        'editor.name': 'Name',
+        'editor.namePlaceholder': 'e.g. Code review',
+        'editor.nameHint': 'Shown in the shelf and the palette.',
+        'editor.category': 'Category',
+        'editor.categoryPlaceholder': 'Dev / Productivity / …',
+        'editor.categoryHint': 'Free text; existing categories are suggested.',
+        'editor.tags': 'Tags',
+        'editor.tagsPlaceholder': 'git, commit',
+        'editor.tagsHint': 'Comma separated; searched too.',
+        'editor.description': 'Description',
+        'editor.descriptionPlaceholder': 'One line on what it does',
+        'editor.descriptionHint': 'Shown in the list and searched.',
+        'editor.args': 'Argument hint',
+        'editor.argsPlaceholder': 'e.g. branch name',
+        'editor.argsHint': 'Prompted for at call time; {{args}} in the body is replaced.',
+        'editor.prompt': 'Prompt body',
+        'editor.promptPlaceholder': 'Write the prompt you send to the agent…',
+        'editor.promptHint': 'Markdown is fine; {{args}} is the argument slot, {{date}} is today.',
+        'editor.pinned': 'Pin to top',
+        'editor.required': 'A name and a body are required.',
+        'delete.title': 'Delete this Action?',
+        'delete.copy': '“{name}” leaves the shelf permanently.',
+        'import.title': 'Import Actions',
+        'import.jsonTab': 'Paste JSON',
+        'import.skillTab': 'From Skill',
+        'import.jsonHint': 'Paste JSON exported by this plugin, or choose a file.',
+        'import.chooseFile': 'Choose file…',
+        'import.mode': 'Import mode',
+        'import.merge': 'Merge (same id overwrites)',
+        'import.replace': 'Replace all',
+        'import.run': 'Import',
+        'import.invalid': 'That JSON could not be parsed',
+        'import.done': 'Imported: {added} added, {updated} updated',
+        'import.skillCwd': 'Project directory (optional)',
+        'import.skillCwdHint': 'Empty scans the profile default; project-level Skills need the project root.',
+        'import.skillLoad': 'Load Skills',
+        'import.skillEmpty': 'No Skills found. Check the directory.',
+        'import.skillImport': 'Import as Action',
+        'import.skillDone': 'Imported: {name}',
+        'import.skillUnavailable': 'The Skills service is not enabled in this profile',
+        'category.title': 'Categories',
+        'category.empty': 'No categories yet',
+        'category.rename': 'Rename',
+        'category.delete': 'Delete',
+        'category.deleteHint': 'Its Actions move to Uncategorized.',
+        'category.name': 'New name',
+        'category.count': '{count}',
+        'palette.title': 'Pick an Action',
+        'palette.search': 'Search Actions…',
+        'palette.empty': 'No Actions yet',
+        'palette.emptyCopy': 'Create one, or capture the current draft, and it is one search away from now on.',
+        'palette.noMatch': 'No matching Action',
+        'palette.args': 'Arguments (optional; replaces {{args}})',
+        'palette.insert': 'Insert',
+        'palette.send': 'Send',
+        'palette.capture': 'Save draft',
+        'palette.manage': 'Manage',
+        'palette.inserted': 'Inserted into the composer',
+        'palette.insertedAtCaret': 'Inserted at the caret',
+        'palette.sent': 'Inserted and sent',
+        'palette.insertFailed': 'This session cannot be written to right now',
+        'palette.sendFailed': 'Send failed; the draft is kept',
+        'palette.busy': 'Sending — try again in a moment',
+        'palette.captureTitle': 'Save the current draft as an Action',
+        'palette.captureEmpty': 'The draft is empty — write something first.',
+        'palette.capturePrompt': 'Body',
+        'palette.captureDone': 'Saved as “{name}”',
+        'palette.hintNav': 'navigate',
+        'palette.hintInsert': 'insert',
+        'palette.hintSend': 'send',
+        'palette.hintClose': 'close',
+        'palette.hintTab': 'category',
+        'palette.noSession': 'Open a conversation composer first.',
+        'palette.skillsHint': 'Bulk import lives in Manage → Import → From Skill.',
+        'palette.usage': 'Used {count}×',
+        'palette.pinned': 'Pinned',
+        'trigger.label': 'Actions',
+        'trigger.tooltip': 'Action shelf ({keys})',
+        'settings.nav': 'Action Hub',
+        'settings.title': 'Action Hub',
+        'settings.desc': 'Palette, insertion behavior, and where the data lives.',
+        'settings.behavior': 'Behavior',
+        'settings.closeAfterInsert': 'Close the palette after inserting',
+        'settings.closeAfterInsertDesc': 'Then Enter sends right away. Turn off to insert several Actions in a row.',
+        'settings.hotkey': 'Global shortcut',
+        'settings.hotkeyDesc': 'Opens the Actions palette in any conversation.',
+        'settings.trigger': 'Show the composer button',
+        'settings.triggerDesc': 'The ⌘/Ctrl+Shift+A shortcut keeps working when off.',
+        'settings.data': 'Data',
+        'settings.dataDesc': 'Actions are stored locally at {path} ({count} total).',
+        'settings.openLibrary': 'Open library',
+        'settings.export': 'Export all',
+        'settings.about': 'About',
+        'settings.aboutDesc': 'Action Hub {version} · registers no agent tool and injects no context.',
+        'settings.hotkeyKeys': 'Ctrl + Shift + A',
+        'settings.saved': 'Saved',
+        'notice.savedLocally': 'Saved on this machine',
+        'skill.source': 'Imported from Skill',
       },
     };
 
     // ---------------------------------------------------------------- helpers
 
-    /**
-     * @param {object} props - slot props carrying the bound translator.
-     * @returns {(key: string, params?: object) => string}
-     */
+    /** @param {object} props @returns {(key: string, params?: object) => string} */
     function translate(props) {
-      if (typeof props?.t === 'function') return props.t;
-      return (key) => (TEXT.zh[key] ?? key);
+      const t = typeof props?.t === 'function' ? props.t : null;
+      if (t) return (key, params) => {
+        const value = t(key, params);
+        return typeof value === 'string' && value !== '' ? value : (TEXT.zh[key] ?? key);
+      };
+      return (key, params) => {
+        let value = TEXT.zh[key] ?? key;
+        if (params) for (const [name, replacement] of Object.entries(params)) value = value.split(`{${name}}`).join(String(replacement));
+        return value;
+      };
     }
 
-    /**
-     * Fetch one API route and normalize failures into an Error with a usable
-     * message (the Host answers `{ ok: false, error }`).
-     *
-     * @param {string} route
-     * @param {object} [body]
-     * @returns {Promise<any>}
-     */
     async function api(route, body) {
       const options = body === undefined
         ? { method: 'GET', credentials: 'same-origin' }
@@ -330,120 +521,17 @@ window.__ModuleLoader__.load({
         payload = null;
       }
       if (!response.ok || payload === null || payload.ok === false) {
-        const reason = payload?.error ?? `HTTP ${response.status}`;
-        throw new Error(reason);
+        throw new Error(payload?.error ?? `HTTP ${response.status}`);
       }
       return payload;
     }
 
-    /**
-     * @param {unknown} error
-     * @returns {string}
-     */
     function describeError(error) {
       return error instanceof Error ? error.message : String(error);
     }
 
-    /**
-     * Shared collection state for every UI surface. One instance per plugin
-     * apply, so a save on the page is visible to the launcher immediately.
-     */
-    function createHub() {
-      const listeners = new Set();
-      let snapshot = { status: 'idle', actions: [], meta: {}, error: '' };
-      let inflight = null;
-
-      const emit = () => {
-        for (const listener of [...listeners]) listener(snapshot);
-      };
-      const set = (next) => {
-        snapshot = next;
-        emit();
-      };
-
-      async function refresh(force = false) {
-        if (inflight !== null && !force) return inflight;
-        if (snapshot.status === 'idle' || snapshot.status === 'error') {
-          set({ ...snapshot, status: 'loading', error: '' });
-        }
-        inflight = api('/state').then(
-          (data) => {
-            set({ status: 'ready', actions: data.actions ?? [], meta: data.meta ?? {}, error: '' });
-            return snapshot;
-          },
-          (error) => {
-            set({ ...snapshot, status: 'error', error: describeError(error) });
-            throw error;
-          },
-        ).finally(() => {
-          inflight = null;
-        });
-        return inflight;
-      }
-
-      async function call(route, body) {
-        const data = await api(route, body);
-        if (Array.isArray(data.actions)) {
-          set({ ...snapshot, status: 'ready', actions: data.actions, error: '' });
-        } else {
-          void refresh(true).catch(() => {});
-        }
-        return data;
-      }
-
-      return {
-        get: () => snapshot,
-        subscribe(listener) {
-          listeners.add(listener);
-          return () => listeners.delete(listener);
-        },
-        refresh,
-        call,
-        dispose() {
-          listeners.clear();
-        },
-      };
-    }
-
-    /**
-     * @param {ReturnType<typeof createHub>} hub
-     * @returns {{ snapshot: object }}
-     */
-    function useHub(hub) {
-      const [snapshot, setSnapshot] = React.useState(() => hub.get());
-      React.useEffect(() => hub.subscribe(setSnapshot), [hub]);
-      React.useEffect(() => {
-        if (hub.get().status === 'idle') void hub.refresh().catch(() => {});
-      }, [hub]);
-      return { snapshot };
-    }
-
-    /**
-     * Append a prompt to the current draft instead of overwriting what the user
-     * already typed.
-     *
-     * @param {string} draft
-     * @param {string} prompt
-     * @returns {string}
-     */
-    function composeDraft(draft, prompt) {
-      const current = typeof draft === 'string' ? draft.replace(/\s+$/, '') : '';
-      const next = typeof prompt === 'string' ? prompt : '';
-      if (current === '') return next;
-      if (next === '') return current;
-      return `${current}\n\n${next}`;
-    }
-
-    /**
-     * Fill `{{args}}`/`$ARGUMENTS`/`{{date}}` placeholders; append a bare
-     * argument when the body has no slot for it.
-     *
-     * @param {string} prompt
-     * @param {{ args?: string, date?: Date }} [context]
-     * @returns {string}
-     */
     function expandPrompt(prompt, context = {}) {
-      const text = typeof prompt === 'string' ? prompt : '';
+      const source = typeof prompt === 'string' ? prompt : '';
       const args = typeof context.args === 'string' ? context.args.trim() : '';
       const now = context.date instanceof Date ? context.date : new Date();
       const date = [
@@ -451,53 +539,22 @@ window.__ModuleLoader__.load({
         String(now.getMonth() + 1).padStart(2, '0'),
         String(now.getDate()).padStart(2, '0'),
       ].join('-');
-      const hasSlot = ARG_TOKENS.some((token) => text.includes(token));
-      let expanded = text;
+      const hasSlot = ARG_TOKENS.some((token) => source.includes(token));
+      let expanded = source;
       for (const token of ARG_TOKENS) expanded = expanded.split(token).join(args);
       expanded = expanded.split('{{date}}').join(date).split('{{DATE}}').join(date);
       if (args !== '' && !hasSlot) expanded = `${expanded}\n\n${args}`;
       return expanded.replace(/\n{3,}/g, '\n\n').replace(/[ \t]+\n/g, '\n').trimEnd();
     }
 
-    /**
-     * Case-insensitive multi-word match over the searchable fields.
-     * @param {object} action
-     * @param {string} query
-     * @returns {boolean}
-     */
-    function matches(action, query) {
-      const needle = typeof query === 'string' ? query.trim().toLowerCase() : '';
-      if (needle === '') return true;
-      const haystack = [
-        action?.name,
-        action?.description,
-        action?.category,
-        Array.isArray(action?.tags) ? action.tags.join(' ') : '',
-        action?.prompt,
-      ].filter((part) => typeof part === 'string').join('\n').toLowerCase();
-      return needle.split(/\s+/).every((part) => haystack.includes(part));
+    function composeDraft(draft, text) {
+      const current = typeof draft === 'string' ? draft.replace(/\s+$/, '') : '';
+      const next = typeof text === 'string' ? text : '';
+      if (current === '') return next;
+      if (next === '') return current;
+      return `${current}\n\n${next}`;
     }
 
-    /**
-     * Recently used first, then category, then name.
-     * @param {readonly object[]} actions
-     * @returns {object[]}
-     */
-    function sortActions(actions) {
-      return [...actions].sort((left, right) => {
-        const usedLeft = left.usage?.lastAt ?? 0;
-        const usedRight = right.usage?.lastAt ?? 0;
-        if (usedLeft !== usedRight) return usedRight - usedLeft;
-        const category = (left.category || '').localeCompare(right.category || '', 'zh-CN');
-        if (category !== 0) return category;
-        return (left.name || '').localeCompare(right.name || '', 'zh-CN');
-      });
-    }
-
-    /**
-     * @param {number} timestamp
-     * @returns {string}
-     */
     function relativeTime(timestamp) {
       if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
       const delta = Date.now() - timestamp;
@@ -509,16 +566,12 @@ window.__ModuleLoader__.load({
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
 
-    /**
-     * @param {string} text
-     * @returns {Promise<void>}
-     */
     async function copyText(text) {
       try {
         await navigator.clipboard.writeText(text);
         return;
       } catch {
-        /* fall back to a hidden textarea */
+        /* fall through to the legacy path */
       }
       const area = document.createElement('textarea');
       area.value = text;
@@ -536,71 +589,357 @@ window.__ModuleLoader__.load({
       if (!ok) throw new Error('copy failed');
     }
 
-    /**
-     * Read one Action's prompt with argument expansion, refusing an empty body.
-     * @param {object} action
-     * @param {string} args
-     * @returns {string}
-     */
-    function promptOf(action, args) {
-      return expandPrompt(action?.prompt ?? '', { args });
+    /* Search scoring: every token must match somewhere, and a name hit weighs far
+       more than a body hit, so typing "code" lands on "Code review" first. */
+    function searchScore(action, query) {
+      const needle = typeof query === 'string' ? query.trim().toLowerCase() : '';
+      if (needle === '') return 0;
+      const tokens = needle.split(/\s+/);
+      const name = (action.name || '').toLowerCase();
+      const tags = (action.tags ?? []).join(' ').toLowerCase();
+      const category = (action.category || '').toLowerCase();
+      const description = (action.description || '').toLowerCase();
+      const prompt = (action.prompt || '').toLowerCase();
+      let total = 0;
+      for (const token of tokens) {
+        let best = -1;
+        if (name === token) best = 120;
+        else if (name.startsWith(token)) best = 100;
+        else if (name.includes(token)) best = 80;
+        else if (tags.includes(token)) best = 55;
+        else if (category.includes(token)) best = 45;
+        else if (description.includes(token)) best = 30;
+        else if (prompt.includes(token)) best = 12;
+        if (best < 0) return -1;
+        total += best;
+      }
+      return total;
     }
+
+    function sortActions(actions, sortBy = 'recent') {
+      return [...actions].sort((left, right) => {
+        if ((left.pinned === true) !== (right.pinned === true)) return left.pinned === true ? -1 : 1;
+        if (sortBy === 'name') return (left.name || '').localeCompare(right.name || '', 'zh-CN');
+        if (sortBy === 'created') return (right.createdAt ?? 0) - (left.createdAt ?? 0);
+        const recent = (right.usage?.lastAt ?? 0) - (left.usage?.lastAt ?? 0);
+        if (recent !== 0) return recent;
+        return (left.name || '').localeCompare(right.name || '', 'zh-CN');
+      });
+    }
+
+    function categoriesOf(actions) {
+      const counts = new Map();
+      for (const action of actions) {
+        const name = action.category || '';
+        if (name === '') continue;
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+      }
+      return [...counts.entries()].sort((left, right) => left[0].localeCompare(right[0], 'zh-CN'));
+    }
+
+    function visibleActions(actions, { query = '', category = '', uncategorized = false, sortBy = 'recent' } = {}) {
+      const scored = [];
+      for (const action of actions) {
+        if (uncategorized) {
+          if ((action.category || '') !== '') continue;
+        } else if (category !== '' && (action.category || '') !== category) {
+          continue;
+        }
+        const score = searchScore(action, query);
+        if (score < 0) continue;
+        scored.push({ action, score });
+      }
+      scored.sort((left, right) => {
+        const pinned = (right.action.pinned === true ? 1 : 0) - (left.action.pinned === true ? 1 : 0);
+        if (pinned !== 0) return pinned;
+        if (left.score !== right.score) return right.score - left.score;
+        if (sortBy === 'name') return (left.action.name || '').localeCompare(right.action.name || '', 'zh-CN');
+        if (sortBy === 'created') return (right.action.createdAt ?? 0) - (left.action.createdAt ?? 0);
+        const recent = (right.action.usage?.lastAt ?? 0) - (left.action.usage?.lastAt ?? 0);
+        if (recent !== 0) return recent;
+        return (left.action.name || '').localeCompare(right.action.name || '', 'zh-CN');
+      });
+      return scored.map((entry) => entry.action);
+    }
+
+    // ----------------------------------------------------------------- stores
+
+    function createHub() {
+      const listeners = new Set();
+      let snapshot = { status: 'idle', actions: [], meta: {}, error: '' };
+      let inflight = null;
+
+      const emit = () => {
+        for (const listener of [...listeners]) listener(snapshot);
+      };
+      const set = (next) => {
+        snapshot = next;
+        emit();
+      };
+
+      async function refresh(force = false) {
+        if (inflight !== null && !force) return inflight;
+        if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
+        inflight = api('/state').then(
+          (data) => {
+            set({ status: 'ready', actions: data.actions ?? [], meta: data.meta ?? {}, error: '' });
+            return snapshot;
+          },
+          (error) => {
+            set({ ...snapshot, status: 'error', error: describeError(error) });
+            throw error;
+          },
+        ).finally(() => {
+          inflight = null;
+        });
+        return inflight;
+      }
+
+      async function call(route, body) {
+        const data = await api(route, body);
+        if (Array.isArray(data.actions)) set({ ...snapshot, status: 'ready', actions: data.actions, error: '' });
+        else void refresh(true).catch(() => {});
+        return data;
+      }
+
+      return {
+        get: () => snapshot,
+        subscribe(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        refresh,
+        call,
+        patchAction(id, patch) {
+          return call('/update', { id, patch });
+        },
+        dispose() {
+          listeners.clear();
+        },
+      };
+    }
+
+    function useHub(hub) {
+      const [snapshot, setSnapshot] = React.useState(() => hub.get());
+      React.useEffect(() => hub.subscribe(setSnapshot), [hub]);
+      React.useEffect(() => {
+        if (hub.get().status === 'idle') void hub.refresh().catch(() => {});
+      }, [hub]);
+      return snapshot;
+    }
+
+    function createPrefs() {
+      const defaults = { closeAfterInsert: true, hotkeyEnabled: true, showTrigger: true };
+      let current = defaults;
+      try {
+        const raw = window.localStorage.getItem(PREFS_KEY);
+        if (raw) current = { ...defaults, ...JSON.parse(raw) };
+      } catch {
+        current = defaults;
+      }
+      const listeners = new Set();
+      return {
+        get: () => current,
+        subscribe(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        set(patch) {
+          current = { ...current, ...patch };
+          try {
+            window.localStorage.setItem(PREFS_KEY, JSON.stringify(current));
+          } catch {
+            /* storage may be unavailable; the in-memory value still applies */
+          }
+          for (const listener of [...listeners]) listener(current);
+        },
+      };
+    }
+
+    function usePrefs(prefs) {
+      const [snapshot, setSnapshot] = React.useState(() => prefs.get());
+      React.useEffect(() => prefs.subscribe(setSnapshot), [prefs]);
+      return snapshot;
+    }
+
+    function createPalette() {
+      const listeners = new Set();
+      let state = {
+        open: false,
+        mode: 'browse', // 'browse' | 'capture'
+        query: '',
+        category: '',
+        selectedId: null,
+        args: '',
+        toast: '',
+        toastKind: 'ok',
+        bridge: null,
+      };
+      const emit = () => {
+        for (const listener of [...listeners]) listener(state);
+      };
+      return {
+        get: () => state,
+        subscribe(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        update(patch) {
+          state = { ...state, ...patch };
+          emit();
+        },
+        setBridge(bridge) {
+          state = { ...state, bridge };
+          emit();
+        },
+        clearBridge(sessionId) {
+          if (state.bridge !== null && state.bridge.sessionId !== sessionId) return;
+          state = { ...state, bridge: null, open: false };
+          emit();
+        },
+        open() {
+          state = { ...state, open: true, mode: 'browse', query: '', category: '', args: '', toast: '', toastKind: 'ok' };
+          emit();
+        },
+        close() {
+          state = { ...state, open: false, mode: 'browse' };
+          emit();
+        },
+        toggle() {
+          if (state.open) {
+            state = { ...state, open: false };
+            emit();
+          } else {
+            state = { ...state, open: true, mode: 'browse', query: '', category: '', args: '', toast: '', toastKind: 'ok' };
+            emit();
+          }
+        },
+        toastMessage(text, kind = 'ok') {
+          state = { ...state, toast: text, toastKind: kind };
+          emit();
+        },
+      };
+    }
+
+    // ------------------------------------------------------------------ icons
+
+    function iconSize(value, fallback = 16) {
+      if (typeof value === 'number' && value > 0) return value;
+      if (value !== null && typeof value === 'object' && typeof value.size === 'number' && value.size > 0) return value.size;
+      return fallback;
+    }
+
+    function icon(paths, size = 16) {
+      return h('svg', {
+        viewBox: '0 0 16 16',
+        width: size,
+        height: size,
+        'aria-hidden': true,
+        focusable: 'false',
+        fill: 'none',
+        style: { display: 'block' },
+      }, paths.map((entry, index) => h('path', {
+        key: index,
+        d: entry.d,
+        stroke: entry.fill ? undefined : 'currentColor',
+        fill: entry.fill ?? 'none',
+        strokeWidth: entry.fill ? undefined : 1.4,
+        strokeLinecap: 'round',
+        strokeLinejoin: 'round',
+      })));
+    }
+
+    const iconOf = (paths) => function IconComponent(props) {
+      return icon(paths, iconSize(props));
+    };
+
+    const Icons = {
+      shelf: iconOf([
+        { d: 'M2.6 3.2h10.8v2.6H2.6z' },
+        { d: 'M2.6 7.2h10.8v2.6H2.6z' },
+        { d: 'M2.6 11.2h6.4v2.6H2.6z' },
+      ]),
+      search: iconOf([
+        { d: 'M7 12.2a5.2 5.2 0 1 0 0-10.4 5.2 5.2 0 0 0 0 10.4z' },
+        { d: 'M10.8 10.8 14 14' },
+      ]),
+      plus: iconOf([{ d: 'M8 3v10M3 8h10' }]),
+      close: iconOf([{ d: 'M4 4l8 8M12 4l-8 8' }]),
+      star: function StarIcon(props) {
+        const size = iconSize(props, 16);
+        const filled = props !== null && typeof props === 'object' && props.filled === true;
+        return h('svg', { viewBox: '0 0 16 16', width: size, height: size, 'aria-hidden': true, fill: 'none', style: { display: 'block' } },
+          h('path', {
+            d: 'M8 2.2l1.75 3.55 3.92.57-2.84 2.77.67 3.9L8 11.15l-3.5 1.84.67-3.9L2.33 6.32l3.92-.57L8 2.2z',
+            stroke: 'currentColor',
+            strokeWidth: 1.3,
+            strokeLinejoin: 'round',
+            fill: filled ? 'currentColor' : 'none',
+          }));
+      },
+      edit: iconOf([{ d: 'M9.3 2.7l4 4L5.6 14.4H1.6v-4z' }, { d: 'M8.1 3.9l4 4' }]),
+      copy: iconOf([{ d: 'M5.2 5.2h7.6v9H5.2z' }, { d: 'M3.2 10.8V1.8h7.6' }]),
+      trash: iconOf([{ d: 'M2.6 4.2h10.8' }, { d: 'M6 4.2V2.6h4v1.6' }, { d: 'M4.2 4.2l.7 9.2h6.2l.7-9.2' }]),
+      upload: iconOf([{ d: 'M8 10.5V2.6' }, { d: 'M5 5.4 8 2.4l3 3' }, { d: 'M2.6 10.8v2.2h10.8v-2.2' }]),
+      download: iconOf([{ d: 'M8 2.6v7.9' }, { d: 'M5 7.6l3 3 3-3' }, { d: 'M2.6 10.8v2.2h10.8v-2.2' }]),
+      arrow: iconOf([{ d: 'M2.8 8h10.4' }, { d: 'M9.4 4.2 13.2 8l-3.8 3.8' }]),
+      send: iconOf([{ d: 'M2.4 8 14 2.4 11 13.6 7.6 9.2 2.4 8z' }, { d: 'M7.6 9.2 14 2.4' }]),
+      chevron: iconOf([{ d: 'M4 6.2 8 10l4-3.8' }]),
+      check: iconOf([{ d: 'M2.8 8.4 6.4 12l6.8-8' }]),
+      sparkle: iconOf([{ d: 'M8 2.2v3.2M8 10.6v3.2M2.2 8h3.2M10.6 8h3.2' }, { d: 'M4.9 4.9l2 2M9.1 9.1l2 2M11.1 4.9l-2 2M6.9 9.1l-2 2' }]),
+      keyboard: iconOf([{ d: 'M2.2 5.2h11.6v5.6H2.2z' }, { d: 'M4.2 7.2h.1M6.2 7.2h.1M8.2 7.2h.1M10.2 7.2h.1M4.2 9.2h7.4' }]),
+      folder: iconOf([{ d: 'M2.2 4.2h4l1.3 1.4h6.3v6.2H2.2z' }]),
+      refresh: iconOf([{ d: 'M13 8a5 5 0 1 1-1.6-3.7' }, { d: 'M13.2 2.6v3.2H10' }]),
+      sliders: iconOf([{ d: 'M2.6 4.6h10.8M2.6 8h10.8M2.6 11.4h10.8' }, { d: 'M5.2 3.2v2.8M10.8 6.6v2.8M6.6 10v2.8' }]),
+    };
 
     // ------------------------------------------------------------- primitives
 
-    /**
-     * @param {{ children?: any, onClick?: Function, disabled?: boolean, primary?: boolean, danger?: boolean, quiet?: boolean, title?: string, type?: string }} props
-     */
     function Button(props) {
-      const classes = ['dsah-btn'];
-      if (props.primary) classes.push('dsah-btn-primary');
-      if (props.danger) classes.push('dsah-btn-danger');
-      if (props.quiet) classes.push('dsah-btn-quiet');
+      const classes = ['ah-btn'];
+      if (props.primary) classes.push('ah-btn-primary');
+      if (props.ghost) classes.push('ah-btn-ghost');
+      if (props.danger) classes.push('ah-btn-danger');
+      if (props.iconOnly) classes.push('ah-btn-icon');
+      if (props.small) classes.push('ah-btn-sm', props.iconOnly ? 'ah-btn-sm' : '');
       return h('button', {
-        type: props.type ?? 'button',
-        className: classes.join(' '),
+        type: 'button',
+        className: classes.join(' ').trim(),
         onClick: props.onClick,
         disabled: props.disabled === true,
         title: props.title,
+        'aria-label': props['aria-label'] ?? props.title,
+        'aria-pressed': props.pressed,
+        'data-active': props.active,
       }, props.children);
     }
 
-    /**
-     * @param {{ children?: any }} props
-     */
-    function IconSearch() {
-      return h('svg', { viewBox: '0 0 16 16', width: 14, height: 14, 'aria-hidden': true, fill: 'none' },
-        h('circle', { cx: 7, cy: 7, r: 4.6, stroke: 'currentColor', strokeWidth: 1.4 }),
-        h('path', { d: 'M10.5 10.5 14 14', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round' }));
+    function SearchField(props) {
+      return h('div', { className: 'ah-search' },
+        h('span', { className: 'ah-search-mark' }, h(Icons.search, { size: 14 })),
+        h('input', {
+          ref: props.inputRef,
+          value: props.value,
+          placeholder: props.placeholder,
+          'aria-label': props.placeholder,
+          onChange: (event) => props.onChange(event.target.value),
+          onKeyDown: props.onKeyDown,
+        }));
     }
 
-    /**
-     * @param {{ children?: any }} props
-     */
-    function IconClose() {
-      return h('svg', { viewBox: '0 0 16 16', width: 13, height: 13, 'aria-hidden': true, fill: 'none' },
-        h('path', { d: 'M4 4l8 8M12 4l-8 8', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' }));
-    }
-
-    /**
-     * A modal dialog with backdrop click, Escape handling, and focus restore.
-     * @param {{ title: string, onClose: Function, children?: any, footer?: any, wide?: boolean, t: Function }} props
-     */
     function Modal(props) {
-      const t = props.t;
-      const panelRef = React.useRef(null);
       const closeRef = React.useRef(props.onClose);
       closeRef.current = props.onClose;
+      const panelRef = React.useRef(null);
       React.useEffect(() => {
         const previous = document.activeElement;
-        const focusable = panelRef.current?.querySelector('input, textarea, select')
-          ?? panelRef.current?.querySelector('button');
-        if (focusable instanceof HTMLElement) focusable.focus();
+        const field = panelRef.current?.querySelector('input, textarea, select');
+        if (field instanceof HTMLElement) field.focus();
+        else if (panelRef.current instanceof HTMLElement) panelRef.current.focus();
         const onKey = (event) => {
-          if (event.key === 'Escape') {
-            event.stopPropagation();
-            closeRef.current();
-          }
+          if (event.key !== 'Escape') return;
+          event.stopPropagation();
+          closeRef.current();
         };
         document.addEventListener('keydown', onKey, true);
         return () => {
@@ -608,58 +947,86 @@ window.__ModuleLoader__.load({
           if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
         };
       }, []);
-      return h('div', { className: 'dsah-modal-backdrop', onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose(); } },
-        h('div', { className: 'dsah-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': props.title, ref: panelRef },
-          h('div', { className: 'dsah-modal-head' },
-            h('h2', { className: 'dsah-modal-title' }, props.title),
-            h(Button, { quiet: true, onClick: props.onClose, title: t('panel.cancel') }, h(IconClose))),
-          h('div', { className: 'dsah-modal-body' }, props.children),
-          props.footer === undefined ? null : h('div', { className: 'dsah-modal-foot' }, props.footer)));
+      return h('div', {
+        className: 'ah-backdrop',
+        onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose(); },
+      },
+      h('div', {
+        className: 'ah-modal',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': props.title,
+        tabIndex: -1,
+        ref: panelRef,
+      },
+      h('div', { className: 'ah-modal-head' },
+        h('h2', { className: 'ah-modal-title' }, props.title),
+        h(Button, { ghost: true, iconOnly: true, small: true, onClick: props.onClose, title: props.t('action.close') }, h(Icons.close, { size: 13 }))),
+      h('div', { className: 'ah-modal-body' }, props.children),
+      props.footer === undefined ? null : h('div', { className: 'ah-modal-foot' }, props.footer)));
     }
 
-    // ------------------------------------------------------------ management
+    function Switch(props) {
+      return h('button', {
+        type: 'button',
+        className: 'ah-switch',
+        role: 'switch',
+        'aria-checked': props.checked,
+        'aria-label': props.label,
+        onClick: () => props.onChange(!props.checked),
+      });
+    }
 
-    /**
-     * One row in the management list.
-     * @param {{ action: object, t: Function, onEdit: Function, onDelete: Function, onDuplicate: Function, notify: Function }} props
-     */
-    function ActionCard(props) {
+    function Kbd(props) {
+      return h('span', { className: 'ah-kbd' }, props.children);
+    }
+
+    // ------------------------------------------------------------------ page
+
+    function ActionRow(props) {
       const { action, t } = props;
       const used = action.usage?.count ?? 0;
-      return h('div', { className: 'dsah-card' },
-        h('div', { className: 'dsah-card-body' },
-          h('div', { className: 'dsah-card-head' },
-            h('span', { className: 'dsah-name' }, action.name),
-            action.category ? h('span', { className: 'dsah-badge dsah-badge-accent' }, action.category) : null,
-            action.source?.kind === 'skill' ? h('span', { className: 'dsah-badge' }, 'Skill') : null,
-            (action.tags ?? []).map((tag) => h('span', { key: tag, className: 'dsah-badge' }, `#${tag}`)),
-            used > 0 ? h('span', { className: 'dsah-badge' }, t('panel.used', { count: used })) : null),
-          action.description ? h('p', { className: 'dsah-desc' }, action.description) : null,
-          h('pre', { className: 'dsah-preview' }, action.prompt),
-          h('p', { className: 'dsah-desc' }, t('panel.updated', { time: relativeTime(action.updatedAt) }))),
-        h('div', { className: 'dsah-card-actions' },
-          h(Button, {
-            onClick: async () => {
-              try {
-                await copyText(action.prompt);
-                props.notify(t('panel.copied'), 'ok');
-              } catch {
-                props.notify(t('panel.copyFailed'), 'error');
-              }
-            },
-          }, t('panel.copy')),
-          h(Button, { onClick: () => props.onEdit(action) }, t('panel.edit')),
-          h(Button, { onClick: () => props.onDuplicate(action) }, t('panel.duplicate')),
-          h(Button, { danger: true, onClick: () => props.onDelete(action) }, t('panel.delete'))));
+      return h('div', {
+        className: 'ah-row',
+        role: 'button',
+        tabIndex: 0,
+        'aria-label': action.name,
+        onClick: () => props.onOpen(action),
+        onKeyDown: (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            props.onOpen(action);
+          }
+        },
+      },
+      h('button', {
+        type: 'button',
+        className: 'ah-row-star',
+        'data-on': action.pinned === true,
+        title: action.pinned ? t('action.unpin') : t('action.pin'),
+        'aria-label': action.pinned ? t('action.unpin') : t('action.pin'),
+        'aria-pressed': action.pinned === true,
+        onClick: (event) => {
+          event.stopPropagation();
+          props.onPin(action);
+        },
+      }, h(Icons.star, { size: 14, filled: action.pinned === true })),
+      h('div', { className: 'ah-row-main' },
+        h('div', { className: 'ah-row-title' },
+          h('span', { className: 'ah-name' }, action.name),
+          action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
+          action.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+          (action.tags ?? []).slice(0, 3).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`))),
+        action.description ? h('p', { className: 'ah-desc' }, action.description) : null),
+      h('div', { className: 'ah-row-actions' },
+        h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) })),
+        h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.edit'), onClick: (event) => { event.stopPropagation(); props.onEdit(action); } }, h(Icons.edit, { size: 13 })),
+        h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.duplicate'), onClick: (event) => { event.stopPropagation(); props.onDuplicate(action); } }, h(Icons.copy, { size: 13 })),
+        h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.delete'), onClick: (event) => { event.stopPropagation(); props.onDelete(action); } }, h(Icons.trash, { size: 13 }))));
     }
 
-    /**
-     * Create/edit form. All validation is local; the Host validates again.
-     * @param {{ initial: object | null, categories: string[], t: Function, onSave: Function, onClose: Function }} props
-     */
     function EditorDialog(props) {
-      const { t } = props;
-      const initial = props.initial;
+      const { t, initial } = props;
       const [form, setForm] = React.useState(() => ({
         name: initial?.name ?? '',
         category: initial?.category ?? '',
@@ -667,21 +1034,19 @@ window.__ModuleLoader__.load({
         argsHint: initial?.argsHint ?? '',
         description: initial?.description ?? '',
         prompt: initial?.prompt ?? '',
+        pinned: initial?.pinned === true,
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
       const patch = (key) => (event) => setForm((previous) => ({ ...previous, [key]: event.target.value }));
 
       const save = async () => {
-        if (form.name.trim() === '') {
-          setError(t('panel.fieldName'));
-          return;
-        }
-        if (form.prompt.trim() === '') {
-          setError(t('panel.fieldPrompt'));
+        if (form.name.trim() === '' || form.prompt.trim() === '') {
+          setError(t('editor.required'));
           return;
         }
         setBusy(true);
+        setError('');
         try {
           await props.onSave({
             name: form.name.trim(),
@@ -690,6 +1055,7 @@ window.__ModuleLoader__.load({
             argsHint: form.argsHint.trim(),
             description: form.description.trim(),
             prompt: form.prompt,
+            pinned: form.pinned,
           });
         } catch (failure) {
           setError(describeError(failure));
@@ -699,88 +1065,47 @@ window.__ModuleLoader__.load({
       };
 
       return h(Modal, {
-        title: initial === null ? t('panel.editorCreate') : t('panel.editorEdit'),
+        title: initial === null ? t('editor.createTitle') : t('editor.editTitle'),
         t,
         onClose: props.onClose,
         footer: h(React.Fragment, null,
-          h(Button, { onClick: props.onClose }, t('panel.cancel')),
-          h(Button, { primary: true, disabled: busy, onClick: save }, t('panel.save'))),
+          h(Button, { onClick: props.onClose }, t('action.cancel')),
+          h(Button, { primary: true, disabled: busy, onClick: save }, t('action.save'))),
       },
-      h('div', { className: 'dsah-field' },
-        h('label', { className: 'dsah-field-label' }, t('panel.fieldName')),
-        h('input', {
-          className: 'dsah-input',
-          value: form.name,
-          maxLength: 80,
-          placeholder: '例如：代码审查',
-          onChange: patch('name'),
-          'aria-label': t('panel.fieldName'),
-        }),
-        h('span', { className: 'dsah-field-hint' }, t('panel.fieldNameHint'))),
-      h('div', { className: 'dsah-field-row' },
-        h('div', { className: 'dsah-field' },
-          h('label', { className: 'dsah-field-label' }, t('panel.fieldCategory')),
-          h('input', {
-            className: 'dsah-input',
-            value: form.category,
-            maxLength: 40,
-            list: 'dsah-categories',
-            placeholder: '开发 / 效率 / …',
-            onChange: patch('category'),
-            'aria-label': t('panel.fieldCategory'),
-          }),
-          h('datalist', { id: 'dsah-categories' }, (props.categories ?? []).map((name) => h('option', { key: name, value: name }))),
-          h('span', { className: 'dsah-field-hint' }, t('panel.fieldCategoryHint'))),
-        h('div', { className: 'dsah-field' },
-          h('label', { className: 'dsah-field-label' }, t('panel.fieldTags')),
-          h('input', {
-            className: 'dsah-input',
-            value: form.tags,
-            placeholder: 'git, commit',
-            onChange: patch('tags'),
-            'aria-label': t('panel.fieldTags'),
-          }),
-          h('span', { className: 'dsah-field-hint' }, t('panel.fieldTagsHint')))),
-      h('div', { className: 'dsah-field-row' },
-        h('div', { className: 'dsah-field' },
-          h('label', { className: 'dsah-field-label' }, t('panel.fieldDescription')),
-          h('input', {
-            className: 'dsah-input',
-            value: form.description,
-            maxLength: 600,
-            placeholder: '一句话说明这个 Action 做什么',
-            onChange: patch('description'),
-            'aria-label': t('panel.fieldDescription'),
-          })),
-        h('div', { className: 'dsah-field' },
-          h('label', { className: 'dsah-field-label' }, t('panel.fieldArgs')),
-          h('input', {
-            className: 'dsah-input',
-            value: form.argsHint,
-            maxLength: 120,
-            placeholder: '例如：分支名',
-            onChange: patch('argsHint'),
-            'aria-label': t('panel.fieldArgs'),
-          }))),
-      h('div', { className: 'dsah-field' },
-        h('label', { className: 'dsah-field-label' }, t('panel.fieldPrompt')),
-        h('textarea', {
-          className: 'dsah-textarea',
-          value: form.prompt,
-          rows: 12,
-          spellCheck: false,
-          placeholder: '把要发给 Agent 的提示词写在这里…',
-          onChange: patch('prompt'),
-          'aria-label': t('panel.fieldPrompt'),
-        }),
-        h('span', { className: 'dsah-field-hint' }, t('panel.fieldPromptHint'))),
-      error === '' ? null : h('div', { className: 'dsah-notice', 'data-kind': 'error', role: 'alert' }, error));
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('editor.name')),
+        h('input', { className: 'ah-input', value: form.name, maxLength: 80, placeholder: t('editor.namePlaceholder'), onChange: patch('name') }),
+        h('span', { className: 'ah-hint' }, t('editor.nameHint'))),
+      h('div', { className: 'ah-field-row' },
+        h('div', { className: 'ah-field' },
+          h('label', { className: 'ah-label' }, t('editor.category')),
+          h('input', { className: 'ah-input', value: form.category, maxLength: 40, list: 'ah-category-options', placeholder: t('editor.categoryPlaceholder'), onChange: patch('category') }),
+          h('datalist', { id: 'ah-category-options' }, (props.categories ?? []).map((name) => h('option', { key: name, value: name }))),
+          h('span', { className: 'ah-hint' }, t('editor.categoryHint'))),
+        h('div', { className: 'ah-field' },
+          h('label', { className: 'ah-label' }, t('editor.tags')),
+          h('input', { className: 'ah-input', value: form.tags, placeholder: t('editor.tagsPlaceholder'), onChange: patch('tags') }),
+          h('span', { className: 'ah-hint' }, t('editor.tagsHint')))),
+      h('div', { className: 'ah-field-row' },
+        h('div', { className: 'ah-field' },
+          h('label', { className: 'ah-label' }, t('editor.description')),
+          h('input', { className: 'ah-input', value: form.description, maxLength: 600, placeholder: t('editor.descriptionPlaceholder'), onChange: patch('description') }),
+          h('span', { className: 'ah-hint' }, t('editor.descriptionHint'))),
+        h('div', { className: 'ah-field' },
+          h('label', { className: 'ah-label' }, t('editor.args')),
+          h('input', { className: 'ah-input', value: form.argsHint, maxLength: 120, placeholder: t('editor.argsPlaceholder'), onChange: patch('argsHint') }),
+          h('span', { className: 'ah-hint' }, t('editor.argsHint')))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('editor.prompt')),
+        h('textarea', { className: 'ah-textarea', value: form.prompt, rows: 12, spellCheck: false, placeholder: t('editor.promptPlaceholder'), onChange: patch('prompt') }),
+        h('span', { className: 'ah-hint' }, t('editor.promptHint'))),
+      h('div', { className: 'ah-settings-row' },
+        h('div', { className: 'ah-settings-row-main' },
+          h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),
+        h(Switch, { checked: form.pinned, label: t('editor.pinned'), onChange: (value) => setForm((previous) => ({ ...previous, pinned: value })) })),
+      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 
-    /**
-     * Import dialog with a JSON tab and a Skill tab.
-     * @param {{ t: Function, onClose: Function, onDone: Function, notify: Function, categories: string[] }} props
-     */
     function ImportDialog(props) {
       const { t } = props;
       const [tab, setTab] = React.useState('json');
@@ -800,19 +1125,19 @@ window.__ModuleLoader__.load({
         try {
           parsed = JSON.parse(text);
         } catch {
-          setError(t('panel.importInvalid'));
+          setError(t('import.invalid'));
           return;
         }
         const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.actions) ? parsed.actions : null;
         if (list === null) {
-          setError(t('panel.importInvalid'));
+          setError(t('import.invalid'));
           return;
         }
         setBusy(true);
         try {
           const data = await api('/import', { actions: list, mode });
-          props.notify(t('panel.imported', { added: data.added, updated: data.updated }), 'ok');
-          props.onDone(data.actions);
+          props.notify(t('import.done', { added: data.added, updated: data.updated }), 'ok');
+          props.onDone();
           props.onClose();
         } catch (failure) {
           setError(describeError(failure));
@@ -829,7 +1154,7 @@ window.__ModuleLoader__.load({
           const data = await api(`/skills${query}`);
           setSkills(data.skills ?? []);
           if (data.warning) setSkillError(data.warning);
-          if (data.unavailable) setSkillError(t('panel.skillUnavailable'));
+          if (data.unavailable) setSkillError(t('import.skillUnavailable'));
         } catch (failure) {
           setSkillError(describeError(failure));
         } finally {
@@ -841,9 +1166,9 @@ window.__ModuleLoader__.load({
         setSkillBusy(true);
         setSkillError('');
         try {
-          const data = await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim() });
-          props.notify(t('panel.skillImported', { name: skill.name }), 'ok');
-          props.onDone(data.actions);
+          await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim() });
+          props.notify(t('import.skillDone', { name: skill.name }), 'ok');
+          props.onDone();
         } catch (failure) {
           setSkillError(describeError(failure));
         } finally {
@@ -852,40 +1177,32 @@ window.__ModuleLoader__.load({
       };
 
       return h(Modal, {
-        title: t('panel.importTitle'),
+        title: t('import.title'),
         t,
         onClose: props.onClose,
         footer: tab === 'json'
           ? h(React.Fragment, null,
-            h(Button, { onClick: props.onClose }, t('panel.cancel')),
-            h(Button, { primary: true, disabled: busy || text.trim() === '', onClick: runImport }, t('panel.importRun')))
-          : h(Button, { onClick: props.onClose }, t('panel.cancel')),
+            h(Button, { onClick: props.onClose }, t('action.cancel')),
+            h(Button, { primary: true, disabled: busy || text.trim() === '', onClick: runImport }, t('import.run')))
+          : h(Button, { onClick: props.onClose }, t('action.cancel')),
       },
-      h('div', { className: 'dsah-tabs' },
-        h('button', { type: 'button', className: 'dsah-tab', 'data-active': tab === 'json', onClick: () => setTab('json') }, t('panel.importPaste')),
-        h('button', { type: 'button', className: 'dsah-tab', 'data-active': tab === 'skill', onClick: () => setTab('skill') }, t('panel.importSkill'))),
+      h('div', { className: 'ah-tabs' },
+        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'json', onClick: () => setTab('json') }, t('import.jsonTab')),
+        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'skill', onClick: () => setTab('skill') }, t('import.skillTab'))),
       tab === 'json'
         ? h(React.Fragment, null,
-          h('p', { className: 'dsah-field-hint' }, t('panel.importJsonHint')),
-          h('textarea', {
-            className: 'dsah-textarea',
-            value: text,
-            rows: 10,
-            spellCheck: false,
-            placeholder: '{ "actions": [ … ] }',
-            onChange: (event) => setText(event.target.value),
-            'aria-label': t('panel.importPaste'),
-          }),
-          h('div', { className: 'dsah-radio-row' },
-            h('span', null, `${t('panel.importMode')}：`),
-            h('label', null, h('input', { type: 'radio', name: 'dsah-import-mode', checked: mode === 'merge', onChange: () => setMode('merge') }), t('panel.importMerge')),
-            h('label', null, h('input', { type: 'radio', name: 'dsah-import-mode', checked: mode === 'replace', onChange: () => setMode('replace') }), t('panel.importReplace'))),
+          h('p', { className: 'ah-hint' }, t('import.jsonHint')),
+          h('textarea', { className: 'ah-textarea', value: text, rows: 9, spellCheck: false, placeholder: '{ "actions": [ … ] }', onChange: (event) => setText(event.target.value) }),
+          h('div', { className: 'ah-radio-row' },
+            h('span', { className: 'ah-hint' }, `${t('import.mode')}:`),
+            h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'merge', onChange: () => setMode('merge') }), ` ${t('import.merge')}`),
+            h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'replace', onChange: () => setMode('replace') }), ` ${t('import.replace')}`)),
           h('div', null,
             h('input', {
               ref: fileRef,
               type: 'file',
               accept: '.json,application/json',
-              className: 'dsah-hidden',
+              className: 'ah-hidden',
               onChange: async (event) => {
                 const file = event.target.files?.[0];
                 event.target.value = '';
@@ -898,36 +1215,26 @@ window.__ModuleLoader__.load({
                 }
               },
             }),
-            h(Button, { onClick: () => fileRef.current?.click() }, t('panel.importChooseFile'))))
+            h(Button, { onClick: () => fileRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.chooseFile'))))
         : h(React.Fragment, null,
-          h('div', { className: 'dsah-field' },
-            h('label', { className: 'dsah-field-label' }, t('panel.skillCwd')),
-            h('input', {
-              className: 'dsah-input',
-              value: cwd,
-              placeholder: 'C:\\path\\to\\project',
-              onChange: (event) => setCwd(event.target.value),
-              'aria-label': t('panel.skillCwd'),
-            }),
-            h('span', { className: 'dsah-field-hint' }, t('panel.skillCwdHint'))),
-          h('div', null, h(Button, { disabled: skillBusy, onClick: loadSkills }, t('panel.skillLoad'))),
+          h('div', { className: 'ah-field' },
+            h('label', { className: 'ah-label' }, t('import.skillCwd')),
+            h('input', { className: 'ah-input', value: cwd, placeholder: 'C:\\path\\to\\project', onChange: (event) => setCwd(event.target.value) }),
+            h('span', { className: 'ah-hint' }, t('import.skillCwdHint'))),
+          h('div', null, h(Button, { disabled: skillBusy, onClick: loadSkills }, h(Icons.folder, { size: 13 }), t('import.skillLoad'))),
           skills === null
             ? null
             : skills.length === 0
-              ? h('div', { className: 'dsah-notice' }, t('panel.skillEmpty'))
-              : h('div', { className: 'dsah-skill-list' }, skills.map((skill) => h('div', { key: skill.name, className: 'dsah-skill' },
-                h('div', { className: 'dsah-skill-main' },
-                  h('div', { className: 'dsah-skill-name' }, skill.name),
-                  h('div', { className: 'dsah-skill-desc', title: skill.description }, skill.description || '')),
-                h(Button, { disabled: skillBusy, onClick: () => importSkill(skill) }, t('panel.skillImport')))))),
-      error === '' ? null : h('div', { className: 'dsah-notice', 'data-kind': 'error', role: 'alert' }, error),
-      skillError === '' ? null : h('div', { className: 'dsah-notice', 'data-kind': 'error', role: 'alert' }, skillError));
+              ? h('div', { className: 'ah-notice' }, t('import.skillEmpty'))
+              : h('div', { className: 'ah-list-plain' }, skills.map((skill) => h('div', { key: skill.name, className: 'ah-plain-item' },
+                h('div', { className: 'ah-plain-main' },
+                  h('span', { className: 'ah-plain-name' }, skill.name),
+                  h('span', { className: 'ah-plain-desc', title: skill.description }, skill.description || '')),
+                h(Button, { small: true, disabled: skillBusy, onClick: () => importSkill(skill) }, t('import.skillImport')))))),
+      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error),
+      skillError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, skillError));
     }
 
-    /**
-     * Rename/delete categories in place.
-     * @param {{ t: Function, categories: string[], onClose: Function, onDone: Function, notify: Function }} props
-     */
     function CategoryDialog(props) {
       const { t } = props;
       const [renaming, setRenaming] = React.useState(null);
@@ -935,16 +1242,17 @@ window.__ModuleLoader__.load({
       const [busy, setBusy] = React.useState(false);
       const [error, setError] = React.useState('');
 
-      const submitRename = async () => {
-        if (renaming === null || draft.trim() === '' || draft.trim() === renaming) {
+      const submit = async () => {
+        if (renaming === null) return;
+        if (draft.trim() === '' || draft.trim() === renaming) {
           setRenaming(null);
           return;
         }
         setBusy(true);
         try {
-          const data = await api('/category/rename', { from: renaming, to: draft.trim() });
-          props.onDone(data.actions);
-          props.notify(t('panel.saved'), 'ok');
+          await api('/category/rename', { from: renaming, to: draft.trim() });
+          props.notify(t('lib.saved'), 'ok');
+          props.onDone();
           setRenaming(null);
         } catch (failure) {
           setError(describeError(failure));
@@ -956,9 +1264,9 @@ window.__ModuleLoader__.load({
       const remove = async (name) => {
         setBusy(true);
         try {
-          const data = await api('/category/delete', { name });
-          props.onDone(data.actions);
-          props.notify(t('panel.deleted'), 'ok');
+          await api('/category/delete', { name });
+          props.notify(t('lib.deleted'), 'ok');
+          props.onDone();
         } catch (failure) {
           setError(describeError(failure));
         } finally {
@@ -966,44 +1274,44 @@ window.__ModuleLoader__.load({
         }
       };
 
-      return h(Modal, { title: t('panel.categoryTitle'), t, onClose: props.onClose, footer: h(Button, { onClick: props.onClose }, t('panel.cancel')) },
+      return h(Modal, { title: t('category.title'), t, onClose: props.onClose, footer: h(Button, { onClick: props.onClose }, t('action.cancel')) },
         props.categories.length === 0
-          ? h('div', { className: 'dsah-notice' }, t('panel.catEmpty'))
-          : h('div', { className: 'dsah-skill-list' }, props.categories.map((name) => h('div', { key: name, className: 'dsah-skill' },
-            h('div', { className: 'dsah-skill-main' },
+          ? h('div', { className: 'ah-notice' }, t('category.empty'))
+          : h('div', { className: 'ah-list-plain' }, props.categories.map((name) => h('div', { key: name, className: 'ah-plain-item' },
+            h('div', { className: 'ah-plain-main' },
               renaming === name
                 ? h('input', {
-                  className: 'dsah-input',
+                  className: 'ah-input',
                   value: draft,
-                  onChange: (event) => setDraft(event.target.value),
-                  onKeyDown: (event) => { if (event.key === 'Enter') void submitRename(); },
                   autoFocus: true,
-                  'aria-label': t('panel.newCategoryName'),
+                  'aria-label': t('category.name'),
+                  onChange: (event) => setDraft(event.target.value),
+                  onKeyDown: (event) => { if (event.key === 'Enter') void submit(); },
                 })
-                : h('div', { className: 'dsah-skill-name' }, name)),
+                : h('span', { className: 'ah-plain-name' }, name)),
             renaming === name
               ? h(React.Fragment, null,
-                h(Button, { primary: true, disabled: busy, onClick: submitRename }, t('panel.save')),
-                h(Button, { quiet: true, onClick: () => setRenaming(null) }, t('panel.cancel')))
+                h(Button, { small: true, primary: true, disabled: busy, onClick: submit }, t('action.save')),
+                h(Button, { small: true, ghost: true, onClick: () => setRenaming(null) }, t('action.cancel')))
               : h(React.Fragment, null,
-                h(Button, { onClick: () => { setRenaming(name); setDraft(name); } }, t('panel.categoryRename')),
-                h(Button, { danger: true, disabled: busy, onClick: () => remove(name), title: t('panel.categoryDeleteCopy') }, t('panel.categoryDelete')))))),
-        error === '' ? null : h('div', { className: 'dsah-notice', 'data-kind': 'error', role: 'alert' }, error));
+                h(Button, { small: true, onClick: () => { setRenaming(name); setDraft(name); } }, t('category.rename')),
+                h(Button, { small: true, danger: true, disabled: busy, title: t('category.deleteHint'), onClick: () => remove(name) }, t('category.delete')))))),
+        error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 
-    /**
-     * The full page. Rendered in the `main` keyed slot.
-     */
-    function createPage(hub, ctx) {
+    function createPage(hub) {
       return function ActionHubPage(props) {
         const t = translate(props);
-        const { snapshot } = useHub(hub);
+        const snapshot = useHub(hub);
         const [query, setQuery] = React.useState('');
         const [category, setCategory] = React.useState('');
-        const [editing, setEditing] = React.useState(undefined); // undefined = closed, null = create
+        const [uncategorized, setUncategorized] = React.useState(false);
+        const [sortBy, setSortBy] = React.useState('recent');
+        const [editor, setEditor] = React.useState(undefined); // undefined closed, null create
+        const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
-        const [managingCategories, setManagingCategories] = React.useState(false);
+        const [categoryDialog, setCategoryDialog] = React.useState(false);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
 
         const notify = React.useCallback((text, kind = 'ok') => setNotice({ text, kind }), []);
@@ -1014,42 +1322,47 @@ window.__ModuleLoader__.load({
         }, [notice]);
 
         const actions = snapshot.actions ?? [];
-        const categories = React.useMemo(
-          () => [...new Set(actions.map((action) => action.category).filter((name) => typeof name === 'string' && name !== ''))].sort((a, b) => a.localeCompare(b, 'zh-CN')),
-          [actions],
-        );
+        const categories = React.useMemo(() => categoriesOf(actions), [actions]);
         const visible = React.useMemo(
-          () => sortActions(actions.filter((action) => (category === '' || (action.category || '') === category) && matches(action, query))),
-          [actions, category, query],
+          () => (uncategorized
+            ? visibleActions(actions, { query, uncategorized: true, sortBy })
+            : visibleActions(actions, { query, category, sortBy })),
+          [actions, category, query, sortBy, uncategorized],
         );
 
         const save = async (form) => {
-          if (editing === null) {
-            await hub.call('/create', { action: form });
-            notify(t('panel.saved'), 'ok');
-          } else {
-            await hub.call('/update', { id: editing.id, patch: form });
-            notify(t('panel.saved'), 'ok');
-          }
-          setEditing(undefined);
+          if (editor === null) await hub.call('/create', { action: form });
+          else await hub.call('/update', { id: editor.id, patch: form });
+          notify(t('lib.saved'), 'ok');
+          setEditor(undefined);
         };
 
         const remove = async () => {
           if (deleting === null) return;
           try {
             await hub.call('/delete', { id: deleting.id });
-            notify(t('panel.deleted'), 'ok');
+            notify(t('lib.deleted'), 'ok');
           } catch (failure) {
             notify(describeError(failure), 'error');
           } finally {
             setDeleting(null);
+            setDetail(null);
           }
         };
 
         const duplicate = async (action) => {
           try {
             await hub.call('/duplicate', { id: action.id });
-            notify(t('panel.duplicated'), 'ok');
+            notify(t('lib.duplicated'), 'ok');
+          } catch (failure) {
+            notify(describeError(failure), 'error');
+          }
+        };
+
+        const togglePin = async (action) => {
+          try {
+            await hub.patchAction(action.id, { pinned: action.pinned !== true });
+            notify(action.pinned ? t('lib.unpinned') : t('lib.pinned'), 'ok');
           } catch (failure) {
             notify(describeError(failure), 'error');
           }
@@ -1067,95 +1380,142 @@ window.__ModuleLoader__.load({
             anchor.click();
             document.body.removeChild(anchor);
             setTimeout(() => URL.revokeObjectURL(url), 2000);
+            notify(t('lib.saved'), 'ok');
           } catch (failure) {
             notify(describeError(failure), 'error');
           }
         };
 
-        const body = [];
-        body.push(h('header', { key: 'head', className: 'dsah-head' },
-          h('div', { className: 'dsah-head-main' },
-            h('h1', { className: 'dsah-title' }, t('panel.title')),
-            h('p', { className: 'dsah-subtitle' }, t('panel.subtitle'))),
-          h('div', { className: 'dsah-head-actions' },
-            h(Button, { primary: true, onClick: () => setEditing(null) }, t('panel.new')),
-            h(Button, { onClick: () => setImporting(true) }, t('panel.import')),
-            h(Button, { onClick: exportAll }, t('panel.export')),
-            h(Button, { quiet: true, onClick: () => { void hub.refresh(true).catch(() => {}); } }, t('panel.refresh')))));
-
-        body.push(h('div', { key: 'toolbar', className: 'dsah-toolbar' },
-          h('div', { className: 'dsah-search' },
-            h('span', { className: 'dsah-search-mark' }, h(IconSearch)),
-            h('input', {
-              value: query,
-              placeholder: t('panel.search'),
-              onChange: (event) => setQuery(event.target.value),
-              'aria-label': t('panel.search'),
-            })),
-          h('div', { className: 'dsah-chips' },
-            h('button', { type: 'button', className: 'dsah-chip', 'data-active': category === '', onClick: () => setCategory('') }, t('panel.all')),
-            categories.map((name) => h('button', {
-              key: name,
-              type: 'button',
-              className: 'dsah-chip',
-              'data-active': category === name,
-              onClick: () => setCategory(category === name ? '' : name),
-            }, name)),
-            h('button', { type: 'button', className: 'dsah-chip', onClick: () => setManagingCategories(true) }, t('panel.categoryManage'))),
-          h('span', { className: 'dsah-count' },
-            query === '' && category === ''
-              ? t('panel.count', { count: actions.length })
-              : t('panel.countFiltered', { count: visible.length, total: actions.length }))));
-
-        if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'dsah-notice', 'data-kind': notice.kind, role: 'status' }, notice.text));
-
-        if (snapshot.status === 'loading' && actions.length === 0) {
-          body.push(h('div', { key: 'loading', className: 'dsah-empty' }, h('div', { className: 'dsah-empty-title' }, t('panel.loading'))));
-        } else if (snapshot.status === 'error' && actions.length === 0) {
-          body.push(h('div', { key: 'error', className: 'dsah-empty' },
-            h('div', { className: 'dsah-empty-title' }, t('panel.retry')),
-            h('div', { className: 'dsah-empty-copy' }, t('panel.loadFailed', { error: snapshot.error })),
-            h(Button, { primary: true, onClick: () => { void hub.refresh(true).catch(() => {}); } }, t('panel.retry'))));
-        } else if (visible.length === 0) {
-          body.push(h('div', { key: 'empty', className: 'dsah-empty' },
-            h('div', { className: 'dsah-empty-title' }, t('panel.emptyTitle')),
-            h('div', { className: 'dsah-empty-copy' }, actions.length === 0 ? t('panel.emptyCopy') : t('panel.emptyFiltered')),
-            h('div', { className: 'dsah-empty-copy' }, t('panel.openComposer')),
-            actions.length === 0
-              ? h(Button, { primary: true, onClick: () => setEditing(null) }, t('panel.new'))
-              : null));
-        } else {
-          body.push(h('div', { key: 'list', className: 'dsah-list' }, visible.map((action) => h(ActionCard, {
-            key: action.id,
-            action,
-            t,
-            notify,
-            onEdit: () => setEditing(action),
-            onDuplicate: () => duplicate(action),
-            onDelete: () => setDeleting(action),
-          }))));
+        const navItems = [];
+        navItems.push(h('button', {
+          key: '__all',
+          type: 'button',
+          className: 'ah-nav-item',
+          'data-active': category === '' && !uncategorized,
+          onClick: () => { setCategory(''); setUncategorized(false); },
+        }, h('span', { className: 'ah-nav-name' }, t('lib.all')), h('span', { className: 'ah-nav-count' }, actions.length)));
+        for (const [name, count] of categories) {
+          navItems.push(h('button', {
+            key: name,
+            type: 'button',
+            className: 'ah-nav-item',
+            'data-active': category === name && !uncategorized,
+            onClick: () => { setCategory(name); setUncategorized(false); },
+          }, h('span', { className: 'ah-nav-name' }, name), h('span', { className: 'ah-nav-count' }, count)));
+        }
+        const unclassified = actions.filter((action) => (action.category || '') === '').length;
+        if (unclassified > 0) {
+          navItems.push(h('button', {
+            key: '__none',
+            type: 'button',
+            className: 'ah-nav-item',
+            'data-active': uncategorized,
+            onClick: () => { setUncategorized(true); setCategory(''); },
+          }, h('span', { className: 'ah-nav-name' }, t('lib.uncategorized')), h('span', { className: 'ah-nav-count' }, unclassified)));
         }
 
-        if (editing !== undefined) {
+        const sortLabels = { recent: t('lib.sortRecent'), name: t('lib.sortName'), created: t('lib.sortCreated') };
+
+        const body = [];
+        body.push(h('header', { key: 'head', className: 'ah-head' },
+          h('div', { className: 'ah-head-main' },
+            h('h1', { className: 'ah-title' }, t('app.title')),
+            h('p', { className: 'ah-sub' }, t('app.subtitle'))),
+          h('div', { className: 'ah-head-actions' },
+            h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('action.new')),
+            h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
+            h(Button, { onClick: exportAll }, h(Icons.download, { size: 13 }), t('action.export')),
+            h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
+
+        if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'ah-notice', 'data-kind': notice.kind, role: 'status' }, notice.text));
+
+        body.push(h('div', { key: 'body', className: 'ah-body' },
+          h('nav', { className: 'ah-nav', 'aria-label': t('lib.categories') },
+            h('div', { className: 'ah-nav-label' }, t('lib.categories')),
+            h('div', { className: 'ah-nav-list' }, navItems),
+            h('div', { className: 'ah-nav-foot' },
+              h(Button, { ghost: true, onClick: () => setCategoryDialog(true) }, h(Icons.sliders, { size: 13 }), t('lib.manageCategories')))),
+          h('div', { className: 'ah-main' },
+            h('div', { className: 'ah-main-bar' },
+              h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
+              h('div', { className: 'ah-sort' },
+                h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
+                Object.entries(sortLabels).map(([value, label]) => h('button', {
+                  key: value,
+                  type: 'button',
+                  className: 'ah-chip',
+                  'data-active': sortBy === value,
+                  onClick: () => setSortBy(value),
+                }, label))),
+              h('span', { className: 'ah-count' }, query === '' && category === '' && !uncategorized
+                ? t('lib.count', { count: actions.length })
+                : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
+            snapshot.status === 'loading' && actions.length === 0
+              ? h('div', { className: 'ah-empty' }, h('div', { className: 'ah-empty-title' }, t('lib.loading')))
+              : snapshot.status === 'error' && actions.length === 0
+                ? h('div', { className: 'ah-empty' },
+                  h('div', { className: 'ah-empty-title' }, t('lib.loadFailed', { error: snapshot.error })),
+                  h(Button, { primary: true, onClick: () => { void hub.refresh(true).catch(() => {}); } }, t('lib.retry')))
+                : visible.length === 0
+                  ? h('div', { className: 'ah-empty' },
+                    h('div', { className: 'ah-empty-icon' }, h(Icons.shelf, { size: 30 })),
+                    h('div', { className: 'ah-empty-title' }, actions.length === 0 ? t('lib.emptyTitle') : t('lib.emptyFiltered')),
+                    h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('lib.emptyCopy') : ''),
+                    actions.length === 0
+                      ? h('div', { className: 'ah-empty-actions' }, h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('lib.emptyCta')))
+                      : null)
+                  : h('div', { className: 'ah-list' }, visible.map((action) => h(ActionRow, {
+                    key: action.id,
+                    action,
+                    t,
+                    onOpen: setDetail,
+                    onPin: togglePin,
+                    onEdit: (entry) => setEditor(entry),
+                    onDuplicate: duplicate,
+                    onDelete: setDeleting,
+                  }))))));
+
+        if (editor !== undefined) {
           body.push(h(EditorDialog, {
             key: 'editor',
-            initial: editing,
-            categories,
+            initial: editor,
+            categories: categories.map(([name]) => name),
             t,
             onSave: save,
-            onClose: () => setEditing(undefined),
+            onClose: () => setEditor(undefined),
           }));
+        }
+        if (detail !== null) {
+          body.push(h(Modal, {
+            key: 'detail',
+            title: detail.name,
+            t,
+            onClose: () => setDetail(null),
+            footer: h(React.Fragment, null,
+              h(Button, { onClick: async () => { try { await copyText(detail.prompt); notify(t('lib.copied'), 'ok'); } catch { notify(t('lib.copyFailed'), 'error'); } } }, h(Icons.copy, { size: 13 }), t('action.copy')),
+              h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
+              h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
+          },
+          h('div', { className: 'ah-preview-meta' },
+            detail.category ? h('span', { className: 'ah-badge ah-badge-accent' }, detail.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
+            detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
+            detail.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+            (detail.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
+            h('span', { className: 'ah-count' }, detail.usage?.count > 0 ? t('lib.used', { count: detail.usage.count }) : t('lib.updated', { time: relativeTime(detail.updatedAt) }))),
+          detail.description ? h('p', { className: 'ah-desc' }, detail.description) : null,
+          h('pre', { className: 'ah-code' }, detail.prompt),
+          h('p', { className: 'ah-hint' }, t('lib.useInChat'))));
         }
         if (deleting !== null) {
           body.push(h(Modal, {
             key: 'delete',
-            title: t('panel.deleteTitle'),
+            title: t('delete.title'),
             t,
             onClose: () => setDeleting(null),
             footer: h(React.Fragment, null,
-              h(Button, { onClick: () => setDeleting(null) }, t('panel.cancel')),
-              h(Button, { danger: true, onClick: remove }, t('panel.deleteConfirm'))),
-          }, h('p', { className: 'dsah-desc' }, t('panel.deleteCopy', { name: deleting.name }))));
+              h(Button, { onClick: () => setDeleting(null) }, t('action.cancel')),
+              h(Button, { danger: true, onClick: remove }, t('action.deleteForever'))),
+          }, h('p', { className: 'ah-desc' }, t('delete.copy', { name: deleting.name }))));
         }
         if (importing) {
           body.push(h(ImportDialog, {
@@ -1163,233 +1523,452 @@ window.__ModuleLoader__.load({
             t,
             notify,
             onClose: () => setImporting(false),
-            onDone: () => {
-              void hub.refresh(true).catch(() => {});
-            },
+            onDone: () => { void hub.refresh(true).catch(() => {}); },
           }));
         }
-        if (managingCategories) {
+        if (categoryDialog) {
           body.push(h(CategoryDialog, {
             key: 'categories',
             t,
-            categories,
+            categories: categories.map(([name]) => name),
             notify,
-            onClose: () => setManagingCategories(false),
+            onClose: () => setCategoryDialog(false),
             onDone: () => { void hub.refresh(true).catch(() => {}); },
           }));
         }
 
-        return h('div', { className: 'dsah-root' }, body);
+        return h('div', { className: 'ah-page' }, body);
       };
     }
 
-    // ---------------------------------------------------------------- launcher
+    // --------------------------------------------------------------- palette
 
-    /**
-     * The composer-dock quick launcher. It renders a chip and a fixed popover;
-     * picking an Action appends its expanded prompt to the composer draft.
-     */
-    function createLauncher(hub, ctx) {
-      return function ActionLauncher(props) {
+    function createPaletteView(hub, palette, prefsRef) {
+      return function ActionPalette(props) {
         const t = translate(props);
-        const { snapshot } = useHub(hub);
-        const [open, setOpen] = React.useState(false);
-        const [query, setQuery] = React.useState('');
-        const [category, setCategory] = React.useState('');
-        const [args, setArgs] = React.useState('');
-        const [active, setActive] = React.useState(0);
-        const [notice, setNotice] = React.useState('');
-        const [anchor, setAnchor] = React.useState(null);
-        const buttonRef = React.useRef(null);
-        const popRef = React.useRef(null);
+        const state = usePalette(palette);
+        const snapshot = useHub(hub);
+        const prefs = usePrefs(prefsRef);
         const searchRef = React.useRef(null);
-
-        const input = typeof props.useInput === 'function' ? props.useInput((state) => state) : undefined;
-        const inputActions = props.inputActions;
+        const listRef = React.useRef(null);
+        const [selectedId, setSelectedId] = React.useState(null);
+        const [args, setArgs] = React.useState('');
+        const [capture, setCapture] = React.useState({ name: '', category: '', tags: '', error: '', busy: false });
+        const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
-        const categories = React.useMemo(
-          () => [...new Set(actions.map((action) => action.category).filter((name) => typeof name === 'string' && name !== ''))].sort((a, b) => a.localeCompare(b, 'zh-CN')),
-          [actions],
-        );
+        const categories = React.useMemo(() => categoriesOf(actions), [actions]);
         const visible = React.useMemo(
-          () => sortActions(actions.filter((action) => (category === '' || (action.category || '') === category) && matches(action, query))),
-          [actions, category, query],
+          () => visibleActions(actions, { query: state.query, category: state.category }),
+          [actions, state.category, state.query],
         );
+        const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
 
         React.useEffect(() => {
-          setActive((index) => (index >= visible.length ? 0 : index));
-        }, [visible.length]);
-
-        const close = React.useCallback(() => {
-          setOpen(false);
+          if (!state.open) return undefined;
+          setSelectedId(null);
           setArgs('');
-          setQuery('');
-          setCategory('');
-          setNotice('');
-        }, []);
+          setCapture({ name: '', category: '', tags: '', error: '', busy: false });
+          setToast({ text: '', kind: 'ok' });
+          if (hub.get().status === 'idle' || hub.get().status === 'error') void hub.refresh().catch(() => {});
+          const timer = setTimeout(() => searchRef.current?.focus(), 20);
+          return () => clearTimeout(timer);
+        }, [state.open]);
 
         React.useEffect(() => {
-          if (!open) return undefined;
-          const onPointer = (event) => {
-            const target = event.target;
-            if (buttonRef.current?.contains(target)) return;
-            if (popRef.current?.contains(target)) return;
-            close();
-          };
+          if (selectedId === null && visible.length > 0) setSelectedId(visible[0].id);
+          if (selectedId !== null && !visible.some((action) => action.id === selectedId)) setSelectedId(visible[0]?.id ?? null);
+        }, [visible, selectedId]);
+
+        React.useEffect(() => {
+          if (!state.open || selected === null) return;
+          const node = listRef.current?.querySelector(`[data-action-id="${selected.id}"]`);
+          node?.scrollIntoView({ block: 'nearest' });
+        }, [selected?.id, state.open]);
+
+        const close = React.useCallback(() => palette.close(), [palette]);
+
+        React.useEffect(() => {
+          if (!state.open) return undefined;
           const onKey = (event) => {
             if (event.key === 'Escape') {
+              event.preventDefault();
               event.stopPropagation();
               close();
             }
           };
-          document.addEventListener('mousedown', onPointer, true);
           document.addEventListener('keydown', onKey, true);
-          const timer = setTimeout(() => searchRef.current?.focus(), 20);
-          return () => {
-            document.removeEventListener('mousedown', onPointer, true);
-            document.removeEventListener('keydown', onKey, true);
-            clearTimeout(timer);
-          };
-        }, [open, close]);
+          return () => document.removeEventListener('keydown', onKey, true);
+        }, [state.open, close]);
 
-        const openPopover = () => {
-          const rect = buttonRef.current?.getBoundingClientRect();
-          setAnchor(rect === undefined ? null : rect);
-          setOpen(true);
-          setNotice('');
-          void hub.refresh().catch(() => {});
+        if (!state.open) return null;
+
+        const bridge = state.bridge;
+        const canWrite = Boolean(bridge?.inputActions);
+
+        const showToast = (text, kind = 'ok') => {
+          setToast({ text, kind });
+          setTimeout(() => setToast((current) => (current.text === text ? { text: '', kind: 'ok' } : current)), 2600);
         };
 
-        const insert = (action, mode) => {
-          if (inputActions === undefined || typeof inputActions.setDraft !== 'function') {
-            setNotice(t('launcher.insertFailed'));
+        const doInsert = (action, mode) => {
+          if (!canWrite) {
+            showToast(t('palette.insertFailed'), 'error');
             return;
           }
-          const prompt = promptOf(action, args);
-          const draft = input?.draft ?? '';
-          const next = composeDraft(draft, prompt);
+          const text = expandPrompt(action.prompt, { args });
+          const inputActions = bridge.inputActions;
+          const draft = bridge.input?.draft ?? '';
+          let placed = false;
+          let atCaret = false;
           try {
-            inputActions.setDraft(next);
+            if (typeof inputActions.captureInsertion === 'function' && typeof inputActions.insertText === 'function') {
+              const span = inputActions.captureInsertion();
+              if (span) {
+                const result = inputActions.insertText(text, span);
+                placed = result !== false;
+                atCaret = placed;
+              }
+            }
           } catch {
-            setNotice(t('launcher.insertFailed'));
+            placed = false;
+          }
+          if (!placed) {
+            try {
+              inputActions.setDraft(composeDraft(draft, text));
+              placed = true;
+            } catch {
+              placed = false;
+            }
+          }
+          if (!placed) {
+            showToast(t('palette.insertFailed'), 'error');
             return;
           }
+          inputActions.persistDraft?.();
+          void hub.call('/touch', { id: action.id }).catch(() => {});
           if (mode === 'send') {
             setTimeout(() => {
               try {
                 inputActions.submit?.();
+                showToast(t('palette.sent'));
               } catch {
-                /* the draft is already in place */
+                showToast(t('palette.sendFailed'), 'error');
               }
-            }, 30);
-          } else {
-            setNotice(t('launcher.inserted'));
+            }, 40);
+            return;
           }
-          void hub.call('/touch', { id: action.id }).catch(() => {});
-          if (mode !== 'send') setTimeout(() => setOpen(false), 700);
+          showToast(atCaret ? t('palette.insertedAtCaret') : t('palette.inserted'));
+          if (prefs.closeAfterInsert) setTimeout(() => palette.close(), 220);
+        };
+
+        const saveCapture = async () => {
+          const draft = bridge?.input?.draft ?? '';
+          if (draft.trim() === '') {
+            setCapture((current) => ({ ...current, error: t('palette.captureEmpty') }));
+            return;
+          }
+          if (capture.name.trim() === '') {
+            setCapture((current) => ({ ...current, error: t('editor.required') }));
+            return;
+          }
+          setCapture((current) => ({ ...current, busy: true, error: '' }));
+          try {
+            await hub.call('/create', {
+              action: {
+                name: capture.name.trim(),
+                category: capture.category.trim(),
+                tags: capture.tags.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''),
+                description: '',
+                prompt: draft,
+                pinned: false,
+              },
+            });
+            setToast({ text: t('palette.captureDone', { name: capture.name.trim() }), kind: 'ok' });
+            palette.update({ mode: 'browse' });
+            setCapture({ name: '', category: '', tags: '', error: '', busy: false });
+          } catch (failure) {
+            setCapture((current) => ({ ...current, busy: false, error: describeError(failure) }));
+          }
         };
 
         const onSearchKey = (event) => {
           if (event.key === 'ArrowDown') {
             event.preventDefault();
-            setActive((index) => Math.min(index + 1, visible.length - 1));
+            const index = Math.max(0, visible.findIndex((action) => action.id === selected?.id));
+            const next = visible[Math.min(index + 1, visible.length - 1)];
+            if (next) setSelectedId(next.id);
           } else if (event.key === 'ArrowUp') {
             event.preventDefault();
-            setActive((index) => Math.max(index - 1, 0));
+            const index = Math.max(0, visible.findIndex((action) => action.id === selected?.id));
+            const next = visible[Math.max(index - 1, 0)];
+            if (next) setSelectedId(next.id);
           } else if (event.key === 'Enter') {
-            const target = visible[active];
-            if (target !== undefined) {
+            if (event.ctrlKey || event.metaKey) {
               event.preventDefault();
-              insert(target, event.metaKey || event.ctrlKey ? 'send' : 'insert');
+              if (selected) doInsert(selected, 'send');
+            } else {
+              event.preventDefault();
+              if (selected) doInsert(selected, 'insert');
             }
+          } else if (event.key === 'Tab') {
+            event.preventDefault();
+            const names = ['', ...categories.map(([name]) => name)];
+            const index = names.indexOf(state.category);
+            const next = names[(index + (event.shiftKey ? -1 : 1) + names.length) % names.length];
+            palette.update({ category: next });
           }
         };
 
-        const popover = open
-          ? h('div', {
-            className: 'dsah-pop',
-            ref: popRef,
-            role: 'dialog',
-            'aria-label': t('launcher.title'),
-            style: anchor === null
-              ? { left: 16, bottom: 90 }
-              : (() => {
-                const left = Math.min(Math.max(8, anchor.left), Math.max(8, window.innerWidth - 472));
-                const above = anchor.top - 12;
-                const below = window.innerHeight - anchor.bottom - 12;
-                return above >= 260 || above >= below
-                  ? { left, bottom: window.innerHeight - anchor.top + 8, maxHeight: Math.min(560, above) }
-                  : { left, top: anchor.bottom + 8, maxHeight: Math.min(560, below) };
-              })(),
-          },
-          h('div', { className: 'dsah-pop-head' },
-            h('div', { className: 'dsah-pop-title-row' },
-              h('span', { className: 'dsah-pop-title' }, t('launcher.title')),
-              h(Button, { quiet: true, onClick: close, title: t('panel.cancel') }, h(IconClose))),
-            h('div', { className: 'dsah-search' },
-              h('span', { className: 'dsah-search-mark' }, h(IconSearch)),
-              h('input', {
-                ref: searchRef,
-                value: query,
-                placeholder: t('launcher.search'),
-                onChange: (event) => setQuery(event.target.value),
-                onKeyDown: onSearchKey,
-                'aria-label': t('launcher.search'),
-              }))),
-          h('div', { className: 'dsah-pop-args' },
-            h('input', {
-              className: 'dsah-input',
-              value: args,
-              placeholder: t('launcher.args'),
-              onChange: (event) => setArgs(event.target.value),
-              'aria-label': t('launcher.args'),
-            })),
-          h('div', { className: 'dsah-pop-list' },
-            visible.length === 0
-              ? h('div', { className: 'dsah-notice' }, actions.length === 0 ? t('launcher.empty') : t('launcher.noMatch'))
-              : visible.map((action, index) => h('button', {
-                key: action.id,
-                type: 'button',
-                className: 'dsah-item',
-                'data-active': index === active,
-                onMouseEnter: () => setActive(index),
-                onClick: (event) => insert(action, event.metaKey || event.ctrlKey ? 'send' : 'insert'),
-              },
-              h('span', { className: 'dsah-item-top' },
-                h('span', { className: 'dsah-item-name' }, action.name),
-                action.category ? h('span', { className: 'dsah-badge dsah-badge-accent' }, action.category) : null),
-              h('span', { className: 'dsah-item-desc' }, action.description || (action.argsHint ? `参数：${action.argsHint}` : ''))))),
-          notice === ''
-            ? null
-            : h('div', { className: 'dsah-pop-args' }, h('div', { className: 'dsah-notice', 'data-kind': 'ok', role: 'status' }, notice)),
-          h('div', { className: 'dsah-pop-foot' },
-            h('span', { className: 'dsah-pop-hint' }, t('launcher.hint')),
-            h(Button, { onClick: () => { close(); ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('launcher.manage'))))
-          : null;
+        const header = state.mode === 'capture'
+          ? h('div', { className: 'ah-palette-search' },
+            h('h2', { className: 'ah-preview-title', style: { margin: 0, flex: '1 1 auto' } }, t('palette.captureTitle')),
+            h(Button, { ghost: true, iconOnly: true, small: true, onClick: close, title: t('action.close') }, h(Icons.close, { size: 13 })))
+          : h('div', { className: 'ah-palette-search' },
+            h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
+            h(Kbd, null, 'Esc'));
 
-        const label = `${t('launcher.label')}${actions.length > 0 ? ` · ${actions.length}` : ''}`;
-        return h('div', { className: 'dsah-launch' },
-          h('button', {
-            ref: buttonRef,
+        const catRow = state.mode === 'capture' ? null : h('div', { className: 'ah-palette-cats' },
+          h('button', { type: 'button', className: 'ah-chip', 'data-active': state.category === '', onClick: () => palette.update({ category: '' }) }, t('lib.all')),
+          categories.map(([name, count]) => h('button', {
+            key: name,
             type: 'button',
-            className: 'dsah-launch-btn',
-            'data-open': open,
-            title: t('launcher.shortcut'),
-            onClick: () => (open ? close() : openPopover()),
-          },
-          h('svg', { viewBox: '0 0 16 16', width: 12, height: 12, 'aria-hidden': true, fill: 'none' },
-            h('path', { d: 'M2.5 4.2h11M2.5 8h11M2.5 11.8h7', stroke: 'currentColor', strokeWidth: 1.3, strokeLinecap: 'round' })),
-          h('span', null, label)),
-          popover);
+            className: 'ah-chip',
+            'data-active': state.category === name,
+            onClick: () => palette.update({ category: state.category === name ? '' : name }),
+          }, name, h('span', { className: 'ah-chip-count' }, count))));
+
+        const results = h('div', { className: 'ah-results', ref: listRef, role: 'listbox', 'aria-label': t('palette.title') },
+          visible.length === 0
+            ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), actions.length === 0 ? t('palette.empty') : t('palette.noMatch'))
+            : visible.map((action) => h('button', {
+              key: action.id,
+              type: 'button',
+              role: 'option',
+              className: 'ah-result',
+              'data-action-id': action.id,
+              'data-active': action.id === selected?.id,
+              'aria-selected': action.id === selected?.id,
+              onMouseEnter: () => setSelectedId(action.id),
+              onClick: () => doInsert(action, 'insert'),
+            },
+            h('div', { className: 'ah-result-main' },
+              h('div', { className: 'ah-result-title' },
+                action.pinned ? h('span', { className: 'ah-result-star' }, h(Icons.star, { size: 11, filled: true })) : null,
+                h('span', { className: 'ah-result-name' }, action.name),
+                action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : null),
+              h('span', { className: 'ah-result-desc' }, action.description || (action.argsHint ? `${action.argsHint}` : action.prompt.slice(0, 80)))))));
+
+        const preview = selected === null
+          ? h('div', { className: 'ah-preview' },
+            h('div', { className: 'ah-preview-empty' },
+              h('div', { className: 'ah-empty-title' }, actions.length === 0 ? t('palette.empty') : t('palette.noMatch')),
+              h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('palette.emptyCopy') : ''),
+              actions.length === 0
+                ? h('div', { className: 'ah-empty-actions' },
+                  h(Button, { primary: true, onClick: () => palette.update({ mode: 'capture' }) }, h(Icons.plus, { size: 14 }), t('palette.capture')),
+                  h(Button, { onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')))
+                : null))
+          : h('div', { className: 'ah-preview' },
+            h('div', { className: 'ah-preview-head' },
+              h('h2', { className: 'ah-preview-title' }, selected.name),
+              h(Button, { ghost: true, iconOnly: true, small: true, title: selected.pinned ? t('action.unpin') : t('action.pin'), onClick: async () => {
+                try {
+                  await hub.patchAction(selected.id, { pinned: selected.pinned !== true });
+                  showToast(selected.pinned ? t('lib.unpinned') : t('lib.pinned'));
+                } catch (failure) {
+                  showToast(describeError(failure), 'error');
+                }
+              } }, h(Icons.star, { size: 14, filled: selected.pinned === true }))),
+            h('div', { className: 'ah-preview-meta' },
+              selected.category ? h('span', { className: 'ah-badge ah-badge-accent' }, selected.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
+              selected.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+              (selected.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
+              selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
+            selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
+            selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
+            h('pre', { className: 'ah-code ah-preview-body' }, selected.prompt));
+
+        const captureDraft = typeof bridge?.input?.draft === 'string' ? bridge.input.draft.trim() : '';
+        const captureView = h('div', { className: 'ah-capture' },
+          h('div', { className: 'ah-field' },
+            h('label', { className: 'ah-label' }, t('editor.name')),
+            h('input', {
+              className: 'ah-input',
+              value: capture.name,
+              autoFocus: true,
+              placeholder: t('editor.namePlaceholder'),
+              onChange: (event) => setCapture((current) => ({ ...current, name: event.target.value })),
+              onKeyDown: (event) => { if (event.key === 'Enter') { event.preventDefault(); void saveCapture(); } },
+            })),
+          h('div', { className: 'ah-field-row' },
+            h('div', { className: 'ah-field' },
+              h('label', { className: 'ah-label' }, t('editor.category')),
+              h('input', { className: 'ah-input', value: capture.category, list: 'ah-capture-categories', onChange: (event) => setCapture((current) => ({ ...current, category: event.target.value })) }),
+              h('datalist', { id: 'ah-capture-categories' }, categories.map(([name]) => h('option', { key: name, value: name })))),
+            h('div', { className: 'ah-field' },
+              h('label', { className: 'ah-label' }, t('editor.tags')),
+              h('input', { className: 'ah-input', value: capture.tags, placeholder: t('editor.tagsPlaceholder'), onChange: (event) => setCapture((current) => ({ ...current, tags: event.target.value })) }))),
+          h('div', { className: 'ah-field' },
+            h('label', { className: 'ah-label' }, t('palette.capturePrompt')),
+            h('pre', { className: 'ah-code' }, captureDraft || t('palette.captureEmpty'))),
+          capture.error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, capture.error),
+          h('div', { className: 'ah-actions' },
+            h('div', { style: { flex: '1 1 auto' } }),
+            h(Button, { onClick: () => palette.update({ mode: 'browse' }) }, t('action.cancel')),
+            h(Button, { primary: true, disabled: capture.busy || captureDraft === '', onClick: saveCapture }, t('action.save'))));
+
+        const footer = state.mode === 'capture' ? null : h('div', { className: 'ah-palette-foot' },
+          h('div', { className: 'ah-args' },
+            h('input', {
+              className: 'ah-input',
+              value: args,
+              placeholder: t('palette.args'),
+              'aria-label': t('palette.args'),
+              onChange: (event) => setArgs(event.target.value),
+            })),
+          h('div', { className: 'ah-hints' },
+            h('span', null, h(Kbd, null, '↑↓'), ` ${t('palette.hintNav')}`),
+            h('span', null, h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),
+            h('span', null, h(Kbd, null, 'Ctrl+↵'), ` ${t('palette.hintSend')}`)),
+          h('div', { className: 'ah-actions' },
+            h(Button, { ghost: true, small: true, onClick: () => palette.update({ mode: 'capture' }) }, h(Icons.plus, { size: 13 }), t('palette.capture')),
+            h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
+            h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
+            h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null }, h(Icons.send, { size: 13 }), t('palette.send'))));
+
+        const toastView = toast.text === '' ? null : h('div', { className: 'ah-toast', 'data-kind': toast.kind, role: 'status' }, toast.text);
+
+        const bodyContent = state.mode === 'capture'
+          ? captureView
+          : h(React.Fragment, null,
+            h('div', { className: 'ah-palette-body' }, results, preview));
+
+        return h('div', {
+          className: 'ah-backdrop',
+          'data-palette': 'true',
+          onMouseDown: (event) => { if (event.target === event.currentTarget) close(); },
+        },
+        h('div', {
+          className: 'ah-palette',
+          role: 'dialog',
+          'aria-modal': 'true',
+          'aria-label': t('palette.title'),
+          onMouseDown: (event) => event.stopPropagation(),
+        },
+        header,
+        catRow,
+        bodyContent,
+        toastView,
+        footer));
+      };
+    }
+
+    function usePalette(palette) {
+      const [snapshot, setSnapshot] = React.useState(() => palette.get());
+      React.useEffect(() => palette.subscribe(setSnapshot), [palette]);
+      return snapshot;
+    }
+
+    // Session bridge: hands the frame-level palette the live composer facade.
+    function createSessionBridge(palette) {
+      return function SessionBridge(props) {
+        const input = typeof props.useInput === 'function' ? props.useInput((state) => state) : undefined;
+        const sessionId = props.sessionId;
+        const actions = props.inputActions;
+
+        React.useEffect(() => {
+          if (sessionId === undefined || actions === undefined) return undefined;
+          palette.setBridge({ sessionId, inputActions: actions, input });
+          return () => palette.clearBridge(sessionId);
+        }, [sessionId, actions, input?.draftRev, input?.phase, input?.draft]);
+
+        return null;
+      };
+    }
+
+    function createTrigger(palette) {
+      return function ActionTrigger(props) {
+        const t = translate(props);
+        const prefs = usePrefs(props.prefs);
+        const state = usePalette(palette);
+        if (!prefs.showTrigger) return null;
+        return h('button', {
+          type: 'button',
+          className: 'ah-trigger',
+          'data-open': state.open,
+          title: t('trigger.tooltip', { keys: MAC ? '⌘⇧A' : 'Ctrl+Shift+A' }),
+          'aria-label': t('trigger.tooltip', { keys: MAC ? '⌘⇧A' : 'Ctrl+Shift+A' }),
+          onClick: () => (state.open ? palette.close() : palette.open()),
+        }, h(Icons.shelf, { size: 16 }));
+      };
+    }
+
+    // ----------------------------------------------------------------- settings
+
+    function createSettings(hub, prefs) {
+      return function ActionHubSettings(props) {
+        const t = translate(props);
+        const snapshot = useHub(hub);
+        const state = usePrefs(prefs);
+        const [notice, setNotice] = React.useState('');
+        const saved = (text) => {
+          setNotice(text);
+          setTimeout(() => setNotice(''), 2000);
+        };
+
+        return h('div', { className: 'ah-settings' },
+          h('div', null,
+            h('h2', { className: 'ah-modal-title', style: { margin: '0 0 6px' } }, t('settings.title')),
+            h('p', { className: 'ah-sub', style: { margin: 0 } }, t('settings.desc'))),
+          notice === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'ok', role: 'status' }, notice),
+          h('section', { className: 'ah-settings-card' },
+            h('h3', { className: 'ah-settings-title' }, t('settings.behavior')),
+            h('div', { className: 'ah-settings-row' },
+              h('div', { className: 'ah-settings-row-main' },
+                h('span', { className: 'ah-settings-row-title' }, t('settings.closeAfterInsert')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.closeAfterInsertDesc'))),
+              h(Switch, { checked: state.closeAfterInsert, label: t('settings.closeAfterInsert'), onChange: (value) => { prefs.set({ closeAfterInsert: value }); saved(t('settings.saved')); } })),
+            h('div', { className: 'ah-settings-row' },
+              h('div', { className: 'ah-settings-row-main' },
+                h('span', { className: 'ah-settings-row-title' }, t('settings.trigger')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.triggerDesc'))),
+              h(Switch, { checked: state.showTrigger, label: t('settings.trigger'), onChange: (value) => { prefs.set({ showTrigger: value }); saved(t('settings.saved')); } })),
+            h('div', { className: 'ah-settings-row' },
+              h('div', { className: 'ah-settings-row-main' },
+                h('span', { className: 'ah-settings-row-title' }, t('settings.hotkey')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.hotkeyDesc'))),
+              h('span', { className: 'ah-kbd' }, t('settings.hotkeyKeys')),
+              h(Switch, { checked: state.hotkeyEnabled, label: t('settings.hotkey'), onChange: (value) => { prefs.set({ hotkeyEnabled: value }); saved(t('settings.saved')); } }))),
+          h('section', { className: 'ah-settings-card' },
+            h('h3', { className: 'ah-settings-title' }, t('settings.data')),
+            h('p', { className: 'ah-settings-row-desc' }, t('settings.dataDesc', { path: snapshot.meta.dataFileDisplay ?? snapshot.meta.dataFile ?? '—', count: snapshot.actions.length })),
+            h('div', { className: 'ah-actions' },
+              h(Button, { onClick: () => props.ctx.get('layout')?.selectPanel?.(PANEL_ID) }, t('settings.openLibrary')),
+              h(Button, { onClick: async () => {
+                try {
+                  const data = await api('/export');
+                  const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const anchor = document.createElement('a');
+                  anchor.href = url;
+                  anchor.download = `dsh-actions-${new Date().toISOString().slice(0, 10)}.json`;
+                  document.body.appendChild(anchor);
+                  anchor.click();
+                  document.body.removeChild(anchor);
+                  setTimeout(() => URL.revokeObjectURL(url), 2000);
+                } catch (failure) {
+                  saved(describeError(failure));
+                }
+              } }, t('settings.export')))),
+          h('section', { className: 'ah-settings-card' },
+            h('h3', { className: 'ah-settings-title' }, t('settings.about')),
+            h('p', { className: 'ah-settings-row-desc' }, t('settings.aboutDesc', { version: VERSION }))));
       };
     }
 
     // ----------------------------------------------------------------- plugin
 
-    /**
-     * @param {import('@deepseek-ai/cordis').Context} ctx - plugin Client context.
-     */
     function apply(ctx) {
       ctx.effect(() => ctx.locale.register(NS, { zh: TEXT.zh, en: TEXT.en }), 'action-hub: dictionaries');
       ctx.effect(() => {
@@ -1399,69 +1978,111 @@ window.__ModuleLoader__.load({
         document.head.appendChild(style);
         return () => style.remove();
       }, 'action-hub: styles');
+
       const t = ctx.locale.bind(NS);
       const hub = createHub();
-      ctx.effect(() => () => hub.dispose(), 'action-hub: store');
+      const prefs = createPrefs();
+      const palette = createPalette();
 
-      const Page = createPage(hub, ctx);
-      const Launcher = createLauncher(hub, ctx);
+      ctx.effect(() => () => {
+        hub.dispose();
+        palette.close();
+      }, 'action-hub: stores');
 
-      ctx.slots.inject('main', () => ctx.slots.register({
-        name: 'main',
-        key: PANEL_ID,
-        locale: NS,
-      }, Page));
+      const Page = createPage(hub);
+      const PaletteView = createPaletteView(hub, palette, prefs);
+      const SessionBridge = createSessionBridge(palette);
+      const Trigger = createTrigger(palette);
+      const Settings = createSettings(hub, prefs);
 
-      const icon = () => ctx.slots.register({
+      ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL_ID, locale: NS }, Page));
+
+      ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
         name: 'sidebar.panellist',
         id: PANEL_ID,
         order: 32,
-        label: () => t('launcher.label'),
+        label: () => t('app.name'),
         locale: NS,
-      }, PanelIcon(React, h));
-      ctx.slots.inject('sidebar.panellist', icon);
+      }, PanelIcon));
 
-      ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
-        name: 'conversation.composer.dock',
+      ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
+        name: 'conversation.input.left',
         id: 'action-hub',
-        order: 12,
+        order: 30,
+        label: () => t('trigger.label'),
         locale: NS,
-      }, Launcher));
+      }, (props) => h(Trigger, { ...props, prefs })));
+
+      ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
+        name: 'conversation.input.overlay',
+        id: 'action-hub-bridge',
+        order: 90,
+        locale: NS,
+      }, SessionBridge));
+
+      ctx.slots.inject('shell.overlay', () => ctx.slots.register({
+        name: 'shell.overlay',
+        id: 'action-hub-palette',
+        order: 80,
+        locale: NS,
+      }, (props) => h(PaletteView, { ...props, ctx })));
+
+      ctx.slots.inject('settings.section', () => ctx.slots.register({
+        name: 'settings.section',
+        id: PANEL_ID,
+        order: 25,
+        label: () => t('settings.nav'),
+        locale: NS,
+      }, (props) => h(Settings, { ...props, ctx })));
+
+      // Global shortcut: works from anywhere in a conversation.
+      ctx.effect(() => {
+        const onKey = (event) => {
+          const combo = (event.ctrlKey || event.metaKey) && event.shiftKey && (event.key || '').toLowerCase() === 'a';
+          if (!combo) return;
+          if (!prefs.get().hotkeyEnabled) return;
+          const state = palette.get();
+          if (state.open) {
+            event.preventDefault();
+            palette.close();
+            return;
+          }
+          if (state.bridge === null) return;
+          event.preventDefault();
+          event.stopPropagation();
+          palette.open();
+        };
+        document.addEventListener('keydown', onKey, true);
+        return () => document.removeEventListener('keydown', onKey, true);
+      }, 'action-hub: hotkey');
     }
 
-    /**
-     * Sidebar panel icon: a small shelf/stack mark.
-     * @param {object} ReactRuntime
-     * @param {Function} create
-     * @returns {Function}
-     */
-    function PanelIcon(ReactRuntime, create) {
-      return function ActionHubIcon(props) {
-        const size = typeof props?.size === 'number' && props.size > 0 ? props.size : 16;
-        return create('svg', {
-          viewBox: '0 0 16 16',
-          width: size,
-          height: size,
-          'aria-hidden': true,
-          focusable: 'false',
-          style: { display: 'block' },
-        },
-        create('rect', { x: 2.4, y: 2.6, width: 11.2, height: 3.1, rx: 1.1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2 }),
-        create('rect', { x: 2.4, y: 6.5, width: 11.2, height: 3.1, rx: 1.1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2 }),
-        create('rect', { x: 2.4, y: 10.4, width: 7.2, height: 3.1, rx: 1.1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2 }));
-      };
+    function PanelIcon(props) {
+      const size = typeof props?.size === 'number' && props.size > 0 ? props.size : 16;
+      return h('svg', {
+        viewBox: '0 0 16 16',
+        width: size,
+        height: size,
+        'aria-hidden': true,
+        focusable: 'false',
+        style: { display: 'block' },
+      },
+      h('rect', { x: 2.4, y: 2.6, width: 11.2, height: 3.1, rx: 1.1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2 }),
+      h('rect', { x: 2.4, y: 6.5, width: 11.2, height: 3.1, rx: 1.1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2 }),
+      h('rect', { x: 2.4, y: 10.4, width: 7.2, height: 3.1, rx: 1.1, fill: 'none', stroke: 'currentColor', strokeWidth: 1.2 }));
     }
 
     return {
       name: PKG,
       inject: ['slots', 'locale'],
       apply,
-      /** Pure helpers, exported so the smoke test can exercise them without a browser. */
       internals: {
         expandPrompt,
         composeDraft,
-        matches,
+        searchScore,
         sortActions,
+        categoriesOf,
+        visibleActions,
         relativeTime,
         TEXT,
       },

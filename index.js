@@ -12,6 +12,8 @@
  *
  * @module dsh-action-hub
  */
+import os from 'node:os';
+
 import {
   MAX_PROMPT,
   createStore,
@@ -160,6 +162,7 @@ async function handle(ctx, store, req, res) {
         actions: sortActions(state.actions),
         meta: {
           dataFile: store.filePath(),
+          dataFileDisplay: displayPath(store.filePath()),
           skills: ctx.get('skills') !== undefined,
         },
       });
@@ -441,8 +444,27 @@ function originAllowed(ctx, req) {
 }
 
 /**
- * Resolve the directory skill discovery should scan: the explicit request value
- * first, then the profile's default working directory.
+ * Shorten a path under the user's home directory for display, so a settings
+ * page (and its screenshots) does not have to expose the account name.
+ *
+ * @param {string} filePath
+ * @returns {string}
+ */
+function displayPath(filePath) {
+  try {
+    const home = os.homedir();
+    if (typeof filePath === 'string' && home !== '' && filePath.startsWith(home)) {
+      return `~${filePath.slice(home.length)}`;
+    }
+  } catch {
+    /* keep the absolute path when the home directory is unavailable */
+  }
+  return filePath;
+}
+
+/**
+ * Resolve a directory skill list should scan: the explicit request value first,
+ * then the profile's default working directory.
  *
  * @param {object} ctx
  * @param {string} requested
@@ -488,6 +510,7 @@ function exportable(action) {
     tags: action.tags,
     prompt: action.prompt,
     argsHint: action.argsHint,
+    pinned: action.pinned === true,
     createdAt: action.createdAt,
     updatedAt: action.updatedAt,
     ...(action.source ? { source: action.source } : {}),

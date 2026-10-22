@@ -1,136 +1,143 @@
-# dsh-action-hub · Action 收藏夹
+# Action Hub
 
-> 把常用的提示词和流程存成 **Action**：不占上下文、不会被 Agent 自动触发，需要时从输入框下方一键取用。
+**给 DSH 加一个 Spotlight 式的 Action 收藏夹：常用提示词与流程，搜一下就插进输入框，不占上下文、不会被 Agent 自动调用。**
 
-[English](README.en.md) | 中文
+[English](README.en.md) · [更新日志](CHANGELOG.md) · [DSH 插件](https://github.com/deepseek-ai/deepseek-harness)
 
----
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
+[![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
-## 为什么做这个插件
+![Action Hub 命令面板](assets/screenshots/01-palette.png)
 
-把常用提示词封装成 Skill 有两个绕不开的问题：
+## 为什么需要它
 
-1. **Skill 会常驻上下文**：目录里每个 Skill 的名称与描述都会进入系统提示，收藏越多，平时聊天要付的 token 就越多。
-2. **Skill 是被动触发**：Agent 会自己判断要不要调用。像「git-svn 推送」这类流程，你希望**只在自己需要时**执行，甚至希望 Agent 不要去碰它。
+把常用提示词写成 Skill，会同时遇到两个问题：
 
-Action 收藏夹把这两件事拆开：
+1. **常驻上下文**：每个 Skill 的名称与描述都会进入系统提示，收藏越多，日常对话要付的 token 就越多。
+2. **被动触发**：Agent 会自己判断要不要调用。像「git-svn 推送」这类流程，你只想在自己需要时执行，甚至不希望 Agent 碰它。
 
-- **不注入上下文**：插件不注册任何 Agent Tool，也不往 system prompt 里加一个字。Action 只存在于本地收藏夹里。
-- **只由用户触发**：管理页负责增删改查与搜索；使用时在输入框下方点一下，正文插入输入框，由你按 Enter 发送。
-- **可整理、可分享**：分类、标签、搜索、参数占位符、从现有 Skill 一键导入、整库导出/导入。
+Action Hub 把「收藏」和「调用」分开：
+
+- **零上下文占用**：不注册 Agent Tool，不向 system prompt 写入任何内容。收藏夹再大，每轮请求都是 0 token。
+- **只由你触发**：`⌘/Ctrl + Shift + A` 或输入框工具行的按钮打开面板，选中后正文插入光标处，按 Enter 才发送。
+- **可整理、可分享**：分类、标签、置顶、全文搜索、从 Skill 一键导入、整库导出/导入。
+
+## 界面
+
+| 命令面板 | 管理库 |
+| --- | --- |
+| ![命令面板](assets/screenshots/01-palette.png) | ![管理库](assets/screenshots/02-library.png) |
+| 搜索、分类、实时预览、参数输入，全键盘操作 | 左侧分类导航 + 搜索排序 + 紧凑列表 + 详情 |
+
+| Action 详情 | 设置 |
+| --- | --- |
+| ![详情](assets/screenshots/03-detail.png) | ![设置](assets/screenshots/04-settings.png) |
+| 完整正文、标签、使用次数、复制/编辑/删除 | 插入行为、快捷键、输入框按钮与数据位置 |
 
 ## 功能
 
-| 功能 | 说明 |
+| 能力 | 说明 |
 | --- | --- |
-| 侧边栏管理页 | 新建 / 编辑 / 复制 / 删除、按分类筛选、全文搜索（名称、描述、分类、标签、正文） |
-| 输入框快捷入口 | 会话输入框下方的 `Actions · N`，弹层内搜索、分类筛选、参数输入、点击即插入 |
-| 参数占位符 | 正文中的 `{{args}}` / `$ARGUMENTS` 在插入时替换成弹层里填的参数；`{{date}}` 替换为当天日期 |
-| 插入不覆盖草稿 | 已有草稿会保留，Action 正文追加在后面，再按 Enter 发送 |
-| Skill 导入 | 「导入 → 从 Skill 导入」按项目目录列出本机 Skill，一键转成 Action（正文即 SKILL.md） |
-| 分享 | 「导出」得到整库 JSON；对方「导入」即可合并或替换 |
-| 斜杠命令 | `/action <名称> [参数]` 直接运行一条 Action（不填参数则列出全部可用 Action） |
-| 首次内置 | 首次运行写入 3 条示例 Action（代码审查 / 提交信息 / 会话小结），可在 `cordis.patch.yml` 里用 `seed: false` 关闭 |
+| Spotlight 面板 | `⌘/Ctrl+Shift+A` 或输入框工具行按钮；搜索、分类 Tab、实时预览、参数输入 |
+| 键盘优先 | `↑↓` 选择、`Enter` 插入、`Ctrl/⌘+Enter` 插入并发送、`Tab` 切换分类、`Esc` 关闭 |
+| 光标处插入 | 使用宿主 `inputActions.insertText()`，作为一次可撤销编辑插入光标处，不覆盖已有草稿 |
+| 存当前草稿 | 面板内一键把输入框里的内容存成 Action，补名称/分类/标签即可 |
+| 置顶 | 星标常用 Action，面板与列表都排在最前 |
+| 管理库 | 分类导航与计数、全文搜索（名称/描述/分类/标签/正文）、按最近使用/名称/创建时间排序 |
+| 参数占位符 | `{{args}}` / `$ARGUMENTS` 由面板参数替换，`{{date}}` 替换为当天日期 |
+| 从 Skill 导入 | 浏览项目目录下的 Skill，把 `SKILL.md` 正文导入为 Action |
+| 分享 | 整库导出 JSON，可合并或替换导入；使用次数等本机统计不会带出 |
+| 快捷命令 | `/action <名称> [参数]` 直接运行；不带参数时列出全部 Action |
 
 ## 安装
 
-本插件是一个 **DSH bundle**（Host 半 + Web Client 半，无构建步骤、无运行时依赖）。
+Action Hub 是一个 DSH bundle（Host 半 + Web 半，无构建步骤、无运行时依赖）。
 
-### 方式一：通过 DSH Agent 安装（推荐）
+**从插件市场安装**（收录完成后）：DSH → 插件市场 → 搜索 `Action Hub` → 安装 → 启用。
 
-在 DSH 中让 Agent 调用插件管理器安装这个目录：
+**从 GitHub 源码安装**：
 
-```text
-plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-action-hub" })
+```sh
+dsh plugin --profile desktop add "github:AhaCrazy/dsh-action-hub#main"
 ```
 
-安装结果出现 `application: "applied"` 后，侧边栏会多出 `Actions` 图标。若页面没有立即出现，刷新 DSH Web 页面。
+**从本地目录安装**（开发/未上架时）：
+DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 → 启用 → 刷新页面。
 
-### 方式二：手动接入 Profile
-
-把包目录放进个人插件目录（例如 `~/Documents/dsh-plugins/dsh-action-hub`），然后在 profile 里加入依赖与 bundle 行。手工改 profile 属于进阶操作，推荐优先用方式一。
+安装后侧边栏出现 `Actions` 图标，会话输入框工具行最左侧出现 Action Hub 按钮。
 
 ## 使用
 
-### 管理页
+### 打开面板
 
-- 侧边栏点击 `Actions`。
-- 「新建 Action」：名称、分类、标签、描述、参数提示、提示词正文。
-- 卡片上可以复制正文、编辑、复制一份、删除；顶部可导入/导出、手动刷新。
-- 分类是自由文本，筛选栏会自动汇总；「管理分类」支持重命名与删除（删除分类不会删除 Action，只会移到未分类）。
+- 快捷键：`Ctrl + Shift + A`（macOS 为 `⌘ + Shift + A`）
+- 或点击输入框工具行最左侧的图标
+- 面板里可以直接输入关键词搜索，`↑↓` 选择、`Enter` 插入
 
-### 在会话里调用
+### 插入与发送
 
-会话输入框下方会出现 `Actions · N`：
+- `Enter` 或点击「插入」：正文插入**光标处**，作为一次可撤销编辑；已有草稿保留。
+- `Ctrl/⌘ + Enter` 或点击「发送」：插入后立即发送当前草稿。
+- 需要参数时先在面板底部填写，`{{args}}` 会被替换。
 
-1. 点击打开弹层，必要时先填「参数」。
-2. 点击某条 Action，正文会**追加**到当前输入框，底部提示「已插入输入框，按 Enter 发送」。
-3. 你确认、修改后按 Enter 发送。
+### 保存内容
 
-这样 Action 只在真正被使用时才进入上下文，而且一定经过你这一下确认。
+- **把当前草稿存成 Action**：面板底部「存当前草稿」→ 填名称/分类/标签 → 保存。
+- **从 Skill 导入**：管理库 →「导入」→「从 Skill 导入」→ 填项目根目录（留空扫描默认目录）→ 选择 Skill。
+- **新建/编辑**：管理库右上角「新建 Action」，或列表行的编辑按钮。
 
-### 斜杠命令
+### 整理
 
-```text
-/action                 # 列出可用 Action
-/action 代码审查         # 运行「代码审查」
-/action 代码审查 重点看网络层
-```
+- 分类是自由文本；左侧导航自动汇总并显示数量，「管理分类」可重命名/删除（删除分类不删除 Action）。
+- 星标置顶；搜索支持名称、描述、分类、标签和正文。
+- 「导出」得到整库 JSON；对方「导入」即可合并或替换。
 
-命令把正文作为一条**真实用户消息**提交给当前会话（与在输入框里发送等价），因此会留下正常对话记录。
+## 设计
 
-### 从 Skill 导入
-
-「导入 → 从 Skill 导入」：
-
-- 项目目录留空时扫描 Profile 的默认工作目录；项目级 Skill（`.agents/skills`、`.dsh/skills`）需要填写项目根目录。
-- 列表显示当前可发现的 Skill，点「导入为 Action」即可把 SKILL.md 正文存为 Action，分类为「导入」，标签带 `skill`。
+- **Host 半**（`index.js` + `store.js`）：JSON 收藏库（原子写入）、同源 `/api/dsh-action-hub` 路由、`/action` 人类命令。命令通过 `sessionController.prompt(..., mode: 'queue')` 提交一条 `source.kind = 'user'` 的真实用户消息。
+- **Client 半**（`client.js`）：注册 `conversation.input.left` 工具行按钮、`conversation.input.overlay` 会话桥、`shell.overlay` 命令面板、`main` 管理库、侧边栏图标与 `settings.section` 设置页。
+- **明确不做**：不注册 `ctx.tools`，不调用 `ctx.systemPrompt.section()`，不监听 `agent/pre-step`。收藏夹的大小与每轮上下文无关。
 
 ## 数据与隐私
 
-- 数据保存在 `$DSH_HOME/action-hub/actions.json`（默认 `~/.dsh/action-hub/actions.json`），与 DSH Profile 同机。
-- 写入是「临时文件 + 原子重命名」，不会因崩溃写坏整库。
-- 导出文件包含正文与分类标签，不含使用次数等本机统计；分享前请自行检查正文是否含内部信息。
-- 插件不发出任何网络请求（除了浏览器到本机 DSH Host 的 `/api/dsh-action-hub` 同源请求）。
-
-## 设计说明
-
-- **Host 半**（`index.js` + `store.js`）：维护 JSON 收藏库，注册同源 HTTP 路由 `/api/dsh-action-hub`（`state` / `create` / `update` / `delete` / `duplicate` / `touch` / `import` / `export` / `skills` / `import-skill` / `category/*`），并在 `commands` 服务可用时注册 `/action` 命令。命令通过 `sessionController.prompt(... mode: 'queue')` 提交一条 `source.kind = 'user'` 的消息。
-- **Client 半**（`client.js`）：注册 `main` 管理页、`sidebar.panellist` 图标、`conversation.composer.dock` 快捷入口；插入动作使用宿主提供的 `inputActions.setDraft()`，因此不需要猜测编辑器实现。
-- **明确不做的事**：不注册 `ctx.tools`，不调用 `ctx.systemPrompt.section()`，不监听 `agent/pre-step`。收藏夹再大也不会增加每轮请求的 token。
+- 数据保存在 `~/.dsh/action-hub/actions.json`（`$DSH_HOME` 下），写入采用临时文件 + 原子重命名。
+- 设置页显示 `~/.dsh/...` 而不是带用户名的绝对路径。
+- 插件只与本机 DSH Host 通信（同源 `/api/dsh-action-hub`），不发起任何外部网络请求。
+- 导出文件包含正文、分类、标签、置顶状态；不包含使用次数等本机统计。分享前请检查正文是否含内部信息。
 
 ## 兼容性
 
-- 面向 DSH 桌面版 / Web UI（0.2.x，插件 API 仍在预览期）。
-- 管理页与快捷入口需要 Host 的 `webServer` 服务；斜杠命令额外需要 `commands` 与 `sessionController` 服务，缺失时会安全降级（不注册命令 / 命令返回错误文本）。
-- 更新插件文件后，浏览器端需要刷新页面（或由 HMR）重新加载 `client.js`；Host 端改动需要重新加载 bundle。
+- 面向 DSH 桌面版 / Web UI `0.2.x`（插件 API 仍处于预览期）。
+- 管理库与面板需要 Host 的 `webServer` 服务；`/action` 命令额外需要 `commands` 与 `sessionController`，缺失时安全降级。
+- 更新插件文件后刷新页面即可加载新的 `client.js`；Host 改动需要重新加载 bundle。
 
 ## 开发
 
 ```powershell
-# 语法与测试（Node >= 22，无需安装依赖）
 node --check index.js
 node --check client.js
 node --check store.js
 npm test
 ```
 
-- `tests/store.test.mjs`：数据模型、占位符、导入合并、原子持久化。
-- `tests/client.test.mjs`：捕获 `window.__ModuleLoader__` 注册、纯函数、语言字典完整性，并断言「不注册 tool / prompt」。
+- `tests/store.test.mjs`：数据模型、占位符、置顶排序、导入合并、原子持久化。
+- `tests/client.test.mjs`：捕获 `window.__ModuleLoader__` 注册、纯函数与语言字典完整性，并断言不注册 tool / prompt。
 - `tests/host.test.mjs`：同源校验、导出裁剪、`/action` 参数解析。
-
-目录：
 
 ```text
 dsh-action-hub/
-├── package.json          # bundle 清单 + dsh.bundle / dsh.client
-├── cordis.patch.yml      # Loader 行（可配置 seed / dataDir）
-├── index.js              # Host 半：路由 + /action 命令
-├── store.js              # 收藏库、数据模型、导入合并
-├── client.js             # Web 半：管理页 + 快捷入口 + 图标
-├── locale/{zh,en}.json   # 插件管理器展示名
-├── icon.svg
-└── tests/
+├── package.json           # bundle 清单 + dsh.bundle / dsh.client
+├── cordis.patch.yml       # Loader 行（可配 seed / dataDir）
+├── index.js               # Host：路由 + /action 命令
+├── store.js               # 收藏库、数据模型、导入合并
+├── client.js              # Web：命令面板 / 管理库 / 设置 / 工具行按钮
+├── locale/{zh,en}.json    # 插件管理器展示名
+├── assets/screenshots/    # 商店截图
+├── screenshots.json       # 商店截图清单
+├── store/                 # awesome-dsh-plugin 收录条目
+├── tests/
+└── CHANGELOG.md
 ```
 
 ## License
