@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-3.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-4.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -51,7 +51,7 @@ Action Hub separates the shelf from the trigger:
 | Resource files | Attach code, templates, docs, and fixtures to an Action; small text is inlined at invocation, larger files are listed by local path |
 | AI import | Let the AI read the Skill, compare same-named candidates, confirm Skill/Action differences with you, then create the Action and its selected resources |
 | Skill import | **Pick a Skill folder** to import `SKILL.md` and every sibling file directly (recommended; immune to same-name shadowing); name/path import also available |
-| Sharing | Export the library as JSON (including resource file contents); import with merge or replace; local usage counters stay local |
+| Sharing | Export one Action or the whole library as a ZIP/folder; import ZIP, folder, or legacy JSON; every Action is a self-contained directory |
 | Slash command | `/action <name> [args]` runs one Action, or lists them all |
 
 ## Install
@@ -105,21 +105,32 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 
 - Categories are free text, summarized with counts in the sidebar; “Manage categories” renames or deletes one. Deleting asks for confirmation and reports how many Actions move to Uncategorized; the Actions themselves are kept.
 - Pin with the star; search covers name, description, category, tags, and body.
-- “Export” produces a whole-library JSON; import it elsewhere with merge or replace.
+### Share and back up
+
+- Every Action is one self-contained directory:
+  ```
+  ~/.dsh/action-hub/actions/<id>/
+    action.json      metadata, prompt, resource manifest
+    files/...        resource bytes
+  ```
+- In an Action's details, **Export ZIP** downloads just that Action, or **Export to folder** writes it via the directory picker.
+- The library header “Export” downloads the whole library as a ZIP; backing up only needs `actions/`.
+- Import → “Action bundle”: choose a folder (one Action or a whole library) or a `.zip`; colliding ids get a fresh id and resources travel with the Action.
+- Legacy whole-library JSON import is still available under the JSON tab.
 
 ## Design
 
-- **Host half** (`index.js`, `store.js`): atomic JSON store, same-origin `/api/dsh-action-hub` routes, and the `/action` human command, which submits a genuine user message through `sessionController.prompt(..., mode: 'queue')`.
+- **Host half** (`index.js`, `store.js`, `resources.js`, `bundle.js`): one directory per Action (`actions/<id>/action.json` + `files/`) with per-Action atomic writes, same-origin `/api/dsh-action-hub` routes, and the `/action` human command, which submits a genuine user message through `sessionController.prompt(..., mode: 'queue')`.
 - **References**: the composer renders an Action-name chip while the draft's serialized text stays the opaque `/ah-…` marker; a reference-source codec writes the chip back to that marker. The Host expands the marker in `agent/pre-step` into one `<action_content>` message for the step. **No runtime Skill is registered**, so Actions never appear in the Skills catalog, the `/` menu, or the context panel's skill list. When an Action has resource files, the same message carries `<action_resources>`: small text inline, everything else by path.
 - **Client half** (`client.js`): registers the composer-toolbar button (`conversation.input.left`), the session bridge (`conversation.input.overlay`), the frame-level palette (`shell.overlay`), the library (`main` + sidebar icon), and the settings page (`settings.section`).
 - **Deliberately absent**: no `ctx.tools`, no `ctx.systemPrompt.section()`; an Action enters a step only when the user explicitly references one, so shelf size does not affect context.
 
 ## Data and privacy
 
-- Data lives in `~/.dsh/action-hub/actions.json` (under `$DSH_HOME`) with atomic writes; resource files live in `~/.dsh/action-hub/resources/<id-hash>/`.
+- Data lives in `~/.dsh/action-hub/actions/<id>/` (under `$DSH_HOME`): `action.json` for metadata/body and `files/` for resources, with temp+rename writes. Legacy `actions.json` is migrated on first start; the old files are renamed to `.migrated-*` and kept.
 - Settings show `~/.dsh/...` rather than an absolute path with the account name.
 - The plugin talks only to the local DSH Host (`/api/dsh-action-hub`); it makes no external network requests.
-- Exports contain bodies, categories, tags, pinned state, and resource file contents (base64) — not local usage counters. Check a body and its resources for internal information before sharing.
+- ZIP/folder/JSON exports contain bodies, categories, tags, pinned state, and resources — not local usage counters. Check a body and its resources for internal information before sharing.
 
 ## Compatibility
 

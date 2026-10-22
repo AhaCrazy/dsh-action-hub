@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
 import {
   SEED_ACTIONS,
+  STORE_VERSION,
   createStore,
   defaultDataDir,
   expandPrompt,
@@ -19,6 +20,7 @@ import {
   sortActions,
   validateAction,
 } from '../store.js';
+import { legacyResourceDir } from '../resources.js';
 
 async function withTempDir(run) {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'dsh-action-hub-'));
@@ -144,7 +146,7 @@ test('mergeActions adds, updates by id, and replaces', () => {
 
 test('parseState accepts a bare array from a hand-edited file', () => {
   const state = parseState(JSON.stringify([{ name: 'A', prompt: 'p' }]), false);
-  assert.equal(state.version, 1);
+  assert.equal(state.version, STORE_VERSION);
   assert.equal(state.actions.length, 1);
   assert.throws(() => parseState('{"nope":true}', false), /actions/);
 });
@@ -154,13 +156,13 @@ test('defaultDataDir honours DSH_HOME', () => {
   assert.ok(defaultDataDir({}).endsWith(path.join('.dsh', 'action-hub')));
 });
 
-test('store seeds, creates, updates, duplicates, deletes, and persists', async () => {
+test('store seeds per-Action directories, creates, updates, and deletes', async () => {
   await withTempDir(async (dir) => {
     const store = createStore({ dataDir: dir, seed: true });
     const initial = await store.read();
     assert.equal(initial.actions.length, SEED_ACTIONS.length);
-    const file = JSON.parse(await readFile(path.join(dir, 'actions.json'), 'utf8'));
-    assert.equal(file.actions.length, SEED_ACTIONS.length);
+    const entries = await readdir(path.join(dir, 'actions'), { withFileTypes: true });
+    assert.ok(entries.filter((entry) => entry.isDirectory()).length >= SEED_ACTIONS.length);
 
     const created = await store.mutate((draft) => {
       const action = normalizeAction({ name: 'Mine', prompt: 'do it', category: 'dev' });
@@ -168,31 +170,55 @@ test('store seeds, creates, updates, duplicates, deletes, and persists', async (
       return action;
     });
     assert.equal(created.result.name, 'Mine');
+    const createdDir = path.join(dir, 'actions', created.result.id);
+    assert.equal(JSON.parse(await readFile(path.join(createdDir, 'action.json'), 'utf8')).action.name, 'Mine');
 
     const updated = await store.mutate((draft) => {
       draft.actions = draft.actions.map((entry) => (entry.id === created.result.id ? { ...entry, name: 'Mine 2' } : entry));
       return 'ok';
     });
     assert.equal(updated.state.actions.find((entry) => entry.id === created.result.id).name, 'Mine 2');
+    assert.equal(JSON.parse(await readFile(path.join(createdDir, 'action.json'), 'utf8')).action.name, 'Mine 2');
 
     const removed = await store.mutate((draft) => {
       draft.actions = draft.actions.filter((entry) => entry.id !== created.result.id);
       return draft.actions.length;
     });
     assert.equal(removed.result, SEED_ACTIONS.length);
+    assert.equal(await readFile(path.join(createdDir, 'action.json'), 'utf8').catch(() => null), null);
 
     const reloaded = createStore({ dataDir: dir, seed: false });
     assert.equal((await reloaded.read()).actions.length, SEED_ACTIONS.length);
   });
 });
 
-test('store tolerates a corrupt-free empty directory and writes the file', async () => {
+test('store tolerates an empty directory and migrates a legacy actions.json', async () => {
   await withTempDir(async (dir) => {
+    const empty = createStore({ dataDir: dir, seed: false });
+    assert.deepEqual((await empty.read()).actions, []);
+    assert.deepEqual(await readdir(path.join(dir, 'actions')), []);
+  });
+
+  await withTempDir(async (dir) => {
+    const legacy = normalizeAction({
+      id: 'legacy-one',
+      name: 'Legacy',
+      prompt: 'old',
+      resources: [{ name: 'notes.txt', bytes: 5 }],
+    });
+    await writeFile(path.join(dir, 'actions.json'), JSON.stringify({ version: 1, actions: [legacy] }), 'utf8');
+    const legacyDir = legacyResourceDir(dir, 'legacy-one');
+    await mkdir(legacyDir, { recursive: true });
+    await writeFile(path.join(legacyDir, 'notes.txt'), 'hello', 'utf8');
     const store = createStore({ dataDir: dir, seed: false });
     const state = await store.read();
-    assert.deepEqual(state.actions, []);
-    const text = await readFile(path.join(dir, 'actions.json'), 'utf8');
-    assert.equal(JSON.parse(text).actions.length, 0);
+    assert.equal(state.actions.length, 1);
+    assert.equal(state.actions[0].name, 'Legacy');
+    assert.equal(state.actions[0].resources[0].name, 'notes.txt');
+    const document = JSON.parse(await readFile(path.join(dir, 'actions', 'legacy-one', 'action.json'), 'utf8'));
+    assert.equal(document.format, 'dsh-action-hub/action@1');
+    assert.equal(await readFile(path.join(dir, 'actions', 'legacy-one', 'files', 'notes.txt'), 'utf8'), 'hello');
+    assert.equal(await readFile(path.join(dir, 'actions.json'), 'utf8').catch(() => null), null);
     await writeFile(path.join(dir, 'unrelated.txt'), 'x', 'utf8');
   });
 });

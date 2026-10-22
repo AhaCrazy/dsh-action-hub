@@ -19,6 +19,13 @@ import nodePath from 'node:path';
 
 import { prepareAssist, startAssistWatcher } from './assist.js';
 import {
+  exportActionFolder,
+  exportAllFolder,
+  exportZipBuffer,
+  importFolder,
+  importZipBuffer,
+} from './bundle.js';
+import {
   addResourceFile,
   copyResources,
   copySkillResources,
@@ -26,7 +33,7 @@ import {
   exportResourceFiles,
   readInvocationResources,
   readResourcePreviews,
-  removeResources,
+  removeActionDir,
   resourceDir,
   writeResourceEntries,
 } from './resources.js';
@@ -373,6 +380,16 @@ async function handle(ctx, store, dataDir, req, res) {
       return;
     }
 
+    if (method === 'GET' && route === '/bundle/zip') {
+      try {
+        const data = await exportZipBuffer(store, dataDir, url.searchParams.get('id') || undefined);
+        sendBytes(res, 200, data.buffer, 'application/zip', data.filename);
+      } catch (error) {
+        sendJson(res, 404, { ok: false, error: describe(error) });
+      }
+      return;
+    }
+
     if (method === 'GET' && route === '/export') {
       const state = await store.read();
       const actions = await Promise.all(sortActions(state.actions).map(async (action) => ({
@@ -397,6 +414,62 @@ async function handle(ctx, store, dataDir, req, res) {
     const body = await readJsonBody(req);
     if (body === undefined) {
       sendJson(res, 400, { ok: false, error: '请求体必须是 JSON' });
+      return;
+    }
+
+    if (route === '/bundle/export-folder') {
+      try {
+        const exported = await exportActionFolder(store, dataDir, text(body.id), text(body.target));
+        sendJson(res, 200, { ok: true, ...exported });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+      }
+      return;
+    }
+
+    if (route === '/bundle/export-all') {
+      try {
+        const exported = await exportAllFolder(store, dataDir, text(body.target));
+        sendJson(res, 200, { ok: true, ...exported });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+      }
+      return;
+    }
+
+    if (route === '/bundle/import-folder') {
+      try {
+        const imported = await importFolder(store, dataDir, text(body.path));
+        const state = await store.read();
+        sendJson(res, 200, {
+          ok: true,
+          imported: imported.actions.length,
+          renamed: imported.renamed,
+          skipped: imported.skipped,
+          actions: sortActions(state.actions),
+        });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+      }
+      return;
+    }
+
+    if (route === '/bundle/import-zip') {
+      try {
+        const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
+        if (buffer.length === 0) throw new Error('ZIP 内容为空');
+        const imported = await importZipBuffer(store, dataDir, buffer);
+        const state = await store.read();
+        sendJson(res, 200, {
+          ok: true,
+          imported: imported.actions.length,
+          renamed: imported.renamed,
+          skipped: imported.skipped,
+          actions: sortActions(state.actions),
+        });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+      }
       return;
     }
 
@@ -524,7 +597,7 @@ async function handle(ctx, store, dataDir, req, res) {
         draft.actions = draft.actions.filter((entry) => entry.id !== id);
         return { removed: before - draft.actions.length };
       });
-      if (result.removed > 0) await removeResources(resourceDir(dataDir, id));
+      if (result.removed > 0) await removeActionDir(dataDir, id);
       sendJson(res, 200, { ok: true, removed: result.removed, actions: sortActions(state.actions) });
       return;
     }
@@ -888,6 +961,24 @@ function sendJson(res, status, value) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
   res.setHeader('cache-control', 'no-store');
   res.setHeader('content-length', Buffer.byteLength(body));
+  res.end(body);
+}
+
+/**
+ * Send a binary download.
+ *
+ * @param {import('node:http').ServerResponse} res
+ * @param {number} status
+ * @param {Buffer} body
+ * @param {string} mediaType
+ * @param {string} filename
+ */
+function sendBytes(res, status, body, mediaType, filename) {
+  res.statusCode = status;
+  res.setHeader('content-type', mediaType);
+  res.setHeader('cache-control', 'no-store');
+  res.setHeader('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+  res.setHeader('content-length', body.length);
   res.end(body);
 }
 

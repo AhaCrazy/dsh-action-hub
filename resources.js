@@ -22,16 +22,75 @@ const MAX_DEPTH = 4;
 const ILLEGAL_SEGMENT = /[<>:"|?*\u0000-\u001f]/g;
 
 /**
- * Stable per-Action resource directory. The Action id may contain non-ASCII
- * characters, so the directory name is a digest rather than the id itself.
+ * Stable per-Action folder name. Action ids may contain non-ASCII characters,
+ * so only path-unsafe characters are replaced; the readable id is preserved for
+ * backups and sharing.
+ *
+ * @param {string} actionId
+ * @returns {string}
+ */
+export function safeActionFolderName(actionId) {
+  const base = String(actionId ?? '')
+    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_')
+    .replace(/^\.+$/, 'action')
+    .trim();
+  return (base === '' ? 'action' : base).slice(0, 100);
+}
+
+/**
+ * One self-contained Action directory: `actions/<id>/action.json` + `files/`.
+ *
+ * @param {string} dataDir
+ * @param {string} actionId
+ * @returns {string}
+ */
+export function actionDir(dataDir, actionId) {
+  return path.join(dataDir, 'actions', safeActionFolderName(actionId));
+}
+
+/**
+ * The resource directory for one Action.
  *
  * @param {string} dataDir
  * @param {string} actionId
  * @returns {string}
  */
 export function resourceDir(dataDir, actionId) {
+  return path.join(actionDir(dataDir, actionId), 'files');
+}
+
+/**
+ * Legacy (pre-4.0) resource directory: `resources/<sha1(id)>/`.
+ *
+ * @param {string} dataDir
+ * @param {string} actionId
+ * @returns {string}
+ */
+export function legacyResourceDir(dataDir, actionId) {
   const digest = createHash('sha1').update(String(actionId)).digest('hex').slice(0, 24);
   return path.join(dataDir, 'resources', digest);
+}
+
+/**
+ * Remove one Action's whole directory (document and files).
+ *
+ * @param {string} dataDir
+ * @param {string} actionId
+ * @returns {Promise<void>}
+ */
+export async function removeActionDir(dataDir, actionId) {
+  await fs.rm(actionDir(dataDir, actionId), { recursive: true, force: true });
+}
+
+/**
+ * Copy one Action directory (duplicate / export-folder).
+ *
+ * @param {string} from
+ * @param {string} to
+ * @returns {Promise<void>}
+ */
+export async function copyActionDir(from, to) {
+  await fs.cp(from, to, { recursive: true, force: true });
 }
 
 /**

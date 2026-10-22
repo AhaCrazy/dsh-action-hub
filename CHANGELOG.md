@@ -1,5 +1,23 @@
 # Changelog
 
+## 4.0.0 — 2026-10-22
+
+- **One directory per Action.** The store is now:
+  `~/.dsh/action-hub/actions/<id>/action.json` + `files/`. An Action is a
+  self-contained, human-readable, git-friendly unit; backups only need
+  `actions/`, and legacy `actions.json` + `resources/<hash>/` data is migrated
+  once (legacy paths are renamed aside, not deleted).
+- **Portable bundles.** Export a single Action or the whole library as a ZIP
+  (download) or as a folder copy; import a bundle folder or ZIP. Folder import
+  accepts one Action directory or a whole library directory. Colliding ids get a
+  fresh id, resources travel with the Action, and the bundle format
+  `dsh-action-hub/action@1` is documented by `action.json`.
+- **Dependency-free ZIP.** A small internal ZIP reader/writer (store/deflate,
+  UTF-8 names, no ZIP64) powers sharing without adding runtime dependencies.
+- **Crash-safe writes.** Each `action.json` is written temp+rename; deleting an
+  Action removes its directory; duplicating copies its resource files.
+- Existing JSON export/import remains available for backward compatibility.
+
 ## 3.0.0 — 2026-10-22
 
 - **AI-assisted Skill import.** “AI import” opens a fresh conversation with the

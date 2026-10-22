@@ -2,5 +2,5 @@ url: https://github.com/AhaCrazy/dsh-action-hub
 name: AhaCrazy/dsh-action-hub
 category: workflow
 description:
-  en: 'Spotlight-style Action shelf for prompts plus local resource bundles: AI-assisted Skill import, name-chip references, rebindable shortcut, categories, Skill import, zero context cost.'
-  zh: 'Spotlight 式 Action 收藏夹：提示词加资源文件，AI 辅助从 Skill 导入、引用只显示名称、可重绑快捷键、分类置顶，不占上下文。'
+  en: 'Spotlight-style Action shelf: prompt + resource bundles, AI-assisted Skill import, portable ZIP/folder bundles, name-chip references, zero context cost.'
+  zh: 'Spotlight 式 Action 收藏夹：提示词加资源文件，AI 辅助从 Skill 导入，单条/整库 ZIP 或文件夹分享，引用只显示名称，不占上下文。'

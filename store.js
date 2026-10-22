@@ -15,9 +15,9 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { normalizeResourceMeta } from './resources.js';
+import { normalizeResourceMeta, actionDir, legacyResourceDir, removeActionDir, resourceDir } from './resources.js';
 
-export const STORE_VERSION = 1;
+export const STORE_VERSION = 2;
 export const MAX_PROMPT = 60000;
 export const MAX_NAME = 80;
 export const MAX_DESCRIPTION = 600;
@@ -317,7 +317,15 @@ export const SEED_ACTIONS = [
 ];
 
 /**
- * Create the durable store over one JSON file.
+ * Create the durable per-Action store.
+ *
+ * Each Action is one self-contained directory:
+ *
+ *   <dataDir>/actions/<id>/action.json   metadata, prompt, resource manifest
+ *   <dataDir>/actions/<id>/files/...     resource bytes
+ *
+ * A pre-4.0 `actions.json` plus `resources/<hash>/` layout is migrated once
+ * (copies are written first, then the legacy file/directory is renamed aside).
  *
  * @param {{ dataDir?: string, seed?: boolean }} [options]
  * @returns {{
@@ -328,29 +336,100 @@ export const SEED_ACTIONS = [
  */
 export function createStore(options = {}) {
   const dataDir = options.dataDir && options.dataDir.trim() !== '' ? options.dataDir : defaultDataDir();
-  const file = path.join(dataDir, 'actions.json');
+  const actionsRoot = path.join(dataDir, 'actions');
+  const legacyFile = path.join(dataDir, 'actions.json');
+  const marker = path.join(dataDir, '.layout-v2');
   const seed = options.seed !== false;
   let loaded = null;
   let queue = Promise.resolve();
 
-  async function load() {
-    if (loaded !== null) return loaded;
+  async function exists(target) {
     try {
-      const text = await fs.readFile(file, 'utf8');
-      loaded = parseState(text, seed);
-    } catch (error) {
-      if (error?.code !== 'ENOENT') throw error;
-      loaded = seed ? seedState() : emptyState();
-      await persist(loaded);
+      await fs.access(target);
+      return true;
+    } catch {
+      return false;
     }
-    return loaded;
   }
 
-  async function persist(state) {
-    await fs.mkdir(dataDir, { recursive: true });
+  async function writeActionDocument(action) {
+    const dir = actionDir(dataDir, action.id);
+    await fs.mkdir(dir, { recursive: true });
+    const document = {
+      format: 'dsh-action-hub/action@1',
+      action,
+    };
+    const file = path.join(dir, 'action.json');
     const temporary = `${file}.tmp-${process.pid}-${Date.now()}`;
-    await fs.writeFile(temporary, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+    await fs.writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
     await fs.rename(temporary, file);
+  }
+
+  async function readActionDocument(dir) {
+    const file = path.join(dir, 'action.json');
+    const text = await fs.readFile(file, 'utf8');
+    const parsed = JSON.parse(text);
+    const raw = parsed !== null && typeof parsed === 'object' && parsed.action !== null && typeof parsed.action === 'object'
+      ? parsed.action
+      : parsed;
+    return normalizeAction(raw);
+  }
+
+  async function ensureLayout() {
+    await fs.mkdir(actionsRoot, { recursive: true });
+    const hasLegacy = await exists(legacyFile);
+    if (!hasLegacy) return;
+    const entries = await fs.readdir(actionsRoot).catch(() => []);
+    if (entries.length > 0) return; // already has data; keep the legacy copy untouched
+    let parsed;
+    try {
+      parsed = parseState(await fs.readFile(legacyFile, 'utf8'), false);
+    } catch {
+      return;
+    }
+    for (const action of parsed.actions) {
+      await writeActionDocument(action);
+      const legacyDir = legacyResourceDir(dataDir, action.id);
+      if (await exists(legacyDir)) {
+        await fs.mkdir(resourceDir(dataDir, action.id), { recursive: true });
+        await fs.cp(legacyDir, resourceDir(dataDir, action.id), { recursive: true, force: true });
+      }
+    }
+    const stamp = Date.now();
+    await fs.rename(legacyFile, `${legacyFile}.migrated-${stamp}`).catch(() => undefined);
+    const legacyResources = path.join(dataDir, 'resources');
+    if (await exists(legacyResources)) {
+      await fs.rename(legacyResources, `${legacyResources}.migrated-${stamp}`).catch(() => undefined);
+    }
+    await fs.writeFile(marker, `${stamp}\n`, 'utf8').catch(() => undefined);
+  }
+
+  async function load() {
+    if (loaded !== null) return loaded;
+    await ensureLayout();
+    const entries = await fs.readdir(actionsRoot, { withFileTypes: true }).catch(() => []);
+    const actions = [];
+    for (const entry of entries) {
+      if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
+      try {
+        actions.push(await readActionDocument(path.join(actionsRoot, entry.name)));
+      } catch {
+        /* an unreadable Action is skipped rather than taking down the shelf */
+      }
+    }
+    if (actions.length === 0 && seed && !(await exists(marker))) {
+      const seeded = seedState();
+      for (const action of seeded.actions) await writeActionDocument(action);
+      loaded = seeded;
+      await fs.writeFile(marker, `${Date.now()}\n`, 'utf8').catch(() => undefined);
+      return loaded;
+    }
+    loaded = {
+      version: STORE_VERSION,
+      actions: sortActions(actions),
+      updatedAt: Date.now(),
+    };
+    return loaded;
   }
 
   async function mutate(mutator) {
@@ -358,18 +437,23 @@ export function createStore(options = {}) {
       const state = await load();
       const draft = { ...state, actions: [...state.actions], updatedAt: Date.now() };
       const result = await mutator(draft);
-      if (draft.actions !== state.actions) {
-        draft.actions = sortActions(draft.actions);
-        loaded = draft;
-        await persist(draft);
+      draft.actions = sortActions(draft.actions);
+      const previous = new Map(state.actions.map((action) => [action.id, JSON.stringify(action)]));
+      const next = new Map(draft.actions.map((action) => [action.id, JSON.stringify(action)]));
+      for (const action of draft.actions) {
+        if (previous.get(action.id) !== next.get(action.id)) await writeActionDocument(action);
       }
+      for (const action of state.actions) {
+        if (!next.has(action.id)) await removeActionDir(dataDir, action.id);
+      }
+      loaded = { ...draft, actions: draft.actions };
       return { state: loaded, result };
     });
     queue = run.catch(() => {});
     return run;
   }
 
-  return { filePath: () => file, read: load, mutate };
+  return { filePath: () => actionsRoot, read: load, mutate };
 }
 
 /**

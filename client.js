@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '3.0.0';
+    const VERSION = '4.0.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -233,6 +233,10 @@ window.__ModuleLoader__.load({
         'lib.copyFailed': '复制失败，请手动选择正文',
         'lib.saved': '已保存',
         'lib.deleted': '已删除',
+        'lib.exported': '已导出',
+        'lib.exportOne': '导出 ZIP',
+        'lib.exportFolder': '导出到文件夹',
+        'lib.exportedTo': '已导出到 {path}',
         'lib.duplicated': '已创建副本',
         'lib.pinned': '已置顶',
         'lib.unpinned': '已取消置顶',
@@ -309,6 +313,12 @@ window.__ModuleLoader__.load({
         'import.aiStarted': '已打开 AI 导入对话：{name}。发送提示词并与 AI 确认，完成后 Action 会自动出现在库中。',
         'import.aiUnavailable': '当前环境无法打开新对话，请改用「选择 Skill 文件夹」。',
         'import.aiNoPath': '这个 Skill 没有可用的目录路径，请用「从技能目录导入」填写目录。',
+        'import.bundleTab': 'Action 包',
+        'import.bundleHint': '导入单条 Action 或整库备份：选择包含 action.json 的文件夹，或选择 .zip 包；同名 id 会自动分配新 id。',
+        'import.bundleFolder': '选择文件夹',
+        'import.bundleZip': '选择 ZIP',
+        'import.bundleDone': '已导入 {count} 个 Action（{renamed} 个重命名）',
+        'import.bundleUnavailable': '当前环境无法打开目录选择器，请改用 ZIP。',
         'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
         'category.empty': '还没有分类',
@@ -420,6 +430,10 @@ window.__ModuleLoader__.load({
         'lib.copyFailed': 'Copy failed; select the body and copy manually',
         'lib.saved': 'Saved',
         'lib.deleted': 'Deleted',
+        'lib.exported': 'Exported',
+        'lib.exportOne': 'Export ZIP',
+        'lib.exportFolder': 'Export to folder',
+        'lib.exportedTo': 'Exported to {path}',
         'lib.duplicated': 'Duplicate created',
         'lib.pinned': 'Pinned',
         'lib.unpinned': 'Unpinned',
@@ -496,6 +510,12 @@ window.__ModuleLoader__.load({
         'import.aiStarted': 'Opened the AI import conversation: {name}. Send the brief, confirm with the AI, and the Action appears in the library automatically.',
         'import.aiUnavailable': 'This environment cannot open a new conversation; use “Choose a Skill folder” instead.',
         'import.aiNoPath': 'This Skill has no usable directory path; enter it under “Import from a skill directory”.',
+        'import.bundleTab': 'Action bundle',
+        'import.bundleHint': 'Import one Action or a whole backup: choose a folder containing action.json, or a .zip bundle. Colliding ids get a fresh id.',
+        'import.bundleFolder': 'Choose folder',
+        'import.bundleZip': 'Choose ZIP',
+        'import.bundleDone': 'Imported {count} Action(s), renamed {renamed}',
+        'import.bundleUnavailable': 'This environment cannot open the directory picker; use a ZIP instead.',
         'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
         'category.empty': 'No categories yet',
@@ -750,6 +770,24 @@ window.__ModuleLoader__.load({
         if (key !== '') meta[key] = value;
       }
       return { meta, body: source.slice(match[0].length).trim() };
+    }
+
+    async function downloadZip(actionId = undefined) {
+      const suffix = actionId === undefined ? '' : `?id=${encodeURIComponent(actionId)}`;
+      const response = await fetch(`/api/dsh-action-hub/bundle/zip${suffix}`, { credentials: 'same-origin' });
+      if (!response.ok) throw new Error((await response.text()).slice(0, 300));
+      const disposition = response.headers.get('content-disposition') ?? '';
+      const match = /filename\*=UTF-8''([^;]+)/iu.exec(disposition);
+      const filename = match === null ? 'dsh-action-hub.zip' : decodeURIComponent(match[1]);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
     async function copyText(text) {
@@ -1653,8 +1691,11 @@ window.__ModuleLoader__.load({
       const [skillError, setSkillError] = React.useState('');
       const [skillBusy, setSkillBusy] = React.useState(false);
       const [skillPath, setSkillPath] = React.useState('');
+      const [bundleBusy, setBundleBusy] = React.useState(false);
+      const [bundleError, setBundleError] = React.useState('');
       const fileRef = React.useRef(null);
       const folderRef = React.useRef(null);
+      const bundleRef = React.useRef(null);
 
       const runImport = async () => {
         setError('');
@@ -1812,6 +1853,47 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const importBundleFolder = async () => {
+        const workspace = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined;
+        if (workspace === undefined || typeof workspace.pickDirectory !== 'function') {
+          setBundleError(t('import.bundleUnavailable'));
+          return;
+        }
+        const directory = await workspace.pickDirectory();
+        if (directory === null) return;
+        setBundleBusy(true);
+        setBundleError('');
+        try {
+          const data = await api('/bundle/import-folder', { path: directory });
+          props.notify(t('import.bundleDone', { count: data.imported, renamed: data.renamed }), 'ok');
+          props.onDone();
+          props.onClose();
+        } catch (failure) {
+          setBundleError(describeError(failure));
+        } finally {
+          setBundleBusy(false);
+        }
+      };
+
+      const importBundleZip = async (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        setBundleBusy(true);
+        setBundleError('');
+        try {
+          const bytes = new Uint8Array(await file.arrayBuffer());
+          const data = await api('/bundle/import-zip', { contentBase64: bytesToBase64(bytes) });
+          props.notify(t('import.bundleDone', { count: data.imported, renamed: data.renamed }), 'ok');
+          props.onDone();
+          props.onClose();
+        } catch (failure) {
+          setBundleError(describeError(failure));
+        } finally {
+          setBundleBusy(false);
+        }
+      };
+
       const importSkill = async (skill) => {
         setSkillBusy(true);
         setSkillError('');
@@ -1841,7 +1923,8 @@ window.__ModuleLoader__.load({
       },
       h('div', { className: 'ah-tabs' },
         h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'json', onClick: () => setTab('json') }, t('import.jsonTab')),
-        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'skill', onClick: () => setTab('skill') }, t('import.skillTab'))),
+        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'skill', onClick: () => setTab('skill') }, t('import.skillTab')),
+        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'bundle', onClick: () => setTab('bundle') }, t('import.bundleTab'))),
       tab === 'json'
         ? h(React.Fragment, null,
           h('p', { className: 'ah-hint' }, t('import.jsonHint')),
@@ -1869,7 +1952,7 @@ window.__ModuleLoader__.load({
               },
             }),
             h(Button, { onClick: () => fileRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.chooseFile'))))
-        : h(React.Fragment, null,
+        : tab === 'skill' ? h(React.Fragment, null,
           h('div', { className: 'ah-field' },
             h('label', { className: 'ah-label' }, t('import.folderLabel')),
             h('div', null, h(Button, { disabled: skillBusy, onClick: () => folderRef.current?.click() }, h(Icons.folder, { size: 13 }), t('import.folderButton'))),
@@ -1904,9 +1987,18 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'ah-plain-name' }, skill.name),
                   h('span', { className: 'ah-plain-desc', title: skill.path ?? skill.description }, skill.path ?? skill.description ?? '')),
                 h(Button, { small: true, disabled: skillBusy, onClick: () => importSkill(skill) }, t('import.skillImport')),
-                h(Button, { small: true, disabled: skillBusy || !skill.path, title: t('import.aiHint'), onClick: () => startAiImport(skill) }, t('import.aiButton')))))),
+                h(Button, { small: true, disabled: skillBusy || !skill.path, title: t('import.aiHint'), onClick: () => startAiImport(skill) }, t('import.aiButton')))))) : null,
+      tab === 'bundle'
+        ? h(React.Fragment, null,
+          h('p', { className: 'ah-hint' }, t('import.bundleHint')),
+          h('div', { className: 'ah-field-row' },
+            h(Button, { disabled: bundleBusy, onClick: importBundleFolder }, h(Icons.folder, { size: 13 }), t('import.bundleFolder')),
+            h(Button, { disabled: bundleBusy, onClick: () => bundleRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.bundleZip'))),
+          h('input', { ref: bundleRef, type: 'file', accept: '.zip,application/zip', className: 'ah-hidden', onChange: importBundleZip }))
+        : null,
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error),
-      skillError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, skillError));
+      skillError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, skillError),
+      bundleError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, bundleError));
     }
 
     function CategoryDialog(props) {
@@ -2043,6 +2135,22 @@ window.__ModuleLoader__.load({
           setEditor(undefined);
         };
 
+        const exportDetailFolder = async (action) => {
+          const workspace = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined;
+          if (workspace === undefined || typeof workspace.pickDirectory !== 'function') {
+            notify(t('import.bundleUnavailable'), 'error');
+            return;
+          }
+          const target = await workspace.pickDirectory();
+          if (target === null) return;
+          try {
+            const data = await api('/bundle/export-folder', { id: action.id, target });
+            notify(t('lib.exportedTo', { path: data.path }), 'ok');
+          } catch (failure) {
+            notify(describeError(failure), 'error');
+          }
+        };
+
         const remove = async () => {
           if (deleting === null) return;
           try {
@@ -2076,17 +2184,8 @@ window.__ModuleLoader__.load({
 
         const exportAll = async () => {
           try {
-            const data = await api('/export');
-            const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const anchor = document.createElement('a');
-            anchor.href = url;
-            anchor.download = `dsh-actions-${new Date().toISOString().slice(0, 10)}.json`;
-            document.body.appendChild(anchor);
-            anchor.click();
-            document.body.removeChild(anchor);
-            setTimeout(() => URL.revokeObjectURL(url), 2000);
-            notify(t('lib.saved'), 'ok');
+            await downloadZip();
+            notify(t('lib.exported'), 'ok');
           } catch (failure) {
             notify(describeError(failure), 'error');
           }
@@ -2200,6 +2299,8 @@ window.__ModuleLoader__.load({
             onClose: () => setDetail(null),
             footer: h(React.Fragment, null,
               h(Button, { onClick: async () => { try { await copyText(detail.prompt); notify(t('lib.copied'), 'ok'); } catch { notify(t('lib.copyFailed'), 'error'); } } }, h(Icons.copy, { size: 13 }), t('action.copy')),
+              h(Button, { onClick: async () => { try { await downloadZip(detail.id); notify(t('lib.exported'), 'ok'); } catch (failure) { notify(describeError(failure), 'error'); } } }, h(Icons.download, { size: 13 }), t('lib.exportOne')),
+              h(Button, { onClick: () => { void exportDetailFolder(detail); } }, h(Icons.folder, { size: 13 }), t('lib.exportFolder')),
               h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
               h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
           },

@@ -5,7 +5,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DSH 插件](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-3.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-4.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub 命令面板](assets/screenshots/01-palette.png)
@@ -51,7 +51,7 @@ Action Hub 把「收藏」和「调用」分开：
 | 资源文件 | 每条 Action 可附带代码、模板、说明等本地文件；调用时小文本内联，大文件给出本地路径按需读取 |
 | AI 导入 | 让 AI 读取 Skill、比较同名候选目录、与你确认 Skill/Action 差异后生成 Action，资源自动落入 Action Hub |
 | 从 Skill 导入 | **选择 Skill 文件夹**直接导入 `SKILL.md` 与同目录全部文件（推荐，不受同名遮挡影响）；也可按名称或指定目录导入 |
-| 分享 | 整库导出 JSON（含资源文件内容），可合并或替换导入；使用次数等本机统计不会带出 |
+| 分享 | 单条 Action 或整库导出为 ZIP / 文件夹；对方导入 ZIP、文件夹或 JSON 即可；每条 Action 都是一个自包含目录 |
 | 快捷命令 | `/action <名称> [参数]` 直接运行；不带参数时列出全部 Action |
 
 ## 安装
@@ -107,21 +107,32 @@ DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 �
 
 - 分类是自由文本；左侧导航自动汇总并显示数量，「管理分类」可重命名/删除。删除分类会二次确认并显示该分类下还有多少 Action；删除后它们移到未分类，Action 本身保留。
 - 星标置顶；搜索支持名称、描述、分类、标签和正文。
-- 「导出」得到整库 JSON；对方「导入」即可合并或替换。
+### 分享与备份
+
+- 每条 Action 是一个自包含目录：
+  ```
+  ~/.dsh/action-hub/actions/<id>/
+    action.json      元数据、prompt、资源清单
+    files/...        资源文件
+  ```
+- Action 详情里可以**导出 ZIP**，或**导出到文件夹**（目录选择器）。
+- 管理库顶部的「导出」下载整库 ZIP；备份时只需备份 `actions/`。
+- 导入 → 「Action 包」：选择文件夹（单个 Action 或整个库），或选择 `.zip`；id 冲突会自动分配新 id，资源随包一起导入。
+- 旧版整库 JSON 仍可导入（导入 → 粘贴 JSON / 选择 JSON 文件）。
 
 ## 设计
 
-- **Host 半**（`index.js` + `store.js`）：JSON 收藏库（原子写入）、同源 `/api/dsh-action-hub` 路由、`/action` 人类命令。命令通过 `sessionController.prompt(..., mode: 'queue')` 提交一条 `source.kind = 'user'` 的真实用户消息。
+- **Host 半**（`index.js` + `store.js` + `resources.js` + `bundle.js`）：每条 Action 一个目录（`actions/<id>/action.json` + `files/`），逐条原子写入；同源 `/api/dsh-action-hub` 路由；`/action` 人类命令。命令通过 `sessionController.prompt(..., mode: 'queue')` 提交一条 `source.kind = 'user'` 的真实用户消息。
 - **引用机制**：输入框里显示 Action 名 chip，draft 的序列化文本仍是不透明的 `/ah-…` 标记；参考源 codec 负责把 chip 写回标记。Host 在 `agent/pre-step` 把 direct user message 中的标记展开成一条 `<action_content>` 注入消息交给模型。**不注册任何运行时 Skill**，所以技能目录、`/` 菜单、上下文面板的技能列表里都不会出现 Action；durable log 保留标记，对话里因此也只显示 Action 名。若 Action 带资源文件，同一注入消息里会附带 `<action_resources>`：小文本内联，其余给路径。
 - **Client 半**（`client.js`）：注册 `conversation.input.left` 工具行按钮、`conversation.input.overlay` 会话桥、`shell.overlay` 命令面板、`main` 管理库、侧边栏图标与 `settings.section` 设置页。
 - **明确不做**：不注册 `ctx.tools`，不调用 `ctx.systemPrompt.section()`；Action 只在用户明确引用时通过 `agent/pre-step` 注入一条上下文消息，收藏夹大小与每轮上下文无关。
 
 ## 数据与隐私
 
-- 数据保存在 `~/.dsh/action-hub/actions.json`（`$DSH_HOME` 下），资源文件保存在 `~/.dsh/action-hub/resources/<id-hash>/`，写入采用临时文件 + 原子重命名。
+- 数据保存在 `~/.dsh/action-hub/actions/<id>/`（`$DSH_HOME` 下）：`action.json` 是元数据/正文，`files/` 是资源文件；写入采用临时文件 + 原子重命名。旧版 `actions.json` 会在首次启动时迁移，旧文件改名为 `.migrated-*` 保留。
 - 设置页显示 `~/.dsh/...` 而不是带用户名的绝对路径。
 - 插件只与本机 DSH Host 通信（同源 `/api/dsh-action-hub`），不发起任何外部网络请求。
-- 导出文件包含正文、分类、标签、置顶状态与资源文件内容（base64）；不包含使用次数等本机统计。分享前请检查正文和资源文件是否含内部信息。
+- ZIP/文件夹/JSON 导出都包含正文、分类、标签、置顶状态与资源文件；不包含使用次数等本机统计。分享前请检查正文和资源文件是否含内部信息。
 
 ## 兼容性
 
