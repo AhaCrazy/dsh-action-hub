@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1 — 2026-10-22
+
+- **Adjacent text still renders as a chip.** Marker detection no longer requires
+  whitespace after the handle, so a message like `/ah-…再测试一下` (the user typed
+  immediately after the chip) renders as the Action-name chip plus the typed text,
+  and the Host still expands the Action body. Existing messages pick this up on
+  reload.
+- New references now leave a trailing space after the chip, so subsequently typed
+  text keeps a word boundary.
+
 ## 1.3.0 — 2026-10-22
 
 - **Action name in the composer.** Inserting a reference now creates a real

@@ -35,7 +35,7 @@ const ROUTE = '/api/dsh-action-hub';
 const MAX_BODY = 4 * 1024 * 1024;
 const IMPORT_CATEGORY = '导入';
 const ACTION_PREFIX = 'ah-';
-const MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{6,20})(?=\s|$)/gu;
+const MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{10})(?![0-9a-f])/gu;
 
 /**
  * Stable, opaque reference marker for one Action. The id survives renames, so
@@ -133,7 +133,7 @@ function installActionInvocations(ctx, store) {
     const direct = messages.filter((message) => message?.source?.kind === 'user');
     if (direct.length === 0) return decision;
     const hasMarker = direct.some((message) => (message.content ?? []).some(
-      (block) => block?.type === 'text' && typeof block.text === 'string' && /(^|\s)\/ah-[0-9a-f]{6,20}(?=\s|$)/.test(block.text),
+      (block) => block?.type === 'text' && typeof block.text === 'string' && /(^|\s)\/ah-[0-9a-f]{10}(?![0-9a-f])/.test(block.text),
     ));
     if (!hasMarker) return decision;
     let plan;

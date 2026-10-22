@@ -159,6 +159,15 @@ test('sortActions and categoriesOf shape the library', () => {
   ]), [['dev', 2], ['ops', 1]]);
 });
 
+test('matchActionMarker accepts text typed right after the chip', () => {
+  const { matchActionMarker } = module.internals;
+  const names = new Map([['ah-0123456789', '会话小结']]);
+  assert.equal(matchActionMarker('/ah-0123456789再测试一下', 0, names).data.name, '会话小结');
+  assert.equal(matchActionMarker('看看 /ah-0123456789', 0, names).start, 3);
+  assert.equal(matchActionMarker('/ah-9999999999', 0, names), undefined);
+  assert.equal(matchActionMarker('/ah-0123456789abc', 0, names), undefined);
+});
+
 test('relativeTime renders a non-empty label for a past timestamp', () => {
   const { relativeTime } = module.internals;
   assert.notEqual(relativeTime(Date.now() - 5_000), '');

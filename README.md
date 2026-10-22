@@ -5,7 +5,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DSH 插件](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.3.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.3.1-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub 命令面板](assets/screenshots/01-palette.png)

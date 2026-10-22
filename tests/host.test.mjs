@@ -107,6 +107,9 @@ test('referencedActions only scans direct user text and known markers', () => {
     { role: 'assistant', source: { kind: 'model' }, content: [{ type: 'text', text: '/ah-abcdefabcdef' }] },
   ];
   assert.deepEqual(referencedActions(messages, known), ['ah-0123456789']);
+  assert.deepEqual(referencedActions([
+    { role: 'user', source: { kind: 'user' }, content: [{ type: 'text', text: '/ah-0123456789再测试一下' }] },
+  ], known), ['ah-0123456789']);
 });
 
 test('actionInvocationMessage wraps the body with the Action name', () => {

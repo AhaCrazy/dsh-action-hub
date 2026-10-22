@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '1.3.0';
+    const VERSION = '1.3.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -627,7 +627,7 @@ window.__ModuleLoader__.load({
           offset += 1;
         }
         const tail = draft.slice(end);
-        if (tail !== '' && !/^\s/u.test(tail)) insert += ' ';
+        if (tail === '' || !/^\s/u.test(tail)) insert += ' ';
         return {
           text: `${draft.slice(0, start)}${insert}${tail}`,
           references: [{ ...reference, offset }],
@@ -1054,6 +1054,29 @@ window.__ModuleLoader__.load({
       }
     }
 
+    const ACTION_MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{10})(?![0-9a-f])/gu;
+
+    /**
+     * Match one Action marker in a user message. A boundary is required before
+     * the slash, but not after the handle: users often type immediately after
+     * the chip, and the stored text then reads `/ah-…再测试一下`.
+     *
+     * @param {string} text
+     * @param {number} from
+     * @param {ReadonlyMap<string, string>} names
+     * @returns {{ id: string, start: number, end: number, data: { name: string, handle: string } } | undefined}
+     */
+    function matchActionMarker(text, from, names) {
+      ACTION_MARKER_PATTERN.lastIndex = from;
+      for (let token = ACTION_MARKER_PATTERN.exec(text); token !== null; token = ACTION_MARKER_PATTERN.exec(text)) {
+        const name = names.get(token[2]);
+        if (name === undefined) continue;
+        const start = token.index + token[1].length;
+        return { id: 'action-hub', start, end: start + 1 + token[2].length, data: { name, handle: token[2] } };
+      }
+      return undefined;
+    }
+
     let chipRuleInstalled = false;
 
     function installActionChipRule(ctx) {
@@ -1074,20 +1097,12 @@ window.__ModuleLoader__.load({
         }
         return false;
       }
-      const pattern = /(^|\s)\/(ah-[0-9a-f]{6,20})(?=\s|$)/gu;
       try {
         userText.register({
           id: 'action-hub',
           order: 15,
           match(text, from) {
-            pattern.lastIndex = from;
-            for (let token = pattern.exec(text); token !== null; token = pattern.exec(text)) {
-              const name = chipNames.get(token[2]);
-              if (name === undefined) continue;
-              const start = token.index + token[1].length;
-              return { id: 'action-hub', start, end: start + 1 + token[2].length, data: { name, handle: token[2] } };
-            }
-            return undefined;
+            return matchActionMarker(text, from, chipNames);
           },
         });
         chipRuleInstalled = true;
@@ -2471,6 +2486,7 @@ window.__ModuleLoader__.load({
         expandPrompt,
         composeDraft,
         composeReferenceDraft,
+        matchActionMarker,
         searchScore,
         sortActions,
         categoriesOf,
