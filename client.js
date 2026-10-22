@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '1.2.0';
+    const VERSION = '1.3.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -575,6 +575,72 @@ window.__ModuleLoader__.load({
       return `${current}\n\n${next}`;
     }
 
+    function referenceEntry(entry) {
+      const next = {
+        source: entry.source,
+        ref: entry.ref,
+        offset: entry.offset,
+        length: entry.length,
+        label: entry.label,
+        clipboardText: entry.clipboardText,
+      };
+      if (entry.appearance !== undefined) next.appearance = entry.appearance;
+      if (entry.invalid === true) next.invalid = true;
+      return next;
+    }
+
+    /**
+     * Build the semantic draft for an Action reference. The composer stores the
+     * opaque `/ah-…` marker as `clipboardText` but renders `label`, so the input
+     * box shows the Action name while the message still carries the marker.
+     *
+     * Plain drafts insert at the caret; drafts that already contain chips are
+     * appended at the end, because their offsets live in clipboard coordinates
+     * while the caret is reported in detect coordinates.
+     *
+     * @param {{ draft: string, span?: object, occurrences?: object[], marker: string, label: string }} input
+     * @returns {{ text: string, references: object[] } | null}
+     */
+    function composeReferenceDraft({ draft, span, occurrences, marker, label }) {
+      if (typeof draft !== 'string' || typeof marker !== 'string' || marker === '') return null;
+      const existing = Array.isArray(occurrences)
+        ? occurrences.filter((entry) => entry !== null && typeof entry === 'object'
+          && Number.isInteger(entry.offset) && Number.isInteger(entry.length)
+          && typeof entry.clipboardText === 'string')
+        : [];
+      const reference = {
+        source: 'action',
+        ref: marker,
+        offset: 0,
+        length: marker.length,
+        label: typeof label === 'string' && label !== '' ? label : marker,
+        clipboardText: marker,
+      };
+      if (existing.length === 0) {
+        const start = span !== null && typeof span === 'object' && Number.isInteger(span.start) ? span.start : draft.length;
+        const end = span !== null && typeof span === 'object' && Number.isInteger(span.end) ? span.end : start;
+        if (start < 0 || end < start || start > draft.length || end > draft.length) return null;
+        let insert = marker;
+        let offset = start;
+        if (start > 0 && !/\s/u.test(draft.slice(start - 1, start))) {
+          insert = ` ${insert}`;
+          offset += 1;
+        }
+        const tail = draft.slice(end);
+        if (tail !== '' && !/^\s/u.test(tail)) insert += ' ';
+        return {
+          text: `${draft.slice(0, start)}${insert}${tail}`,
+          references: [{ ...reference, offset }],
+        };
+      }
+      const separator = draft === '' || /\s$/u.test(draft) ? '' : '\n';
+      const text = `${draft}${separator}${marker}`;
+      return {
+        text,
+        references: [...existing.map(referenceEntry), { ...reference, offset: text.length - marker.length }],
+      };
+    }
+
     function relativeTime(timestamp) {
       if (!Number.isFinite(timestamp) || timestamp <= 0) return '';
       const delta = Date.now() - timestamp;
@@ -824,13 +890,14 @@ window.__ModuleLoader__.load({
       };
 
       const togglePalette = () => {
-        const current = palette.get();
-        if (current.open) {
-          palette.close();
+        const current = (typeof window !== 'undefined' ? window.__dshActionHubPalette : undefined) ?? palette;
+        const state = current.get();
+        if (state.open) {
+          current.close();
           return;
         }
-        if (current.bridge === null) return;
-        palette.open();
+        if (state.bridge === null) return;
+        current.open();
       };
 
       const installManual = () => {
@@ -885,9 +952,16 @@ window.__ModuleLoader__.load({
             });
             state = { ...state, available: true, registered: true };
           } catch (error) {
-            console.warn('[action-hub] shortcut registration failed, using a local listener:', error);
-            installManual();
-            state = { ...state, available: false, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice() };
+            const message = error instanceof Error ? error.message : String(error);
+            if (message.startsWith('Duplicate shortcut command')) {
+              // A hot-reloaded instance still owns the registry row; its handler
+              // resolves the current palette through the window-level ref.
+              state = { ...state, available: true, registered: true };
+            } else {
+              console.warn('[action-hub] shortcut registration failed, using a local listener:', error);
+              installManual();
+              state = { ...state, available: false, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice() };
+            }
           }
           refreshKeys();
           setTimeout(refreshKeys, 0);
@@ -936,6 +1010,47 @@ window.__ModuleLoader__.load({
       for (const action of snapshot?.actions ?? []) {
         const handle = handles[action.id];
         if (typeof handle === 'string' && handle !== '') chipNames.set(handle, action.name);
+      }
+    }
+
+    let referenceSourceOff = null;
+
+    /**
+     * Register the reference source that owns Action chips. The prompt
+     * serializer routes every chip through its owner's codec; ours writes the
+     * opaque `/ah-…` marker so the Host can expand it, while the chip keeps
+     * showing the Action name.
+     */
+    function installActionReferenceSource(ctx) {
+      if (referenceSourceOff !== null) return true;
+      const inputTriggers = typeof ctx?.get === 'function' ? ctx.get('inputTriggers') : ctx?.inputTriggers;
+      if (inputTriggers === undefined || typeof inputTriggers.registerSource !== 'function') {
+        if (typeof ctx?.inject === 'function') {
+          try {
+            ctx.inject(['inputTriggers'], (child) => {
+              installActionReferenceSource(child);
+            });
+          } catch (error) {
+            console.warn('[action-hub] cannot wait for the input-trigger service:', error);
+          }
+        }
+        return false;
+      }
+      try {
+        referenceSourceOff = inputTriggers.registerSource({
+          trigger: '/',
+          name: 'action',
+          candidates: () => [],
+          onPick: () => undefined,
+          codec: {
+            clipboardText: (ref) => ref,
+            serialize: async (ref) => ref,
+          },
+        });
+        return true;
+      } catch (error) {
+        console.warn('[action-hub] reference source registration failed:', error);
+        return false;
       }
     }
 
@@ -1866,6 +1981,8 @@ window.__ModuleLoader__.load({
           }
           const inputActions = bridge.inputActions;
           const draft = bridge.input?.draft ?? '';
+          const occurrences = Array.isArray(bridge.input?.occurrences) ? bridge.input.occurrences : [];
+          const hasCommand = bridge.input?.claim !== undefined || (typeof draft === 'string' && draft.trimStart().startsWith('/'));
           const handle = snapshot.meta?.handles?.[action.id];
           const referenceMode = args.trim() === '' && typeof handle === 'string' && handle !== '';
           const referenceText = referenceMode ? `/${handle}` : '';
@@ -1875,7 +1992,15 @@ window.__ModuleLoader__.load({
           let referenced = false;
           try {
             const span = typeof inputActions.captureInsertion === 'function' ? inputActions.captureInsertion() : null;
-            if (span && typeof inputActions.insertText === 'function') {
+            if (referenceMode && !hasCommand && typeof inputActions.setDraft === 'function') {
+              const composed = composeReferenceDraft({ draft, span, occurrences, marker: referenceText, label: action.name });
+              if (composed !== null) {
+                inputActions.setDraft(composed);
+                placed = true;
+                referenced = true;
+              }
+            }
+            if (!placed && span && typeof inputActions.insertText === 'function') {
               const result = inputActions.insertText(referenceMode ? `${referenceText} ` : text, span);
               placed = result !== false;
               atCaret = placed;
@@ -2246,15 +2371,27 @@ window.__ModuleLoader__.load({
       const prefs = createPrefs();
       const palette = createPalette();
       const shortcuts = createShortcutStore(ctx, palette, prefs, t);
+      const previousPalette = typeof window !== 'undefined' ? window.__dshActionHubPalette : undefined;
+      if (typeof window !== 'undefined') window.__dshActionHubPalette = palette;
 
       setChipNames(hub.get());
       ctx.effect(() => hub.subscribe(setChipNames), 'action-hub: reference names');
       installActionChipRule(ctx);
+      ctx.effect(() => {
+        installActionReferenceSource(ctx);
+        return () => {
+          referenceSourceOff?.();
+          referenceSourceOff = null;
+        };
+      }, 'action-hub: reference source');
 
       ctx.effect(() => () => {
         hub.dispose();
         shortcuts.dispose();
         palette.close();
+        if (typeof window !== 'undefined' && window.__dshActionHubPalette === palette) {
+          window.__dshActionHubPalette = previousPalette;
+        }
       }, 'action-hub: stores');
 
       const Page = createPage(hub);
@@ -2333,6 +2470,7 @@ window.__ModuleLoader__.load({
       internals: {
         expandPrompt,
         composeDraft,
+        composeReferenceDraft,
         searchScore,
         sortActions,
         categoriesOf,

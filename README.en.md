@@ -1,11 +1,11 @@
-﻿# Action Hub
+# Action Hub
 
 **A Spotlight-style Action shelf for DSH: keep reusable prompts and flows one search away, without paying context for them or letting the agent trigger them.**
 
-[涓枃](README.md) 路 [Changelog](CHANGELOG.md) 路 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+[中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.2.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.3.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -20,7 +20,7 @@ Turning recurring prompts into Skills has two problems:
 Action Hub separates the shelf from the trigger:
 
 - **Zero context cost.** No agent tool, no system-prompt text. A large shelf never grows the per-turn prompt.
-- **User-triggered only.** Open the palette with `鈱?Ctrl + Shift + .` or the composer-toolbar button; the pick inserts a reference (the transcript shows the Action name), and pressing Enter sends it yourself.
+- **User-triggered only.** Open the palette with `⌘/Ctrl + Shift + .` or the composer-toolbar button; the pick inserts a chip with the Action name, and pressing Enter sends it yourself.
 - **Organized and shareable.** Categories, tags, pinning, full-text search, one-click Skill import, and whole-library export/import.
 
 ## Screens
@@ -28,7 +28,7 @@ Action Hub separates the shelf from the trigger:
 | Palette | Library |
 | --- | --- |
 | ![Palette](assets/screenshots/01-palette.png) | ![Library](assets/screenshots/02-library.png) |
-| Search, categories, live preview, arguments 鈥?fully keyboard-driven | Category navigation, search, sorting, compact rows, detail |
+| Search, categories, live preview, arguments — fully keyboard-driven | Category navigation, search, sorting, compact rows, detail |
 
 | Action details | Settings |
 | --- | --- |
@@ -39,10 +39,10 @@ Action Hub separates the shelf from the trigger:
 
 | Capability | Details |
 | --- | --- |
-| Spotlight palette | `鈱?Ctrl+Shift+.` or the composer button; search, category tabs, live preview, argument field |
-| Keyboard first | `鈫戔啌` select, `Enter` insert, `Ctrl/鈱?Enter` insert-and-send, `Tab` category, `Esc` close |
-| Reference insert | Without arguments it inserts `/ah-鈥: the transcript shows the Action name while the plugin injects the full body when the message is sent. No Skill is registered |
-| Rebindable shortcut | Default `Ctrl/鈱?+ Shift + .`, registered under Settings 鈫?General 鈫?Shortcuts |
+| Spotlight palette | `⌘/Ctrl+Shift+.` or the composer button; search, category tabs, live preview, argument field |
+| Keyboard first | `↑↓` select, `Enter` insert, `Ctrl/⌘+Enter` insert-and-send, `Tab` category, `Esc` close |
+| Name-chip reference | Without arguments it inserts an Action reference chip: **both the composer and the transcript show only the Action name**, and the plugin injects the body on send. No Skill is registered |
+| Rebindable shortcut | Default `Ctrl/⌘ + Shift + .`, registered under Settings → General → Shortcuts |
 | Insert at the caret | Uses the host `inputActions.insertText()` facade: one undoable edit at the cursor, existing draft preserved |
 | Capture the draft | Save the current composer draft as an Action from the palette |
 | Pinning | Star an Action to keep it first in the palette and library |
@@ -56,7 +56,7 @@ Action Hub separates the shelf from the trigger:
 
 Action Hub is a DSH bundle (Host half + Web half, no build step, no runtime dependencies).
 
-**From the plugin market** (once listed): DSH 鈫?Plugin Market 鈫?search `Action Hub` 鈫?Install 鈫?Enable.
+**From the plugin market** (once listed): DSH → Plugin Market → search `Action Hub` → Install → Enable.
 
 **From GitHub**:
 
@@ -64,7 +64,7 @@ Action Hub is a DSH bundle (Host half + Web half, no build step, no runtime depe
 dsh plugin --profile desktop add "github:AhaCrazy/dsh-action-hub#main"
 ```
 
-**From a local checkout**: DSH 鈫?Plugins 鈫?Add plugin 鈫?paste the absolute path of this directory 鈫?Install 鈫?Enable 鈫?reload the page.
+**From a local checkout**: DSH → Plugins → Add plugin → paste the absolute path of this directory → Install → Enable → reload the page.
 
 After installing, an `Actions` icon appears in the sidebar and an Action Hub button appears at the left of the composer toolbar.
 
@@ -72,41 +72,41 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 
 ### Open the palette
 
-- `Ctrl + Shift + .` (macOS `鈱?+ Shift + .`), or the leftmost icon in the composer toolbar. Rebind it in Settings 鈫?General 鈫?Shortcuts.
-- Type to search, `鈫戔啌` to select, `Enter` to insert.
+- `Ctrl + Shift + .` (macOS `⌘ + Shift + .`), or the leftmost icon in the composer toolbar. Rebind it in Settings → General → Shortcuts.
+- Type to search, `↑↓` to select, `Enter` to insert.
 
 ### Insert or send
 
-- `Enter` / 鈥淚nsert鈥? inserts at the **caret** as one undoable edit; the existing draft is kept.
-- With no arguments it inserts a **reference**: the transcript shows only the Action name (the `/ah-鈥 marker is just a locator) and the plugin injects the full body when the message is sent.
+- `Enter` / “Insert”: inserts at the **caret** as one undoable edit; the existing draft is kept.
+- With no arguments it inserts a **reference chip**: the composer shows `@Action name` and the transcript shows only the Action name; the plugin injects the full body when the message is sent.
 - With arguments it inserts the **full text**, since the arguments are part of the body.
-- `Ctrl/鈱?+ Enter` / 鈥淪end鈥? inserts and submits the current draft.
+- `Ctrl/⌘ + Enter` / “Send”: inserts and submits the current draft.
 
 ### Save content
 
-- **Save the current draft**: 鈥淪ave draft鈥?in the palette footer 鈫?name/category/tags 鈫?Save.
-- **Import from a Skill**: Library 鈫?Import 鈫?From Skill 鈫?project root (empty scans the default) 鈫?pick a Skill.
-- **Create/edit**: 鈥淣ew Action鈥?in the library, or the row's edit button.
+- **Save the current draft**: “Save draft” in the palette footer → name/category/tags → Save.
+- **Import from a Skill**: Library → Import → From Skill → project root (empty scans the default) → pick a Skill.
+- **Create/edit**: “New Action” in the library, or the row's edit button.
 
 ### Organize
 
-- Categories are free text, summarized with counts in the sidebar; 鈥淢anage categories鈥?renames or deletes one. Deleting asks for confirmation and reports how many Actions move to Uncategorized; the Actions themselves are kept.
+- Categories are free text, summarized with counts in the sidebar; “Manage categories” renames or deletes one. Deleting asks for confirmation and reports how many Actions move to Uncategorized; the Actions themselves are kept.
 - Pin with the star; search covers name, description, category, tags, and body.
-- 鈥淓xport鈥?produces a whole-library JSON; import it elsewhere with merge or replace.
+- “Export” produces a whole-library JSON; import it elsewhere with merge or replace.
 
 ## Design
 
 - **Host half** (`index.js`, `store.js`): atomic JSON store, same-origin `/api/dsh-action-hub` routes, and the `/action` human command, which submits a genuine user message through `sessionController.prompt(..., mode: 'queue')`.
-- **References**: the composer inserts an opaque `/ah-鈥 marker; the Host expands it in `agent/pre-step` into one `<action_content>` message for the step. **No runtime Skill is registered**, so Actions never appear in the Skills catalog, the `/` menu, or the context panel's skill list; the durable log keeps the marker, which is why the transcript shows only the Action name.
+- **References**: the composer renders an Action-name chip while the draft's serialized text stays the opaque `/ah-…` marker; a reference-source codec writes the chip back to that marker. The Host expands the marker in `agent/pre-step` into one `<action_content>` message for the step. **No runtime Skill is registered**, so Actions never appear in the Skills catalog, the `/` menu, or the context panel's skill list.
 - **Client half** (`client.js`): registers the composer-toolbar button (`conversation.input.left`), the session bridge (`conversation.input.overlay`), the frame-level palette (`shell.overlay`), the library (`main` + sidebar icon), and the settings page (`settings.section`).
-- **Deliberately absent**: no `ctx.tools`, no `ctx.systemPrompt.section()`, no `agent/pre-step` listener. Shelf size does not affect context.
+- **Deliberately absent**: no `ctx.tools`, no `ctx.systemPrompt.section()`; an Action enters a step only when the user explicitly references one, so shelf size does not affect context.
 
 ## Data and privacy
 
 - Data lives in `~/.dsh/action-hub/actions.json` (under `$DSH_HOME`) with atomic writes.
 - Settings show `~/.dsh/...` rather than an absolute path with the account name.
 - The plugin talks only to the local DSH Host (`/api/dsh-action-hub`); it makes no external network requests.
-- Exports contain bodies, categories, tags, and pinned state 鈥?not local usage counters. Check a body for internal information before sharing.
+- Exports contain bodies, categories, tags, and pinned state — not local usage counters. Check a body for internal information before sharing.
 
 ## Compatibility
 
@@ -123,10 +123,10 @@ node --check store.js
 npm test
 ```
 
-- `tests/store.test.mjs` 鈥?data model, placeholders, pinning order, import merging, atomic persistence.
-- `tests/client.test.mjs` 鈥?captures the module registration, checks pure helpers and locale completeness, asserts no tool/prompt surface.
-- `tests/host.test.mjs` 鈥?same-origin check, export trimming, `/action` argument parsing.
+- `tests/store.test.mjs` — data model, placeholders, pinning order, import merging, atomic persistence.
+- `tests/client.test.mjs` — captures the module registration, checks pure helpers and locale completeness, asserts no tool/prompt surface.
+- `tests/host.test.mjs` — same-origin check, export trimming, `/action` argument parsing.
 
 ## License
 
-MIT 漏 2026 AhaCrazy
+MIT © 2026 AhaCrazy

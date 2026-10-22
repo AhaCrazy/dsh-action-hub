@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 — 2026-10-22
+
+- **Action name in the composer.** Inserting a reference now creates a real
+  composer chip: the input box shows `@代码审查` while the stored draft text stays
+  the opaque `/ah-…` marker. A small reference-source codec serializes the chip
+  back to that marker on send, so the Host expansion, the transcript chip, and
+  zero Skill registration all keep working. Plain drafts insert at the caret;
+  drafts that already contain file/session chips append at the end so their
+  offsets stay valid.
+- **Quieter hot reload.** A duplicate shortcut registration (development HMR)
+  reuses the existing registry row instead of logging a warning.
+
 ## 1.2.0 — 2026-10-22
 
 - **Action references no longer register Skills.** 1.1.0 implemented name-only

@@ -84,6 +84,41 @@ test('composeDraft appends instead of destroying the current draft', () => {
   assert.equal(composeDraft('typed', ''), 'typed');
 });
 
+test('composeReferenceDraft inserts a chip at the caret and keeps offsets', () => {
+  const { composeReferenceDraft } = module.internals;
+  const plain = composeReferenceDraft({
+    draft: 'hello world',
+    span: { start: 5, end: 5 },
+    occurrences: [],
+    marker: '/ah-0123456789',
+    label: '代码审查',
+  });
+  assert.equal(plain.text, 'hello /ah-0123456789 world');
+  assert.equal(plain.references.length, 1);
+  assert.equal(plain.references[0].offset, 6);
+  assert.equal(plain.references[0].label, '代码审查');
+  assert.equal(plain.references[0].clipboardText, '/ah-0123456789');
+  const replaced = composeReferenceDraft({
+    draft: 'abcXYZdef',
+    span: { start: 3, end: 6 },
+    occurrences: [],
+    marker: '/ah-0123456789',
+    label: 'X',
+  });
+  assert.equal(replaced.text, 'abc /ah-0123456789 def');
+  const appended = composeReferenceDraft({
+    draft: 'typed /ah-aaaaaaaaaa ',
+    span: { start: 99, end: 99 },
+    occurrences: [{ source: 'file', ref: '@a', offset: 6, length: 14, label: 'a.ts', clipboardText: '/ah-aaaaaaaaaa', appearance: 'file' }],
+    marker: '/ah-0123456789',
+    label: '代码审查',
+  });
+  assert.equal(appended.text, 'typed /ah-aaaaaaaaaa /ah-0123456789');
+  assert.equal(appended.references.length, 2);
+  assert.equal(appended.references[1].offset, appended.text.length - 14);
+  assert.equal(appended.references[0].occurrenceId, undefined);
+});
+
 test('searchScore prefers names, requires every token, and rejects misses', () => {
   const { searchScore } = module.internals;
   const action = { name: 'Code Review', description: 'diff reader', category: 'dev', tags: ['git'], prompt: 'inspect changes' };
