@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-2.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-2.0.1-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -49,7 +49,7 @@ Action Hub separates the shelf from the trigger:
 | Library | Category navigation with counts, full-text search, sort by recent / name / created |
 | Arguments | `{{args}}` / `$ARGUMENTS` filled from the palette; `{{date}}` becomes today |
 | Resource files | Attach code, templates, docs, and fixtures to an Action; small text is inlined at invocation, larger files are listed by local path |
-| Skill import | Browse project Skills and import a `SKILL.md` body plus its sibling resource files as an Action |
+| Skill import | Import a project Skill by name (`SKILL.md` body + sibling resources), or point at a Skill directory when a same-named Skill is shadowed by another source |
 | Sharing | Export the library as JSON (including resource file contents); import with merge or replace; local usage counters stay local |
 | Slash command | `/action <name> [args]` runs one Action, or lists them all |
 
@@ -86,7 +86,7 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 ### Save content
 
 - **Save the current draft**: “Save draft” in the palette footer → name/category/tags → Save.
-- **Import from a Skill**: Library → Import → From Skill → project root (empty scans the default) → pick a Skill; files next to `SKILL.md` are imported as resources too.
+- **Import from a Skill**: Library → Import → From Skill → project root (empty scans the default) → pick a Skill; files next to `SKILL.md` are imported as resources too. When a same-named Skill is shadowed by another source (the list shows the resolved path), use “Import from a skill directory” and point at that directory.
 - **Create/edit**: “New Action” in the library, or the row's edit button.
 
 ### Resource files

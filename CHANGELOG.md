@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1 — 2026-10-22
+
+- **Import a Skill by explicit directory.** DSH may resolve a same-named Skill
+  from a different root (for example a thin `.agents/skills/...` shim shadowing
+  a richer `.claude/skills/...` copy), so importing by name can pick the wrong
+  files. The import dialog now accepts a Skill directory (or `SKILL.md` path)
+  and copies its body and sibling resource files directly.
+- The Skills list shows each resolved Skill's path, making shadowing visible.
+
 ## 2.0.0 — 2026-10-22
 
 - **Actions can carry resource files.** An Action is now a prompt plus an optional

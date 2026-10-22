@@ -13,7 +13,9 @@
  * @module dsh-action-hub
  */
 import { createHash } from 'node:crypto';
+import { promises as fs } from 'node:fs';
 import os from 'node:os';
+import nodePath from 'node:path';
 
 import {
   addResourceFile,
@@ -349,6 +351,7 @@ async function handle(ctx, store, dataDir, req, res) {
           description: skill.description,
           source: skill.source,
           whenToUse: skill.whenToUse,
+          ...(typeof skill.path === 'string' ? { path: skill.path } : {}),
         })),
         warning,
       });
@@ -594,21 +597,52 @@ async function handle(ctx, store, dataDir, req, res) {
     }
 
     if (route === '/import-skill') {
-      const skills = ctx.get('skills');
-      if (skills === undefined) {
-        sendJson(res, 400, { ok: false, error: '当前 Profile 未启用 Skills 服务' });
-        return;
-      }
-      const skillName = text(body.name);
-      if (skillName === '') {
-        sendJson(res, 400, { ok: false, error: '缺少 skill 名称' });
-        return;
-      }
-      const cwd = await resolveCwd(ctx, text(body.cwd));
-      const definition = await skills.get(skillName, { cwd });
-      if (definition === undefined) {
-        sendJson(res, 404, { ok: false, error: `没有找到 skill：${skillName}` });
-        return;
+      const explicitPath = text(body.path);
+      /** @type {{ name: string, description: string, content: string, path?: string }} */
+      let definition;
+      if (explicitPath !== '') {
+        const candidate = nodePath.resolve(explicitPath);
+        let stat;
+        try {
+          stat = await fs.stat(candidate);
+        } catch {
+          sendJson(res, 404, { ok: false, error: `目录不存在：${explicitPath}` });
+          return;
+        }
+        const skillPath = stat.isDirectory() ? nodePath.join(candidate, 'SKILL.md') : candidate;
+        let raw;
+        try {
+          raw = await fs.readFile(skillPath, 'utf8');
+        } catch {
+          sendJson(res, 404, { ok: false, error: `没有找到 SKILL.md：${skillPath}` });
+          return;
+        }
+        const parsed = parseSkillMarkdown(raw);
+        const folder = stat.isDirectory() ? candidate : nodePath.dirname(skillPath);
+        definition = {
+          name: parsed.meta.name || nodePath.basename(folder),
+          description: parsed.meta.description || '',
+          content: parsed.body,
+          path: skillPath,
+        };
+      } else {
+        const skills = ctx.get('skills');
+        if (skills === undefined) {
+          sendJson(res, 400, { ok: false, error: '当前 Profile 未启用 Skills 服务' });
+          return;
+        }
+        const skillName = text(body.name);
+        if (skillName === '') {
+          sendJson(res, 400, { ok: false, error: '缺少 skill 名称或目录' });
+          return;
+        }
+        const cwd = await resolveCwd(ctx, text(body.cwd));
+        const found = await skills.get(skillName, { cwd });
+        if (found === undefined) {
+          sendJson(res, 404, { ok: false, error: `没有找到 skill：${skillName}` });
+          return;
+        }
+        definition = found;
       }
       const action = normalizeAction({
         name: definition.name,
@@ -746,6 +780,29 @@ async function resolveCwd(ctx, requested) {
     }
   }
   return undefined;
+}
+
+/**
+ * Parse a SKILL.md document into its frontmatter map and body.
+ *
+ * @param {string} content
+ * @returns {{ meta: Record<string, string>, body: string }}
+ */
+function parseSkillMarkdown(content) {
+  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/u.exec(content);
+  if (match === null) return { meta: {}, body: content.trim() };
+  const meta = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const at = line.indexOf(':');
+    if (at <= 0) continue;
+    const key = line.slice(0, at).trim();
+    let value = line.slice(at + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (key !== '') meta[key] = value;
+  }
+  return { meta, body: content.slice(match[0].length).trim() };
 }
 
 /**

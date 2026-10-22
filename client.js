@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '2.0.0';
+    const VERSION = '2.0.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -291,6 +291,12 @@ window.__ModuleLoader__.load({
         'import.skillImport': '导入为 Action',
         'import.skillDone': '已导入：{name}',
         'import.skillDoneWithResources': '已导入：{name}（含 {count} 个资源文件）',
+        'import.pathLabel': '从技能目录导入',
+        'import.pathPlaceholder': '例如 C:\\Users\\me\\.claude\\skills\\my-skill',
+        'import.pathButton': '导入此目录',
+        'import.pathHint': '同名 Skill 被其他来源遮挡时，直接指定 SKILL.md 所在目录（会一并复制同目录资源文件）。',
+        'import.pathDone': '已从目录导入：{name}',
+        'import.pathDoneWithResources': '已从目录导入：{name}（含 {count} 个资源文件）',
         'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
         'category.empty': '还没有分类',
@@ -460,6 +466,12 @@ window.__ModuleLoader__.load({
         'import.skillImport': 'Import as Action',
         'import.skillDone': 'Imported: {name}',
         'import.skillDoneWithResources': 'Imported: {name} ({count} resource files)',
+        'import.pathLabel': 'Import from a skill directory',
+        'import.pathPlaceholder': 'e.g. C:\\Users\\me\\.claude\\skills\\my-skill',
+        'import.pathButton': 'Import this directory',
+        'import.pathHint': 'When a same-named Skill is shadowed by another source, point at the directory containing SKILL.md; sibling resource files are copied too.',
+        'import.pathDone': 'Imported from directory: {name}',
+        'import.pathDoneWithResources': 'Imported from directory: {name} ({count} resource files)',
         'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
         'category.empty': 'No categories yet',
@@ -1592,6 +1604,7 @@ window.__ModuleLoader__.load({
       const [skills, setSkills] = React.useState(null);
       const [skillError, setSkillError] = React.useState('');
       const [skillBusy, setSkillBusy] = React.useState(false);
+      const [skillPath, setSkillPath] = React.useState('');
       const fileRef = React.useRef(null);
 
       const runImport = async () => {
@@ -1630,6 +1643,26 @@ window.__ModuleLoader__.load({
           setSkills(data.skills ?? []);
           if (data.warning) setSkillError(data.warning);
           if (data.unavailable) setSkillError(t('import.skillUnavailable'));
+        } catch (failure) {
+          setSkillError(describeError(failure));
+        } finally {
+          setSkillBusy(false);
+        }
+      };
+
+      const importSkillPath = async () => {
+        const target = skillPath.trim();
+        if (target === '') return;
+        setSkillBusy(true);
+        setSkillError('');
+        try {
+          const data = await api('/import-skill', { path: target });
+          const count = Number(data.resources) || 0;
+          const name = data.action?.name ?? target;
+          props.notify(count > 0
+            ? t('import.pathDoneWithResources', { name, count })
+            : t('import.pathDone', { name }), 'ok');
+          props.onDone();
         } catch (failure) {
           setSkillError(describeError(failure));
         } finally {
@@ -1700,14 +1733,20 @@ window.__ModuleLoader__.load({
             h('input', { className: 'ah-input', value: cwd, placeholder: 'C:\\path\\to\\project', onChange: (event) => setCwd(event.target.value) }),
             h('span', { className: 'ah-hint' }, t('import.skillCwdHint'))),
           h('div', null, h(Button, { disabled: skillBusy, onClick: loadSkills }, h(Icons.folder, { size: 13 }), t('import.skillLoad'))),
+          h('div', { className: 'ah-field' },
+            h('label', { className: 'ah-label' }, t('import.pathLabel')),
+            h('div', { className: 'ah-field-row' },
+              h('input', { className: 'ah-input', value: skillPath, placeholder: t('import.pathPlaceholder'), onChange: (event) => setSkillPath(event.target.value) }),
+              h(Button, { disabled: skillBusy || skillPath.trim() === '', onClick: importSkillPath }, t('import.pathButton'))),
+            h('span', { className: 'ah-hint' }, t('import.pathHint'))),
           skills === null
             ? null
             : skills.length === 0
               ? h('div', { className: 'ah-notice' }, t('import.skillEmpty'))
-              : h('div', { className: 'ah-list-plain' }, skills.map((skill) => h('div', { key: skill.name, className: 'ah-plain-item' },
+              : h('div', { className: 'ah-list-plain' }, skills.map((skill) => h('div', { key: `${skill.name}:${skill.path ?? ''}`, className: 'ah-plain-item' },
                 h('div', { className: 'ah-plain-main' },
                   h('span', { className: 'ah-plain-name' }, skill.name),
-                  h('span', { className: 'ah-plain-desc', title: skill.description }, skill.description || '')),
+                  h('span', { className: 'ah-plain-desc', title: skill.path ?? skill.description }, skill.path ?? skill.description ?? '')),
                 h(Button, { small: true, disabled: skillBusy, onClick: () => importSkill(skill) }, t('import.skillImport')))))),
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error),
       skillError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, skillError));
