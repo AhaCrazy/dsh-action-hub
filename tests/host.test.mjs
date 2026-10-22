@@ -120,3 +120,18 @@ test('actionInvocationMessage wraps the body with the Action name', () => {
   assert.match(message.content[0].text, /body/u);
   assert.match(message.content[0].text, /<\/action_content>$/u);
 });
+
+test('actionInvocationMessage inlines small resources and lists large paths', () => {
+  const message = actionInvocationMessage({ name: 'Deploy', prompt: 'run it' }, {
+    basePath: '/data/resources/x',
+    files: [
+      { name: 'deploy.py', bytes: 5, text: 'print\n' },
+      { name: 'big.bin', bytes: 9000, path: '/data/resources/x/big.bin' },
+    ],
+  });
+  const text = message.content[0].text;
+  assert.match(text, /<action_resources base="\/data\/resources\/x">/u);
+  assert.match(text, /<action_file name="deploy.py">\nprint\n\n<\/action_file>/u);
+  assert.match(text, /<action_file name="big.bin" path="\/data\/resources\/x\/big.bin" bytes="9000"\/>/u);
+  assert.match(text, /<action_instructions>\nrun it\n<\/action_instructions>/u);
+});

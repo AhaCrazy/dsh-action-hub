@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.3.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-2.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -48,8 +48,9 @@ Action Hub separates the shelf from the trigger:
 | Pinning | Star an Action to keep it first in the palette and library |
 | Library | Category navigation with counts, full-text search, sort by recent / name / created |
 | Arguments | `{{args}}` / `$ARGUMENTS` filled from the palette; `{{date}}` becomes today |
-| Skill import | Browse project Skills and import a `SKILL.md` body as an Action |
-| Sharing | Export the library as JSON; import with merge or replace; local usage counters stay local |
+| Resource files | Attach code, templates, docs, and fixtures to an Action; small text is inlined at invocation, larger files are listed by local path |
+| Skill import | Browse project Skills and import a `SKILL.md` body plus its sibling resource files as an Action |
+| Sharing | Export the library as JSON (including resource file contents); import with merge or replace; local usage counters stay local |
 | Slash command | `/action <name> [args]` runs one Action, or lists them all |
 
 ## Install
@@ -85,8 +86,16 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 ### Save content
 
 - **Save the current draft**: “Save draft” in the palette footer → name/category/tags → Save.
-- **Import from a Skill**: Library → Import → From Skill → project root (empty scans the default) → pick a Skill.
+- **Import from a Skill**: Library → Import → From Skill → project root (empty scans the default) → pick a Skill; files next to `SKILL.md` are imported as resources too.
 - **Create/edit**: “New Action” in the library, or the row's edit button.
+
+### Resource files
+
+- An Action can be more than a prompt: the editor's “Resource files” section attaches code, templates, docs, or sample data.
+- Each file ≤ 4 MB; up to 64 files and 32 MB total per Action. Names are sanitized and `..` traversal is rejected.
+- At invocation, small text files are inlined into `<action_content>`, while larger or binary files are listed with a local absolute path and size for on-demand reads.
+- Resources enter the context only when the Action is invoked; the shelf itself still costs nothing.
+- Resources travel with whole-library export/import, and duplicating an Action copies its resource directory too.
 
 ### Organize
 
@@ -97,16 +106,16 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 ## Design
 
 - **Host half** (`index.js`, `store.js`): atomic JSON store, same-origin `/api/dsh-action-hub` routes, and the `/action` human command, which submits a genuine user message through `sessionController.prompt(..., mode: 'queue')`.
-- **References**: the composer renders an Action-name chip while the draft's serialized text stays the opaque `/ah-…` marker; a reference-source codec writes the chip back to that marker. The Host expands the marker in `agent/pre-step` into one `<action_content>` message for the step. **No runtime Skill is registered**, so Actions never appear in the Skills catalog, the `/` menu, or the context panel's skill list.
+- **References**: the composer renders an Action-name chip while the draft's serialized text stays the opaque `/ah-…` marker; a reference-source codec writes the chip back to that marker. The Host expands the marker in `agent/pre-step` into one `<action_content>` message for the step. **No runtime Skill is registered**, so Actions never appear in the Skills catalog, the `/` menu, or the context panel's skill list. When an Action has resource files, the same message carries `<action_resources>`: small text inline, everything else by path.
 - **Client half** (`client.js`): registers the composer-toolbar button (`conversation.input.left`), the session bridge (`conversation.input.overlay`), the frame-level palette (`shell.overlay`), the library (`main` + sidebar icon), and the settings page (`settings.section`).
 - **Deliberately absent**: no `ctx.tools`, no `ctx.systemPrompt.section()`; an Action enters a step only when the user explicitly references one, so shelf size does not affect context.
 
 ## Data and privacy
 
-- Data lives in `~/.dsh/action-hub/actions.json` (under `$DSH_HOME`) with atomic writes.
+- Data lives in `~/.dsh/action-hub/actions.json` (under `$DSH_HOME`) with atomic writes; resource files live in `~/.dsh/action-hub/resources/<id-hash>/`.
 - Settings show `~/.dsh/...` rather than an absolute path with the account name.
 - The plugin talks only to the local DSH Host (`/api/dsh-action-hub`); it makes no external network requests.
-- Exports contain bodies, categories, tags, and pinned state — not local usage counters. Check a body for internal information before sharing.
+- Exports contain bodies, categories, tags, pinned state, and resource file contents (base64) — not local usage counters. Check a body and its resources for internal information before sharing.
 
 ## Compatibility
 

@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '1.3.1';
+    const VERSION = '2.0.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -129,6 +129,12 @@ window.__ModuleLoader__.load({
       .ah-hidden { display: none !important; }
       .ah-user-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 260px; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent); color: color-mix(in srgb, var(--dsw-alias-brand-primary) 82%, var(--dsw-alias-label-primary)); font-weight: 500; user-select: none; }
       .ah-user-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-resource-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .ah-resource-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 180px; overflow: auto; }
+      .ah-resource-item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
+      .ah-resource-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none; background: none; color: var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary)); font: inherit; text-align: left; cursor: pointer; padding: 0; }
+      .ah-resource-size { flex: none; font-size: 11px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
+      .ah-resource-preview { margin: 8px 0 0; max-height: 220px; overflow: auto; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
       /* palette */
       .ah-palette { width: min(820px, 100%); max-height: min(68vh, 620px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
       .ah-palette-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
@@ -253,6 +259,13 @@ window.__ModuleLoader__.load({
         'editor.args': '参数提示',
         'editor.argsPlaceholder': '例如：分支名',
         'editor.argsHint': '调用时会提示填写；正文里的 {{args}} 会被替换。',
+        'editor.resources': '资源文件',
+        'editor.resourcesHint': '代码、模板、说明等文件。小文本会随调用内联，较大的文件会给出本地路径，模型按需读取。',
+        'editor.resourceSaved': '先保存 Action，之后就能添加资源文件。',
+        'editor.addFiles': '添加文件',
+        'editor.resourceDelete': '删除文件',
+        'editor.resourceEmptyText': '（无法预览的文件）',
+        'editor.resourceFailed': '资源操作失败',
         'editor.prompt': '提示词正文',
         'editor.promptPlaceholder': '把要发给 Agent 的提示词写在这里…',
         'editor.promptHint': '支持多段 Markdown；{{args}} 是参数，{{date}} 是当天日期。',
@@ -277,6 +290,7 @@ window.__ModuleLoader__.load({
         'import.skillEmpty': '没有找到 Skill，检查目录是否正确。',
         'import.skillImport': '导入为 Action',
         'import.skillDone': '已导入：{name}',
+        'import.skillDoneWithResources': '已导入：{name}（含 {count} 个资源文件）',
         'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
         'category.empty': '还没有分类',
@@ -319,6 +333,7 @@ window.__ModuleLoader__.load({
         'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
         'palette.refInserted': '已插入引用',
+        'palette.resourceCount': '{count} 个资源',
         'palette.usage': '用过 {count} 次',
         'palette.pinned': '已置顶',
         'trigger.label': 'Actions',
@@ -413,6 +428,13 @@ window.__ModuleLoader__.load({
         'editor.args': 'Argument hint',
         'editor.argsPlaceholder': 'e.g. branch name',
         'editor.argsHint': 'Prompted for at call time; {{args}} in the body is replaced.',
+        'editor.resources': 'Resource files',
+        'editor.resourcesHint': 'Code, templates, docs. Small text is inlined at invocation; larger files are listed by local path for on-demand reads.',
+        'editor.resourceSaved': 'Save the Action first, then you can add resource files.',
+        'editor.addFiles': 'Add files',
+        'editor.resourceDelete': 'Delete file',
+        'editor.resourceEmptyText': '(not previewable)',
+        'editor.resourceFailed': 'Resource operation failed',
         'editor.prompt': 'Prompt body',
         'editor.promptPlaceholder': 'Write the prompt you send to the agent…',
         'editor.promptHint': 'Markdown is fine; {{args}} is the argument slot, {{date}} is today.',
@@ -437,6 +459,7 @@ window.__ModuleLoader__.load({
         'import.skillEmpty': 'No Skills found. Check the directory.',
         'import.skillImport': 'Import as Action',
         'import.skillDone': 'Imported: {name}',
+        'import.skillDoneWithResources': 'Imported: {name} ({count} resource files)',
         'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
         'category.empty': 'No categories yet',
@@ -479,6 +502,7 @@ window.__ModuleLoader__.load({
         'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
         'palette.refInserted': 'Reference inserted',
+        'palette.resourceCount': '{count} resource(s)',
         'palette.usage': 'Used {count}×',
         'palette.pinned': 'Pinned',
         'trigger.label': 'Actions',
@@ -650,6 +674,22 @@ window.__ModuleLoader__.load({
       if (delta < 7 * 86_400_000) return `${Math.floor(delta / 86_400_000)} 天前`;
       const date = new Date(timestamp);
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function formatBytes(value) {
+      const bytes = Number.isFinite(value) && value > 0 ? value : 0;
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = '';
+      const chunk = 0x8000;
+      for (let index = 0; index < bytes.length; index += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(index, index + chunk));
+      }
+      return btoa(binary);
     }
 
     async function copyText(text) {
@@ -1397,7 +1437,68 @@ window.__ModuleLoader__.load({
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
+      const [resources, setResources] = React.useState(() => (Array.isArray(initial?.resources) ? initial.resources : []));
+      const [resourceBusy, setResourceBusy] = React.useState(false);
+      const [preview, setPreview] = React.useState(null);
+      const fileRef = React.useRef(null);
       const patch = (key) => (event) => setForm((previous) => ({ ...previous, [key]: event.target.value }));
+
+      const loadPreview = async (name) => {
+        if (preview?.name === name) {
+          setPreview(null);
+          return;
+        }
+        if (initial?.id === undefined) return;
+        try {
+          const data = await api(`/resources?id=${encodeURIComponent(initial.id)}`);
+          const file = (data.files ?? []).find((entry) => entry.name === name);
+          setPreview(file ?? null);
+        } catch (failure) {
+          setError(describeError(failure));
+        }
+      };
+
+      const addFiles = async (event) => {
+        const files = [...(event.target.files ?? [])];
+        event.target.value = '';
+        if (files.length === 0 || initial?.id === undefined) return;
+        setResourceBusy(true);
+        setError('');
+        try {
+          let next = resources;
+          for (const file of files) {
+            const bytes = new Uint8Array(await file.arrayBuffer());
+            const data = await api('/resource/add', {
+              id: initial.id,
+              name: file.name,
+              contentBase64: bytesToBase64(bytes),
+            });
+            next = data.resources ?? next;
+          }
+          setResources(next);
+          props.onChanged?.();
+        } catch (failure) {
+          setError(describeError(failure));
+        } finally {
+          setResourceBusy(false);
+        }
+      };
+
+      const removeResource = async (name) => {
+        if (initial?.id === undefined) return;
+        setResourceBusy(true);
+        setError('');
+        try {
+          const data = await api('/resource/delete', { id: initial.id, name });
+          setResources(data.resources ?? []);
+          if (preview?.name === name) setPreview(null);
+          props.onChanged?.();
+        } catch (failure) {
+          setError(describeError(failure));
+        } finally {
+          setResourceBusy(false);
+        }
+      };
 
       const save = async () => {
         if (form.name.trim() === '' || form.prompt.trim() === '') {
@@ -1458,6 +1559,21 @@ window.__ModuleLoader__.load({
         h('label', { className: 'ah-label' }, t('editor.prompt')),
         h('textarea', { className: 'ah-textarea', value: form.prompt, rows: 12, spellCheck: false, placeholder: t('editor.promptPlaceholder'), onChange: patch('prompt') }),
         h('span', { className: 'ah-hint' }, t('editor.promptHint'))),
+      h('div', { className: 'ah-field' },
+        h('div', { className: 'ah-resource-head' },
+          h('label', { className: 'ah-label' }, t('editor.resources')),
+          h(Button, {
+            small: true,
+            disabled: resourceBusy || initial?.id === undefined,
+            onClick: () => fileRef.current?.click(),
+          }, h(Icons.plus, { size: 13 }), t('editor.addFiles'))),
+        h('input', { ref: fileRef, type: 'file', multiple: true, className: 'ah-hidden', onChange: addFiles }),
+        h('span', { className: 'ah-hint' }, initial?.id === undefined ? t('editor.resourceSaved') : t('editor.resourcesHint')),
+        resources.length === 0 ? null : h('div', { className: 'ah-resource-list' }, resources.map((resource) => h('div', { key: resource.name, className: 'ah-resource-item' },
+          h('button', { type: 'button', className: 'ah-resource-name', title: resource.name, onClick: () => { void loadPreview(resource.name); } }, resource.name),
+          h('span', { className: 'ah-resource-size' }, formatBytes(resource.bytes)),
+          h(Button, { small: true, ghost: true, iconOnly: true, title: t('editor.resourceDelete'), disabled: resourceBusy, onClick: () => { void removeResource(resource.name); } }, h(Icons.trash, { size: 12 }))))),
+        preview === null ? null : h('pre', { className: 'ah-resource-preview' }, typeof preview.text === 'string' ? preview.text : t('editor.resourceEmptyText'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),
@@ -1525,8 +1641,11 @@ window.__ModuleLoader__.load({
         setSkillBusy(true);
         setSkillError('');
         try {
-          await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim() });
-          props.notify(t('import.skillDone', { name: skill.name }), 'ok');
+          const data = await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim() });
+          const count = Number(data.resources) || 0;
+          props.notify(count > 0
+            ? t('import.skillDoneWithResources', { name: skill.name, count })
+            : t('import.skillDone', { name: skill.name }), 'ok');
           props.onDone();
         } catch (failure) {
           setSkillError(describeError(failure));
@@ -1859,6 +1978,7 @@ window.__ModuleLoader__.load({
             categories: categories.map(([name]) => name),
             t,
             onSave: save,
+            onChanged: () => { void hub.refresh(true).catch(() => {}); },
             onClose: () => setEditor(undefined),
           }));
         }
@@ -1878,9 +1998,17 @@ window.__ModuleLoader__.load({
             detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
             detail.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
             (detail.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
+            (detail.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: detail.resources.length })) : null,
             h('span', { className: 'ah-count' }, detail.usage?.count > 0 ? t('lib.used', { count: detail.usage.count }) : t('lib.updated', { time: relativeTime(detail.updatedAt) }))),
           detail.description ? h('p', { className: 'ah-desc' }, detail.description) : null,
           h('pre', { className: 'ah-code' }, detail.prompt),
+          (detail.resources ?? []).length > 0
+            ? h('div', { className: 'ah-field' },
+              h('label', { className: 'ah-label' }, t('editor.resources')),
+              h('div', { className: 'ah-resource-list' }, detail.resources.map((resource) => h('div', { key: resource.name, className: 'ah-resource-item' },
+                h('span', { className: 'ah-resource-name' }, resource.name),
+                h('span', { className: 'ah-resource-size' }, formatBytes(resource.bytes))))))
+            : null,
           h('p', { className: 'ah-hint' }, t('lib.useInChat'))));
         }
         if (deleting !== null) {
@@ -2177,6 +2305,7 @@ window.__ModuleLoader__.load({
               selected.category ? h('span', { className: 'ah-badge ah-badge-accent' }, selected.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
               selected.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
               (selected.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
+              (selected.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: selected.resources.length })) : null,
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,

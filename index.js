@@ -16,6 +16,18 @@ import { createHash } from 'node:crypto';
 import os from 'node:os';
 
 import {
+  addResourceFile,
+  copyResources,
+  copySkillResources,
+  deleteResourceFile,
+  exportResourceFiles,
+  readInvocationResources,
+  readResourcePreviews,
+  removeResources,
+  resourceDir,
+  writeResourceEntries,
+} from './resources.js';
+import {
   MAX_PROMPT,
   createStore,
   defaultDataDir,
@@ -32,7 +44,7 @@ export const name = 'action-hub';
 export const inject = ['webServer'];
 
 const ROUTE = '/api/dsh-action-hub';
-const MAX_BODY = 4 * 1024 * 1024;
+const MAX_BODY = 40 * 1024 * 1024;
 const IMPORT_CATEGORY = '导入';
 const ACTION_PREFIX = 'ah-';
 const MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{10})(?![0-9a-f])/gu;
@@ -99,21 +111,36 @@ export function referencedActions(messages, known) {
  * Build the durable, model-facing injection for one explicitly invoked Action.
  * It is appended to the step like a Skill invocation, so later steps keep it in
  * history, but it uses our own source kind — Action references are not Skills
- * and never appear in the Skill catalog or the `/` menu.
+ * and never appear in the Skill catalog or the `/` menu. Small text resources
+ * are inlined; everything else is listed by path for on-demand reads.
  *
  * @param {object} action
+ * @param {{ basePath?: string, files?: Array<{ name: string, bytes: number, text?: string, path: string }> }} [context]
  * @returns {object} a plain user-role message.
  */
-export function actionInvocationMessage(action) {
-  const name = String(action.name).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+export function actionInvocationMessage(action, context = undefined) {
+  const escape = (value) => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
+  const name = escape(action.name);
   const body = expandPrompt(action.prompt, { date: new Date() });
+  const files = Array.isArray(context?.files) ? context.files : [];
+  const parts = [`<action_content name="${name}">`];
+  if (files.length > 0) {
+    parts.push(`<action_resources base="${escape(context.basePath ?? '')}">`);
+    for (const file of files) {
+      if (typeof file.text === 'string') {
+        parts.push(`<action_file name="${escape(file.name)}">\n${file.text}\n</action_file>`);
+      } else {
+        parts.push(`<action_file name="${escape(file.name)}" path="${escape(file.path)}" bytes="${file.bytes}"/>`);
+      }
+    }
+    parts.push('</action_resources>');
+    parts.push('The files above are local resources for this Action. Read any file you need with the file tools before applying it.');
+  }
+  parts.push('<action_instructions>', body, '</action_instructions>', '</action_content>');
   return {
     id: `action-${globalThis.crypto.randomUUID()}`,
     role: 'user',
-    content: [{
-      type: 'text',
-      text: `<action_content name="${name}">\n${body}\n</action_content>`,
-    }],
+    content: [{ type: 'text', text: parts.join('\n') }],
     source: { kind: 'action', name: action.name, form: 'instructions' },
   };
 }
@@ -126,7 +153,7 @@ export function actionInvocationMessage(action) {
  * @param {object} ctx
  * @param {ReturnType<typeof createStore>} store
  */
-function installActionInvocations(ctx, store) {
+function installActionInvocations(ctx, store, dataDir) {
   return ctx.on('agent/pre-step', async ({ messages, signal }, next) => {
     const decision = await next();
     if (decision.kind === 'reject' || signal.aborted) return decision;
@@ -147,12 +174,14 @@ function installActionInvocations(ctx, store) {
     const byHandle = new Map(plan.entries.map((entry) => [entry.name, entry.action]));
     const markers = referencedActions(messages, new Set(byHandle.keys()));
     if (markers.length === 0) return decision;
+    const injections = await Promise.all(markers.map(async (marker) => {
+      const action = byHandle.get(marker);
+      const context = await readInvocationResources(dataDir, action);
+      return actionInvocationMessage(action, context);
+    }));
     return {
       ...decision,
-      messages: [
-        ...decision.messages,
-        ...markers.map((marker) => actionInvocationMessage(byHandle.get(marker))),
-      ],
+      messages: [...decision.messages, ...injections],
     };
   });
 }
@@ -168,7 +197,7 @@ export function apply(ctx, config = {}) {
     ? config.dataDir.trim()
     : defaultDataDir();
   const store = createStore({ dataDir, seed: config.seed !== false });
-  ctx.effect(() => installActionInvocations(ctx, store), 'action-hub: action invocations');
+  ctx.effect(() => installActionInvocations(ctx, store, dataDir), 'action-hub: action invocations');
 
   // The command registry may finish activating after this row; a child context
   // waits for it instead of dropping the command when it is momentarily absent.
@@ -188,7 +217,7 @@ export function apply(ctx, config = {}) {
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: ROUTE,
-    handler: (req, res) => handle(ctx, store, req, res),
+    handler: (req, res) => handle(ctx, store, dataDir, req, res),
   }), 'action-hub: API route');
 }
 
@@ -264,11 +293,12 @@ function buildCommand(ctx, store) {
  *
  * @param {object} ctx
  * @param {ReturnType<typeof createStore>} store
+ * @param {string} dataDir
  * @param {import('node:http').IncomingMessage} req
  * @param {import('node:http').ServerResponse} res
  * @returns {Promise<void>}
  */
-async function handle(ctx, store, req, res) {
+async function handle(ctx, store, dataDir, req, res) {
   try {
     if (!originAllowed(ctx, req)) {
       sendJson(res, 403, { ok: false, error: '拒绝跨站请求' });
@@ -325,14 +355,31 @@ async function handle(ctx, store, req, res) {
       return;
     }
 
+    if (method === 'GET' && route === '/resources') {
+      const id = url.searchParams.get('id') ?? '';
+      const state = await store.read();
+      const action = state.actions.find((entry) => entry.id === id);
+      if (action === undefined) {
+        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
+        return;
+      }
+      const files = await readResourcePreviews(resourceDir(dataDir, action.id), action.resources);
+      sendJson(res, 200, { ok: true, files });
+      return;
+    }
+
     if (method === 'GET' && route === '/export') {
       const state = await store.read();
+      const actions = await Promise.all(sortActions(state.actions).map(async (action) => ({
+        ...exportable(action),
+        resources: await exportResourceFiles(resourceDir(dataDir, action.id), action.resources),
+      })));
       sendJson(res, 200, {
         ok: true,
         exportedAt: new Date().toISOString(),
         plugin: 'dsh-action-hub',
         version: state.version,
-        actions: sortActions(state.actions).map(exportable),
+        actions,
       });
       return;
     }
@@ -345,6 +392,62 @@ async function handle(ctx, store, req, res) {
     const body = await readJsonBody(req);
     if (body === undefined) {
       sendJson(res, 400, { ok: false, error: '请求体必须是 JSON' });
+      return;
+    }
+
+    if (route === '/resource/add') {
+      const id = text(body.id);
+      const state = await store.read();
+      const action = state.actions.find((entry) => entry.id === id);
+      if (action === undefined) {
+        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
+        return;
+      }
+      let buffer;
+      try {
+        buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
+      } catch {
+        sendJson(res, 400, { ok: false, error: '文件内容不是合法的 base64' });
+        return;
+      }
+      let resources;
+      try {
+        resources = await addResourceFile(
+          resourceDir(dataDir, id),
+          typeof body.name === 'string' ? body.name : '',
+          buffer,
+          action.resources,
+        );
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+        return;
+      }
+      const { state: next } = await store.mutate((draft) => {
+        draft.actions = draft.actions.map((entry) => (entry.id === id ? { ...entry, resources, updatedAt: Date.now() } : entry));
+      });
+      sendJson(res, 200, { ok: true, resources, actions: sortActions(next.actions) });
+      return;
+    }
+
+    if (route === '/resource/delete') {
+      const id = text(body.id);
+      const state = await store.read();
+      const action = state.actions.find((entry) => entry.id === id);
+      if (action === undefined) {
+        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
+        return;
+      }
+      let resources;
+      try {
+        resources = await deleteResourceFile(resourceDir(dataDir, id), body.name, action.resources);
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+        return;
+      }
+      const { state: next } = await store.mutate((draft) => {
+        draft.actions = draft.actions.map((entry) => (entry.id === id ? { ...entry, resources, updatedAt: Date.now() } : entry));
+      });
+      sendJson(res, 200, { ok: true, resources, actions: sortActions(next.actions) });
       return;
     }
 
@@ -401,6 +504,7 @@ async function handle(ctx, store, req, res) {
         draft.actions = draft.actions.filter((entry) => entry.id !== id);
         return { removed: before - draft.actions.length };
       });
+      if (result.removed > 0) await removeResources(resourceDir(dataDir, id));
       sendJson(res, 200, { ok: true, removed: result.removed, actions: sortActions(state.actions) });
       return;
     }
@@ -426,6 +530,7 @@ async function handle(ctx, store, req, res) {
         sendJson(res, 404, { ok: false, error: 'Action 不存在' });
         return;
       }
+      await copyResources(resourceDir(dataDir, id), resourceDir(dataDir, result.action.id));
       sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
       return;
     }
@@ -460,17 +565,30 @@ async function handle(ctx, store, req, res) {
         return;
       }
       const mode = body.mode === 'replace' ? 'replace' : 'merge';
+      const written = new Map();
+      for (const entry of list) {
+        if (entry === null || typeof entry !== 'object' || !Array.isArray(entry.resources)) continue;
+        const normalized = normalizeAction(entry);
+        written.set(normalized.id, await writeResourceEntries(resourceDir(dataDir, normalized.id), entry.resources));
+      }
       const { state, result } = await store.mutate((draft) => {
         const merged = mergeActions(draft.actions, list, mode);
         draft.actions = merged.actions;
         return merged;
       });
+      if (written.size > 0) {
+        await store.mutate((draft) => {
+          draft.actions = draft.actions.map((entry) => (written.has(entry.id)
+            ? { ...entry, resources: written.get(entry.id) }
+            : entry));
+        });
+      }
       sendJson(res, 200, {
         ok: true,
         mode,
         added: result.added,
         updated: result.updated,
-        actions: sortActions(state.actions),
+        actions: sortActions((await store.read()).actions),
       });
       return;
     }
@@ -500,10 +618,18 @@ async function handle(ctx, store, req, res) {
         prompt: String(definition.content ?? ''),
         source: { kind: 'skill', name: definition.name, detail: definition.path },
       });
+      const copied = await copySkillResources(definition.path, resourceDir(dataDir, action.id));
+      if (copied.resources.length > 0) action.resources = copied.resources;
       const { state } = await store.mutate((draft) => {
         draft.actions = [...draft.actions, action];
       });
-      sendJson(res, 200, { ok: true, action, actions: sortActions(state.actions) });
+      sendJson(res, 200, {
+        ok: true,
+        action,
+        resources: copied.resources.length,
+        skipped: copied.skipped,
+        actions: sortActions(state.actions),
+      });
       return;
     }
 

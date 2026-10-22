@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.0.0 — 2026-10-22
+
+- **Actions can carry resource files.** An Action is now a prompt plus an optional
+  bundle of local files (code, templates, docs, fixtures). Files are stored under
+  `~/.dsh/action-hub/resources/<hashed-id>/`; the management editor can add,
+  preview, and delete them (up to 64 files, 4 MB each, 32 MB total).
+- **Resource-aware invocation.** When invoked, small text files are inlined into
+  the `<action_content>` context, while larger or binary files are listed with a
+  local path so the model can read only what it needs. Prompt and resources stay
+  out of context until the user explicitly invokes the Action.
+- **Skill import brings assets too.** Importing a Skill now copies the files next
+  to `SKILL.md` into the new Action's resources and reports how many were taken.
+- **Export/import and duplicate cover files.** Whole-library export embeds file
+  contents (base64) for sharing; import writes them back; duplicate clones the
+  resource directory along with the Action.
+- **Existing data stays compatible.** Actions without resources behave exactly as
+  before; a missing resources directory simply yields no files.
+
 ## 1.3.1 — 2026-10-22
 
 - **Adjacent text still renders as a chip.** Marker detection no longer requires

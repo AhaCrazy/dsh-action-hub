@@ -15,6 +15,8 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { normalizeResourceMeta } from './resources.js';
+
 export const STORE_VERSION = 1;
 export const MAX_PROMPT = 60000;
 export const MAX_NAME = 80;
@@ -134,6 +136,10 @@ export function normalizeAction(input, options = {}) {
   const pinned = typeof source.pinned === 'boolean'
     ? source.pinned
     : previous.pinned === true;
+  const resourcesSource = Array.isArray(source.resources)
+    ? source.resources
+    : Array.isArray(previous.resources) ? previous.resources : [];
+  const resources = normalizeResourceMeta(resourcesSource);
   const sourceRef = previous.source !== null && typeof previous.source === 'object'
     ? previous.source
     : source.source !== null && typeof source.source === 'object' ? source.source : undefined;
@@ -146,6 +152,7 @@ export function normalizeAction(input, options = {}) {
     prompt: prompt !== '' ? prompt : typeof previous.prompt === 'string' ? previous.prompt : '',
     argsHint: text(source.argsHint).slice(0, 120) || text(previous.argsHint).slice(0, 120),
     pinned,
+    resources,
     createdAt,
     updatedAt: now,
     usage,

@@ -102,6 +102,21 @@ test('normalizeAction keeps and toggles pinned without disturbing identity', () 
   assert.equal(kept.pinned, true);
 });
 
+test('normalizeAction keeps resource metadata and drops unsafe names', () => {
+  const action = normalizeAction({
+    name: 'Big task',
+    prompt: 'work',
+    resources: [
+      { name: 'templates/deploy.yml', bytes: 120 },
+      { name: '../escape.sh', bytes: 10 },
+      { name: 'templates/deploy.yml', bytes: 999 },
+    ],
+  });
+  assert.deepEqual(action.resources, [{ name: 'templates/deploy.yml', bytes: 120 }]);
+  const updated = normalizeAction({ name: 'Big task v2' }, { id: action.id, previous: action });
+  assert.deepEqual(updated.resources, [{ name: 'templates/deploy.yml', bytes: 120 }]);
+});
+
 test('matchesQuery searches name, description, category, tags, and prompt', () => {
   const action = { name: 'Code Review', description: 'diff reader', category: 'dev', tags: ['git'], prompt: 'inspect changes' };
   assert.equal(matchesQuery(action, 'review'), true);
