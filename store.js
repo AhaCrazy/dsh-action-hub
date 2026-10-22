@@ -15,7 +15,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { normalizeResourceMeta, actionDir, legacyResourceDir, removeActionDir, resourceDir } from './resources.js';
+import { normalizeResourceMeta, actionDir, legacyResourceDir, listResources, removeActionDir, resourceDir } from './resources.js';
 
 export const STORE_VERSION = 2;
 export const MAX_PROMPT = 60000;
@@ -39,7 +39,7 @@ export function defaultDataDir(env = process.env) {
   const home = env.DSH_HOME && env.DSH_HOME.trim() !== ''
     ? env.DSH_HOME
     : path.join(os.homedir(), '.dsh');
-  return path.join(home, 'action-hub');
+  return path.join(home, 'dsh-action-hub');
 }
 
 /**
@@ -163,6 +163,8 @@ export function normalizeAction(input, options = {}) {
       name: text(sourceRef.name),
     };
     if (text(sourceRef.detail)) action.source.detail = text(sourceRef.detail);
+    if (text(sourceRef.importedFingerprint)) action.source.importedFingerprint = text(sourceRef.importedFingerprint);
+    if (text(sourceRef.importedAt)) action.source.importedAt = text(sourceRef.importedAt);
   }
   return action;
 }
@@ -317,6 +319,71 @@ export const SEED_ACTIONS = [
 ];
 
 /**
+ * Built-in helper (installed once for every library) that turns a Skill folder
+ * or a piece of text into an importable Action bundle. It is an ordinary Action:
+ * no special host capability is attached to it.
+ */
+export const DEFAULT_ACTIONS = [
+  {
+    id: 'action-import-assistant',
+    name: 'Action 导入助手',
+    description: '把指定 Skill 目录或一段文本整理成可导入的 Action 包，必要时先和用户确认。',
+    category: '内置',
+    tags: ['内置', '导入'],
+    argsHint: 'Skill 目录路径，或要保存为 Action 的文本',
+    prompt: [
+      '你是 Action Hub 的导入助手。根据用户给出的内容完成一种任务：',
+      '',
+      'A. 如果用户给出一个 Skill 目录（或 SKILL.md 路径）：',
+      '1. 读取 SKILL.md 和同目录里的资源文件；先比较内容，必要时问用户要保留哪些文件。',
+      '2. 按 Action Hub 的语义转换：Action 只由用户显式调用，不注册 Skill、不自动触发；prompt 要能独立执行；可以把用户输入改成 {{args}}。',
+      '3. 在用户指定（或确认）的目标目录创建 Action 包：',
+      '   <目标目录>/<action-id>/action.json',
+      '   <目标目录>/<action-id>/files/...',
+      '4. action.json 结构：',
+      '   {',
+      '     "format": "dsh-action-hub/action@1",',
+      '     "action": { "name": "...", "description": "...", "category": "...", "tags": ["..."], "argsHint": "...", "prompt": "..." },',
+      '     "resources": [ { "name": "相对路径", "bytes": 123 } ]',
+      '   }',
+      '   resources 只保存真正需要的代码/模板/文档；files/ 下的路径要与 name 对应。',
+      '',
+      'B. 如果用户给出一段要保存的文本（例如当前输入框内容）：',
+      '1. 先问清 Action 名称、分类和参数提示；信息不足时一次只问一个问题。',
+      '2. 生成同样的 Action 包；只有确实需要附带的模板/附件才放进 files/。',
+      '',
+      '完成后告诉用户：在 Action Hub →「导入」→「Action 包」选择该目录（或把目录压缩成 ZIP 后选择 ZIP）。',
+      '如果当前环境无法写文件，就把 action.json 的完整内容贴在回复里，让用户用「导入 → 粘贴 JSON」粘贴。',
+      '',
+      '用户输入：',
+      '{{args}}',
+    ].join('\n'),
+  },
+];
+
+/**
+ * Install the built-in helper exactly once per library. The marker keeps a user
+ * who deletes it from getting it back on every plugin start.
+ *
+ * @param {{ read: Function, mutate: Function }} store
+ * @param {string} dataDir
+ * @returns {Promise<void>}
+ */
+export async function installDefaultActions(store, dataDir) {
+  const marker = path.join(dataDir, '.defaults-v1');
+  if (await fs.access(marker).then(() => true).catch(() => false)) return;
+  const state = await store.read();
+  const existing = new Set(state.actions.map((action) => action.id));
+  const missing = DEFAULT_ACTIONS.filter((entry) => !existing.has(entry.id));
+  if (missing.length > 0) {
+    await store.mutate((draft) => {
+      draft.actions = [...draft.actions, ...missing.map((entry) => normalizeAction(entry, { now: Date.now() }))];
+    });
+  }
+  await fs.writeFile(marker, `${Date.now()}\n`, 'utf8').catch(() => undefined);
+}
+
+/**
  * Create the durable per-Action store.
  *
  * Each Action is one self-contained directory:
@@ -372,10 +439,35 @@ export function createStore(options = {}) {
     const raw = parsed !== null && typeof parsed === 'object' && parsed.action !== null && typeof parsed.action === 'object'
       ? parsed.action
       : parsed;
-    return normalizeAction(raw);
+    const action = normalizeAction(raw);
+    // The Action folder is the source of truth: files placed in `files/` by the
+    // user (outside the plugin) must show up without editing action.json.
+    action.resources = await listResources(path.join(dir, 'files'));
+    return action;
+  }
+
+  /**
+   * Rename the pre-5.0.3 default directory (`action-hub`) to the plugin-named
+   * `dsh-action-hub` once. Only the default location is migrated; a custom
+   * `dataDir` is never touched.
+   */
+  async function migrateLegacyDataDir() {
+    const parent = path.dirname(dataDir);
+    if (dataDir !== path.join(parent, 'dsh-action-hub')) return;
+    const legacy = path.join(parent, 'action-hub');
+    if (!(await exists(legacy)) || await exists(dataDir)) return;
+    try {
+      await fs.rename(legacy, dataDir);
+    } catch {
+      // Cross-device or a held directory: copy, then clear the old tree so the
+      // next start does not see two libraries.
+      await fs.cp(legacy, dataDir, { recursive: true, errorOnExist: true });
+      await fs.rm(legacy, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }).catch(() => undefined);
+    }
   }
 
   async function ensureLayout() {
+    await migrateLegacyDataDir();
     await fs.mkdir(actionsRoot, { recursive: true });
     const hasLegacy = await exists(legacyFile);
     if (!hasLegacy) return;
@@ -405,7 +497,6 @@ export function createStore(options = {}) {
   }
 
   async function load() {
-    if (loaded !== null) return loaded;
     await ensureLayout();
     const entries = await fs.readdir(actionsRoot, { withFileTypes: true }).catch(() => []);
     const actions = [];

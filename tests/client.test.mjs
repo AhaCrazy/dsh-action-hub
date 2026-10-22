@@ -58,10 +58,15 @@ test('the client half never registers a tool or prompt section', () => {
   assert.equal(source.includes('agent.inject'), false);
 });
 
-test('references ride the registry shortcut and the user-text chip path', () => {
+test('shortcut uses the DSH registry with a plugin fallback and a recorder-free flow', () => {
   assert.match(source, /ctx\.get\('shortcuts'\)/);
   assert.match(source, /service\.register/);
-  assert.match(source, /code: 'Period'/);
+  assert.match(source, /DEFAULT_HOTKEY = \{ code: 'KeyA', modifiers: \['alt'\] \}/);
+  assert.match(source, /defaults\[`desktop:\$\{platform\}`\]/);
+  assert.match(source, /matchesBinding/);
+  assert.match(source, /catalog\.subscribe/);
+  assert.match(source, /action-hub\.manage/);
+  assert.match(source, /manageKeys/);
   assert.match(source, /userText\.register/);
   assert.match(source, /'conversation\.user\.text\.node'/);
 });
@@ -174,15 +179,29 @@ test('relativeTime renders a non-empty label for a past timestamp', () => {
   assert.equal(relativeTime(0), '');
 });
 
-test('parseSkillDocument reads frontmatter and body from CRLF SKILL.md', () => {
-  const { parseSkillDocument } = module.internals;
-  const parsed = parseSkillDocument('---\r\nname: grill\r\ndescription: sharpen it\r\n---\r\n\r\nBody here.\r\n');
-  assert.equal(parsed.meta.name, 'grill');
-  assert.equal(parsed.meta.description, 'sharpen it');
-  assert.equal(parsed.body, 'Body here.');
-  const plain = parseSkillDocument('no frontmatter');
-  assert.deepEqual(plain.meta, {});
-  assert.equal(plain.body, 'no frontmatter');
+test('palette arrow keys cycle groups', () => {
+  assert.match(source, /cycleCategory/);
+  assert.match(source, /ArrowRight/);
+  assert.match(source, /ArrowLeft/);
+  assert.match(source, /palette\.hintTab/);
+});
+
+test('sidebar entry and library shortcut are configurable', () => {
+  assert.match(source, /showSidebarEntry/);
+  assert.match(source, /settings\.sidebarEntry/);
+  assert.match(source, /Ctrl\+Alt\+A|Ctrl \+ Alt \+ A/);
+  assert.match(source, /action-hub\.manage/);
+});
+
+test('Action reference source never blocks other slash sources', () => {
+  assert.match(source, /candidates: async \(\) => \[\]/);
+  assert.match(source, /inputTriggers\.registerSource/);
+});
+
+test('palette returns focus to the composer after closing', () => {
+  assert.match(source, /data-composer-card=\"true\"/);
+  assert.match(source, /composer\.focus/);
+  assert.match(source, /selectNodeContents\(composer\)/);
 });
 
 test('every locale key exists in both dictionaries', () => {

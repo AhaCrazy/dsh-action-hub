@@ -5,7 +5,7 @@
  *   - `conversation.input.left`: a compact "Actions" trigger in the composer tool row.
  *   - `conversation.input.overlay`: a session bridge that hands the palette the
  *     live composer facade (inputActions / input state) it needs to insert text.
- *   - `shell.overlay`: the Spotlight-style palette (Ctrl/⌘+Shift+.), rendered at
+ *   - `shell.overlay`: the Spotlight-style palette (Alt+A / ⌥+A), rendered at
  *     the frame level so it is never clipped by the composer card.
  *   - `main` + `sidebar.panellist`: the management library.
  *   - `settings.section`: preferences and data controls.
@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '4.0.0';
+    const VERSION = '5.1.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -130,13 +130,35 @@ window.__ModuleLoader__.load({
       .ah-user-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 260px; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent); color: color-mix(in srgb, var(--dsw-alias-brand-primary) 82%, var(--dsw-alias-label-primary)); font-weight: 500; user-select: none; }
       .ah-user-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ah-resource-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-      .ah-resource-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 180px; overflow: auto; }
+      .ah-resource-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; max-height: 180px; overflow: auto; }
+      .ah-tree-row { display: flex; align-items: center; gap: 7px; min-height: 24px; padding: 1px 6px; border-radius: 6px; }
+      .ah-tree-row:hover { background: var(--dsw-alias-bg-layer-1); }
+      .ah-tree-name { font-size: 12px; color: var(--dsw-alias-label-secondary); }
       .ah-resource-item { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
       .ah-resource-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: none; background: none; color: var(--dsw-alias-state-business-primary, var(--dsw-alias-brand-primary)); font: inherit; text-align: left; cursor: pointer; padding: 0; }
       .ah-resource-size { flex: none; font-size: 11px; color: var(--dsw-alias-label-secondary); font-variant-numeric: tabular-nums; }
       .ah-resource-preview { margin: 8px 0 0; max-height: 220px; overflow: auto; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
+      .ah-export-list { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow: auto; }
+      .ah-export-item { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); cursor: pointer; }
+      .ah-export-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-export-meta { flex: none; font-size: 11px; color: var(--dsw-alias-label-secondary); }
+      .ah-import-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 6px 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+      .ah-import-stat { padding: 1px 7px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: var(--dsw-alias-bg-layer-1); }
+      .ah-import-list { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; margin-top: 6px; }
+      .ah-import-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); }
+      .ah-import-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+      .ah-import-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .ah-import-title { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-import-badge { flex: none; padding: 1px 6px; border-radius: 999px; font-size: 10px; border: 1px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); }
+      .ah-import-badge[data-status="new"] { color: var(--dsw-alias-state-success-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 45%, transparent); }
+      .ah-import-badge[data-status="update"] { color: var(--dsw-alias-state-business-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-business-primary) 45%, transparent); }
+      .ah-import-badge[data-status="conflict"] { color: var(--dsw-alias-state-warn-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 45%, transparent); }
+      .ah-import-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-import-meta { font-size: 11px; color: var(--dsw-alias-label-tertiary); }
+      .ah-import-warning { font-size: 11px; color: var(--dsw-alias-state-warn-primary); }
+      .ah-import-select { flex: none; height: 30px; max-width: 170px; border-radius: 8px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; padding: 0 8px; }
       /* palette */
-      .ah-palette { width: min(820px, 100%); max-height: min(68vh, 620px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
+      .ah-palette { width: min(940px, calc(100vw - 32px)); max-height: min(76vh, 720px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
       .ah-palette-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
       .ah-palette-search .ah-search { flex: 1 1 auto; }
       .ah-palette-search input { height: 38px; font-size: 14px; border-radius: 10px; }
@@ -159,15 +181,15 @@ window.__ModuleLoader__.load({
       .ah-preview-desc { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--dsw-alias-label-secondary); }
       .ah-preview-body { flex: 1 1 auto; min-height: 90px; }
       .ah-preview-empty { flex: 1 1 auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--dsw-alias-label-secondary); font-size: 12.5px; text-align: center; padding: 24px; }
-      .ah-palette-foot { border-top: 1px solid var(--dsw-alias-border-l1); padding: 10px 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-      .ah-args { flex: 1 1 220px; display: flex; align-items: center; gap: 8px; min-width: 160px; }
-      .ah-args .ah-input { height: 30px; font-size: 12px; padding: 0 10px; }
-      .ah-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .ah-palette-foot { border-top: 1px solid var(--dsw-alias-border-l1); padding: 10px 14px; display: flex; flex-direction: column; align-items: stretch; gap: 8px; }
+      .ah-foot-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+      .ah-args { flex: 1 1 auto; display: flex; align-items: center; gap: 8px; min-width: 0; }
+      .ah-args .ah-input { height: 32px; font-size: 12px; padding: 0 10px; }
+      .ah-actions { display: flex; align-items: center; gap: 6px; flex: none; flex-wrap: nowrap; }
       .ah-hints { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--dsw-alias-label-secondary); flex-wrap: wrap; }
       .ah-toast { margin: 0 14px; padding: 7px 11px; border-radius: 8px; font-size: 12px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
       .ah-toast[data-kind="ok"] { color: var(--dsw-alias-state-success-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 50%, transparent); }
       .ah-toast[data-kind="error"] { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 50%, transparent); }
-      .ah-capture { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
       .ah-trigger { appearance: none; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-secondary); width: 28px; height: 28px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
       .ah-trigger:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l1); }
       .ah-trigger[data-open="true"] { color: var(--dsw-alias-brand-primary); }
@@ -205,7 +227,6 @@ window.__ModuleLoader__.load({
         'action.delete': '删除',
         'action.deleteForever': '确认删除',
         'action.edit': '编辑',
-        'action.duplicate': '复制一份',
         'action.copy': '复制正文',
         'action.pin': '置顶',
         'action.unpin': '取消置顶',
@@ -223,7 +244,7 @@ window.__ModuleLoader__.load({
         'lib.sortCreated': '最近创建',
         'lib.sortLabel': '排序',
         'lib.emptyTitle': '收藏夹还是空的',
-        'lib.emptyCopy': '把经常重复输入的提示词存成 Action：从右侧新建，或让面板把当前草稿收进来。',
+        'lib.emptyCopy': '把经常重复输入的提示词存成 Action：从右侧新建，或导入现成的 Action 包。',
         'lib.emptyFiltered': '没有匹配的 Action。换个关键词或分类试试。',
         'lib.emptyCta': '新建第一个 Action',
         'lib.loading': '读取中…',
@@ -235,9 +256,12 @@ window.__ModuleLoader__.load({
         'lib.deleted': '已删除',
         'lib.exported': '已导出',
         'lib.exportOne': '导出 ZIP',
-        'lib.exportFolder': '导出到文件夹',
-        'lib.exportedTo': '已导出到 {path}',
-        'lib.duplicated': '已创建副本',
+        'export.title': '选择要导出的 Action',
+        'export.hint': '勾选要一起导出的 Action；ZIP 解压后每条 Action 都是一个自包含目录。',
+        'export.selectAll': '全选',
+        'export.clear': '清空',
+        'export.selected': '已选 {count} / {total}',
+        'export.run': '导出所选 ZIP',
         'lib.pinned': '已置顶',
         'lib.unpinned': '已取消置顶',
         'lib.updated': '更新于 {time}',
@@ -264,10 +288,9 @@ window.__ModuleLoader__.load({
         'editor.argsPlaceholder': '例如：分支名',
         'editor.argsHint': '调用时会提示填写；正文里的 {{args}} 会被替换。',
         'editor.resources': '资源文件',
-        'editor.resourcesHint': '代码、模板、说明等文件。小文本会随调用内联，较大的文件会给出本地路径，模型按需读取。',
-        'editor.resourceSaved': '先保存 Action，之后就能添加资源文件。',
-        'editor.addFiles': '添加文件',
-        'editor.resourceDelete': '删除文件',
+        'editor.resourcesHint': '只读展示该 Action 的 files/ 目录。增删文件请直接在文件浏览器里操作，然后刷新管理库。',
+        'editor.resourceSaved': '新建 Action 为纯文本；保存后如需附件，请在文件浏览器里把文件放进该 Action 的 files/ 目录。',
+        'editor.resourcesEmpty': '暂无资源文件。',
         'editor.resourceEmptyText': '（无法预览的文件）',
         'editor.resourceFailed': '资源操作失败',
         'editor.prompt': '提示词正文',
@@ -314,10 +337,26 @@ window.__ModuleLoader__.load({
         'import.aiUnavailable': '当前环境无法打开新对话，请改用「选择 Skill 文件夹」。',
         'import.aiNoPath': '这个 Skill 没有可用的目录路径，请用「从技能目录导入」填写目录。',
         'import.bundleTab': 'Action 包',
-        'import.bundleHint': '导入单条 Action 或整库备份：选择包含 action.json 的文件夹，或选择 .zip 包；同名 id 会自动分配新 id。',
+        'import.bundleHint': '选择文件夹或 ZIP 后先进入预览；可以为每个 Action 单独选择跳过、导入为新 Action 或更新本地副本。',
         'import.bundleFolder': '选择文件夹',
         'import.bundleZip': '选择 ZIP',
-        'import.bundleDone': '已导入 {count} 个 Action（{renamed} 个重命名）',
+        'import.previewTitle': '导入预览',
+        'import.previewHint': '请先检查内容，再决定每一项怎么处理。来源：{source}',
+        'import.summaryTotal': '共 {total} 项',
+        'import.status.new': '新增',
+        'import.status.duplicate': '重复',
+        'import.status.update': '可更新',
+        'import.status.conflict': '冲突',
+        'import.mode.skip': '跳过',
+        'import.mode.create': '导入为新 Action',
+        'import.mode.update': '更新本地 Action',
+        'import.itemResources': '{count} 个资源文件',
+        'import.itemExisting': '本地已有：{name}',
+        'import.itemDuplicate': '内容相同：{name}',
+        'import.conflictHint': '本地副本已修改，默认保留本地；确认覆盖时请选择“更新本地 Action”。',
+        'import.back': '返回',
+        'import.confirm': '确认导入',
+        'import.bundleResult': '导入完成：新增 {imported}，更新 {updated}，跳过 {skipped}（重复 {duplicated}，冲突 {conflicts}）',
         'import.bundleUnavailable': '当前环境无法打开目录选择器，请改用 ZIP。',
         'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
@@ -334,12 +373,11 @@ window.__ModuleLoader__.load({
         'palette.title': '选择一个 Action',
         'palette.search': '搜索 Action…',
         'palette.empty': '还没有 Action',
-        'palette.emptyCopy': '新建一条，或把当前草稿存成 Action，之后在这里一搜即用。',
+        'palette.emptyCopy': '新建一条，或从管理页导入，之后在这里一搜即用。',
         'palette.noMatch': '没有匹配的 Action',
         'palette.args': '参数（可选，替换 {{args}}）',
         'palette.insert': '插入',
         'palette.send': '发送',
-        'palette.capture': '存当前草稿',
         'palette.manage': '管理',
         'palette.inserted': '已插入输入框',
         'palette.insertedAtCaret': '已插入到光标处',
@@ -347,15 +385,11 @@ window.__ModuleLoader__.load({
         'palette.insertFailed': '当前会话暂时无法写入输入框',
         'palette.sendFailed': '发送失败，草稿已保留',
         'palette.busy': '正在发送，稍后再试',
-        'palette.captureTitle': '把当前草稿存为 Action',
-        'palette.captureEmpty': '草稿是空的，先写点内容再存。',
-        'palette.capturePrompt': '正文',
-        'palette.captureDone': '已存为 Action：{name}',
         'palette.hintNav': '选择',
         'palette.hintInsert': '插入',
         'palette.hintSend': '发送',
         'palette.hintClose': '关闭',
-        'palette.hintTab': '切换分类',
+        'palette.hintTab': '切换分组',
         'palette.noSession': '先在对话中打开输入框，再使用 Actions。',
         'palette.skillsHint': '需要批量导入？在管理页「导入 → 从 Skill 导入」。',
         'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
@@ -366,25 +400,33 @@ window.__ModuleLoader__.load({
         'palette.pinned': '已置顶',
         'trigger.label': 'Actions',
         'trigger.tooltip': 'Actions 收藏夹（{keys}）',
-        'shortcut.open': '打开 Actions 面板',
+        'shortcut.open': 'Action Hub: 打开面板',
+        'shortcut.manage': 'Action Hub: 打开管理页',
         'settings.nav': 'Action Hub',
         'settings.title': 'Action Hub',
         'settings.desc': '快捷面板、插入行为与数据位置。',
         'settings.behavior': '行为',
         'settings.closeAfterInsert': '插入后关闭面板',
         'settings.closeAfterInsertDesc': '关闭后可以直接按 Enter 发送；关闭此项则留在面板里连续插入。',
-        'settings.hotkey': '全局快捷键',
+        'settings.shortcutsTitle': '快捷键',
+        'settings.hotkey': '打开 Actions 面板',
         'settings.hotkeyDesc': '在任意会话里打开 Actions 面板。',
-        'settings.hotkeyManage': '可在 设置 → 通用设置 → 快捷键 中查看或修改。',
+        'settings.manageHotkey': '打开管理页',
+        'settings.manageHotkeyDesc': '打开 Actions 管理页。',
+        'settings.manageHotkeyManage': '在 设置 → 通用设置 → 快捷键 中修改。',
+        'settings.hotkeyManage': '在 设置 → 通用设置 → 快捷键 中修改。',
+        'settings.shortcutGroupHint': 'DSH 通用设置的快捷键分组目前是固定的，插件条目会归在「应用操作」；这里集中展示本插件的快捷键。',
         'settings.trigger': '在输入框工具行显示按钮',
         'settings.triggerDesc': '关闭后仍可用全局快捷键打开。',
+        'settings.sidebarEntry': '在侧边栏显示 Actions 入口',
+        'settings.sidebarEntryDesc': '关闭后侧边栏不再显示 Actions；仍可通过快捷键或输入框按钮打开。',
         'settings.data': '数据',
         'settings.dataDesc': 'Actions 保存在本机（{path}），共 {count} 条。',
         'settings.openLibrary': '打开管理页',
-        'settings.export': '导出全部',
+        'settings.export': '导出整库 ZIP',
         'settings.about': '关于',
         'settings.aboutDesc': 'Action Hub {version} · 不注册 Agent Tool、不注入上下文。',
-        'settings.hotkeyKeys': 'Ctrl + Shift + A',
+        'settings.hotkeyKeys': '⌥ / Alt + A',
         'settings.saved': '设置已保存',
         'notice.savedLocally': '已保存在本机',
         'skill.source': '从 Skill 导入',
@@ -402,7 +444,6 @@ window.__ModuleLoader__.load({
         'action.delete': 'Delete',
         'action.deleteForever': 'Delete',
         'action.edit': 'Edit',
-        'action.duplicate': 'Duplicate',
         'action.copy': 'Copy body',
         'action.pin': 'Pin',
         'action.unpin': 'Unpin',
@@ -420,7 +461,7 @@ window.__ModuleLoader__.load({
         'lib.sortCreated': 'Recently created',
         'lib.sortLabel': 'Sort',
         'lib.emptyTitle': 'Your shelf is empty',
-        'lib.emptyCopy': 'Save the prompts you keep retyping. Create one here, or capture the current draft from the palette.',
+        'lib.emptyCopy': 'Save the prompts you keep retyping. Create one here, or import an Action bundle.',
         'lib.emptyFiltered': 'No Action matches. Try another keyword or category.',
         'lib.emptyCta': 'Create your first Action',
         'lib.loading': 'Loading…',
@@ -432,9 +473,12 @@ window.__ModuleLoader__.load({
         'lib.deleted': 'Deleted',
         'lib.exported': 'Exported',
         'lib.exportOne': 'Export ZIP',
-        'lib.exportFolder': 'Export to folder',
-        'lib.exportedTo': 'Exported to {path}',
-        'lib.duplicated': 'Duplicate created',
+        'export.title': 'Choose Actions to export',
+        'export.hint': 'Tick the Actions to bundle together; each one becomes a self-contained directory in the ZIP.',
+        'export.selectAll': 'Select all',
+        'export.clear': 'Clear',
+        'export.selected': '{count} of {total} selected',
+        'export.run': 'Export selected ZIP',
         'lib.pinned': 'Pinned',
         'lib.unpinned': 'Unpinned',
         'lib.updated': 'Updated {time}',
@@ -461,10 +505,9 @@ window.__ModuleLoader__.load({
         'editor.argsPlaceholder': 'e.g. branch name',
         'editor.argsHint': 'Prompted for at call time; {{args}} in the body is replaced.',
         'editor.resources': 'Resource files',
-        'editor.resourcesHint': 'Code, templates, docs. Small text is inlined at invocation; larger files are listed by local path for on-demand reads.',
-        'editor.resourceSaved': 'Save the Action first, then you can add resource files.',
-        'editor.addFiles': 'Add files',
-        'editor.resourceDelete': 'Delete file',
+        'editor.resourcesHint': 'Read-only view of this Action’s files/ directory. Add or remove files in your file browser, then refresh the library.',
+        'editor.resourceSaved': 'New Actions are plain text; after saving, put attachments into this Action’s files/ directory from your file browser.',
+        'editor.resourcesEmpty': 'No resource files yet.',
         'editor.resourceEmptyText': '(not previewable)',
         'editor.resourceFailed': 'Resource operation failed',
         'editor.prompt': 'Prompt body',
@@ -511,10 +554,26 @@ window.__ModuleLoader__.load({
         'import.aiUnavailable': 'This environment cannot open a new conversation; use “Choose a Skill folder” instead.',
         'import.aiNoPath': 'This Skill has no usable directory path; enter it under “Import from a skill directory”.',
         'import.bundleTab': 'Action bundle',
-        'import.bundleHint': 'Import one Action or a whole backup: choose a folder containing action.json, or a .zip bundle. Colliding ids get a fresh id.',
+        'import.bundleHint': 'Choose a folder or ZIP to open a preview; set each Action to skip, import as new, or update the local copy.',
         'import.bundleFolder': 'Choose folder',
         'import.bundleZip': 'Choose ZIP',
-        'import.bundleDone': 'Imported {count} Action(s), renamed {renamed}',
+        'import.previewTitle': 'Import preview',
+        'import.previewHint': 'Review each Action before choosing what to do. Source: {source}',
+        'import.summaryTotal': '{total} item(s)',
+        'import.status.new': 'new',
+        'import.status.duplicate': 'duplicate',
+        'import.status.update': 'updatable',
+        'import.status.conflict': 'conflict',
+        'import.mode.skip': 'Skip',
+        'import.mode.create': 'Import as new Action',
+        'import.mode.update': 'Update local Action',
+        'import.itemResources': '{count} resource file(s)',
+        'import.itemExisting': 'Local: {name}',
+        'import.itemDuplicate': 'Same content: {name}',
+        'import.conflictHint': 'The local copy was modified, so it is kept by default; choose “Update local Action” only if you want to overwrite it.',
+        'import.back': 'Back',
+        'import.confirm': 'Import',
+        'import.bundleResult': 'Imported {imported}, updated {updated}, skipped {skipped} (duplicates {duplicated}, conflicts {conflicts})',
         'import.bundleUnavailable': 'This environment cannot open the directory picker; use a ZIP instead.',
         'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
@@ -531,12 +590,11 @@ window.__ModuleLoader__.load({
         'palette.title': 'Pick an Action',
         'palette.search': 'Search Actions…',
         'palette.empty': 'No Actions yet',
-        'palette.emptyCopy': 'Create one, or capture the current draft, and it is one search away from now on.',
+        'palette.emptyCopy': 'Create one, or import from the library, and it is one search away from now on.',
         'palette.noMatch': 'No matching Action',
         'palette.args': 'Arguments (optional; replaces {{args}})',
         'palette.insert': 'Insert',
         'palette.send': 'Send',
-        'palette.capture': 'Save draft',
         'palette.manage': 'Manage',
         'palette.inserted': 'Inserted into the composer',
         'palette.insertedAtCaret': 'Inserted at the caret',
@@ -544,15 +602,11 @@ window.__ModuleLoader__.load({
         'palette.insertFailed': 'This session cannot be written to right now',
         'palette.sendFailed': 'Send failed; the draft is kept',
         'palette.busy': 'Sending — try again in a moment',
-        'palette.captureTitle': 'Save the current draft as an Action',
-        'palette.captureEmpty': 'The draft is empty — write something first.',
-        'palette.capturePrompt': 'Body',
-        'palette.captureDone': 'Saved as “{name}”',
         'palette.hintNav': 'navigate',
         'palette.hintInsert': 'insert',
         'palette.hintSend': 'send',
         'palette.hintClose': 'close',
-        'palette.hintTab': 'category',
+        'palette.hintTab': 'switch group',
         'palette.noSession': 'Open a conversation composer first.',
         'palette.skillsHint': 'Bulk import lives in Manage → Import → From Skill.',
         'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
@@ -563,25 +617,33 @@ window.__ModuleLoader__.load({
         'palette.pinned': 'Pinned',
         'trigger.label': 'Actions',
         'trigger.tooltip': 'Action shelf ({keys})',
-        'shortcut.open': 'Open the Actions palette',
+        'shortcut.open': 'Action Hub: Open palette',
+        'shortcut.manage': 'Action Hub: Open library',
         'settings.nav': 'Action Hub',
         'settings.title': 'Action Hub',
         'settings.desc': 'Palette, insertion behavior, and where the data lives.',
         'settings.behavior': 'Behavior',
         'settings.closeAfterInsert': 'Close the palette after inserting',
         'settings.closeAfterInsertDesc': 'Then Enter sends right away. Turn off to insert several Actions in a row.',
-        'settings.hotkey': 'Global shortcut',
+        'settings.shortcutsTitle': 'Shortcuts',
+        'settings.hotkey': 'Open Actions palette',
         'settings.hotkeyDesc': 'Opens the Actions palette in any conversation.',
-        'settings.hotkeyManage': 'View or change it in Settings → General → Shortcuts.',
+        'settings.manageHotkey': 'Open library',
+        'settings.manageHotkeyDesc': 'Opens the Actions library.',
+        'settings.manageHotkeyManage': 'Change it in Settings → General → Shortcuts.',
+        'settings.hotkeyManage': 'Change it in Settings → General → Shortcuts.',
+        'settings.shortcutGroupHint': 'DSH uses fixed shortcut groups, so plugin entries live under “Application”; this page lists this plugin’s shortcuts together.',
         'settings.trigger': 'Show the composer button',
         'settings.triggerDesc': 'The global shortcut keeps working when off.',
+        'settings.sidebarEntry': 'Show Actions in the sidebar',
+        'settings.sidebarEntryDesc': 'Hide the sidebar entry while keeping the shortcut and composer button available.',
         'settings.data': 'Data',
         'settings.dataDesc': 'Actions are stored locally at {path} ({count} total).',
         'settings.openLibrary': 'Open library',
-        'settings.export': 'Export all',
+        'settings.export': 'Export library ZIP',
         'settings.about': 'About',
         'settings.aboutDesc': 'Action Hub {version} · registers no agent tool and injects no context.',
-        'settings.hotkeyKeys': 'Ctrl + Shift + A',
+        'settings.hotkeyKeys': '⌥ / Alt + A',
         'settings.saved': 'Saved',
         'notice.savedLocally': 'Saved on this machine',
         'skill.source': 'Imported from Skill',
@@ -748,32 +810,11 @@ window.__ModuleLoader__.load({
       return btoa(binary);
     }
 
-    /**
-     * Parse a SKILL.md document into its frontmatter map and body.
-     *
-     * @param {string} text
-     * @returns {{ meta: Record<string, string>, body: string }}
-     */
-    function parseSkillDocument(text) {
-      const source = String(text).replace(/^\uFEFF/u, '');
-      const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/u.exec(source);
-      if (match === null) return { meta: {}, body: source.trim() };
-      const meta = {};
-      for (const line of match[1].split(/\r?\n/u)) {
-        const at = line.indexOf(':');
-        if (at <= 0) continue;
-        const key = line.slice(0, at).trim();
-        let value = line.slice(at + 1).trim();
-        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-          value = value.slice(1, -1);
-        }
-        if (key !== '') meta[key] = value;
-      }
-      return { meta, body: source.slice(match[0].length).trim() };
-    }
-
-    async function downloadZip(actionId = undefined) {
-      const suffix = actionId === undefined ? '' : `?id=${encodeURIComponent(actionId)}`;
+    async function downloadZip(selection = undefined) {
+      const ids = selection === undefined
+        ? null
+        : typeof selection === 'string' ? [selection] : [...selection];
+      const suffix = ids === null ? '' : `?ids=${encodeURIComponent(ids.join(','))}`;
       const response = await fetch(`/api/dsh-action-hub/bundle/zip${suffix}`, { credentials: 'same-origin' });
       if (!response.ok) throw new Error((await response.text()).slice(0, 300));
       const disposition = response.headers.get('content-disposition') ?? '';
@@ -953,7 +994,7 @@ window.__ModuleLoader__.load({
     }
 
     function createPrefs() {
-      const defaults = { closeAfterInsert: true, hotkeyEnabled: true, showTrigger: true };
+      const defaults = { closeAfterInsert: true, showTrigger: true, showSidebarEntry: true };
       let current = defaults;
       try {
         const raw = window.localStorage.getItem(PREFS_KEY);
@@ -988,62 +1029,112 @@ window.__ModuleLoader__.load({
 
     // ------------------------------------------------------------- shortcuts
 
-    const SHORTCUT_ID = 'action-hub.palette';
-    const SHORTCUT_FALLBACK_KEYS = MAC ? ['⌘', '⇧', '.'] : ['Ctrl', '+', 'Shift', '+', '.'];
+    const DEFAULT_HOTKEY = { code: 'KeyA', modifiers: ['alt'] };
+
+    function eventCode(event) {
+      if (typeof event.code === 'string' && event.code !== '') return event.code;
+      const key = typeof event.key === 'string' ? event.key : '';
+      if (/^[a-z]$/iu.test(key)) return `Key${key.toUpperCase()}`;
+      if (/^[0-9]$/u.test(key)) return `Digit${key}`;
+      const names = {
+        ' ': 'Space',
+        Escape: 'Escape',
+        Enter: 'Enter',
+        Tab: 'Tab',
+        Backspace: 'Backspace',
+        ArrowUp: 'ArrowUp',
+        ArrowDown: 'ArrowDown',
+        ArrowLeft: 'ArrowLeft',
+        ArrowRight: 'ArrowRight',
+        Home: 'Home',
+        End: 'End',
+        '.': 'Period',
+        ',': 'Comma',
+        '/': 'Slash',
+        ';': 'Semicolon',
+        "'": 'Quote',
+        '[': 'BracketLeft',
+        ']': 'BracketRight',
+        '\\': 'Backslash',
+        '-': 'Minus',
+        '=': 'Equal',
+        '`': 'Backquote',
+      };
+      return names[key] ?? key;
+    }
+
+    function matchesBinding(event, binding) {
+      const value = binding !== null && typeof binding === 'object' ? binding : DEFAULT_HOTKEY;
+      const modifiers = Array.isArray(value.modifiers) ? value.modifiers : [];
+      return eventCode(event) === value.code
+        && Boolean(event.ctrlKey) === modifiers.includes('ctrl')
+        && Boolean(event.altKey) === modifiers.includes('alt')
+        && Boolean(event.shiftKey) === modifiers.includes('shift')
+        && Boolean(event.metaKey) === modifiers.includes('meta');
+    }
 
     /**
-     * Keep the palette shortcut inside the Harness shortcut registry, so it
-     * appears in Settings → General → Shortcuts and can be rebound there.
-     * Falls back to the same physical chord's own listener when the registry is
-     * unavailable or refused the default.
+     * Register the command in the DSH shortcut registry so it appears (and can be
+     * rebound) in Settings → General → Shortcuts. The Web registry refuses
+     * Alt+A as a default, so on Web the command starts unbound and the plugin
+     * handles Alt+A itself until the user assigns a registry binding; once they
+     * do, the registry binding takes over.
      */
-    function createShortcutStore(ctx, palette, prefs, t) {
+    function createShortcutStore(ctx, palette, t) {
       const service = typeof ctx?.get === 'function' ? ctx.get('shortcuts') : ctx?.shortcuts;
+      const fallbackKeys = () => (MAC ? ['⌥', 'A'] : ['Alt', '+', 'A']);
+      const fallbackManageKeys = () => (MAC ? ['⌘', '⌥', 'A'] : ['Ctrl', '+', 'Alt', '+', 'A']);
       const listeners = new Set();
-      let state = { available: service !== undefined, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice(), aria: undefined };
-      let dispose = null;
+      let state = {
+        keys: fallbackKeys(),
+        manageKeys: fallbackManageKeys(),
+        aria: undefined,
+        registered: false,
+        available: service !== undefined,
+      };
+      let registrationOff = null;
+      let manageRegistrationOff = null;
       let manualOff = null;
-      let syncing = false;
+      let manageManualOff = null;
+      let catalogOff = null;
 
       const emit = () => {
         for (const listener of [...listeners]) listener(state);
       };
 
-      const refreshKeys = () => {
-        let keys = null;
-        let aria;
-        try {
-          const rows = service?.catalog?.getSnapshot?.();
-          const row = Array.isArray(rows) ? rows.find((entry) => entry.id === SHORTCUT_ID) : undefined;
-          if (row !== undefined && Array.isArray(row.keys) && row.keys.length > 0) {
-            keys = row.keys;
-            aria = row.aria;
-          }
-        } catch {
-          keys = null;
-        }
-        const nextKeys = keys ?? (state.registered ? SHORTCUT_FALLBACK_KEYS : state.keys);
-        state = { ...state, keys: nextKeys, aria: aria ?? state.aria };
-        emit();
-      };
-
       const togglePalette = () => {
         const current = (typeof window !== 'undefined' ? window.__dshActionHubPalette : undefined) ?? palette;
-        const state = current.get();
-        if (state.open) {
+        const currentState = current.get();
+        if (currentState.open) {
           current.close();
           return;
         }
-        if (state.bridge === null) return;
+        if (currentState.bridge === null) return;
         current.open();
+      };
+
+      const openManage = () => {
+        palette.close();
+        try {
+          ctx.get('layout')?.selectPanel?.(PANEL_ID);
+        } catch {
+          /* the layout service is optional */
+        }
+      };
+
+      const catalogRow = (id) => {
+        try {
+          const rows = service?.catalog?.getSnapshot?.();
+          return Array.isArray(rows) ? rows.find((entry) => entry.id === id) : undefined;
+        } catch {
+          return undefined;
+        }
       };
 
       const installManual = () => {
         if (manualOff !== null) return;
         const onKey = (event) => {
-          if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return;
-          if (event.key !== '.' && event.code !== 'Period') return;
-          if (!prefs.get().hotkeyEnabled) return;
+          if (!matchesBinding(event, DEFAULT_HOTKEY)) return;
           if (palette.get().bridge === null) return;
           event.preventDefault();
           event.stopPropagation();
@@ -1053,64 +1144,98 @@ window.__ModuleLoader__.load({
         manualOff = () => document.removeEventListener('keydown', onKey, true);
       };
 
-      const sync = () => {
-        if (syncing) return;
-        syncing = true;
-        try {
-          dispose?.();
-          dispose = null;
-          manualOff?.();
-          manualOff = null;
-          if (!prefs.get().hotkeyEnabled) {
-            state = { ...state, registered: false };
-            emit();
-            return;
-          }
-          if (service === undefined || typeof service.register !== 'function') {
-            installManual();
-            state = { ...state, available: false, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice() };
-            emit();
-            return;
-          }
-          const defaults = {};
-          for (const runtime of ['desktop', 'web']) {
-            for (const platform of ['macos', 'windows', 'linux']) {
-              defaults[`${runtime}:${platform}`] = { code: 'Period', modifiers: ['primary', 'shift'] };
-            }
-          }
-          try {
-            dispose = service.register({
-              id: SHORTCUT_ID,
-              label: () => t('shortcut.open'),
-              aliases: ['action hub', 'actions', 'palette', '收藏夹'],
-              defaults,
-              regions: ['page', 'editable'],
-              modals: [],
-              resolve: () => ({ status: 'handled', run: togglePalette }),
-            });
-            state = { ...state, available: true, registered: true };
-          } catch (error) {
-            const message = error instanceof Error ? error.message : String(error);
-            if (message.startsWith('Duplicate shortcut command')) {
-              // A hot-reloaded instance still owns the registry row; its handler
-              // resolves the current palette through the window-level ref.
-              state = { ...state, available: true, registered: true };
-            } else {
-              console.warn('[action-hub] shortcut registration failed, using a local listener:', error);
-              installManual();
-              state = { ...state, available: false, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice() };
-            }
-          }
-          refreshKeys();
-          setTimeout(refreshKeys, 0);
-        } finally {
-          syncing = false;
-        }
+      const manageBinding = () => (MAC ? { code: 'KeyA', modifiers: ['meta', 'alt'] } : { code: 'KeyA', modifiers: ['ctrl', 'alt'] });
+      const installManageManual = () => {
+        if (manageManualOff !== null) return;
+        const onKey = (event) => {
+          if (!matchesBinding(event, manageBinding())) return;
+          if (typeof ctx?.get !== 'function') return;
+          event.preventDefault();
+          event.stopPropagation();
+          openManage();
+        };
+        document.addEventListener('keydown', onKey, true);
+        manageManualOff = () => document.removeEventListener('keydown', onKey, true);
       };
 
-      const offPrefs = prefs.subscribe(() => sync());
+      const refresh = () => {
+        const row = catalogRow('action-hub.palette');
+        const manageRow = catalogRow('action-hub.manage');
+        const bound = row !== undefined && Array.isArray(row.keys) && row.keys.length > 0;
+        const manageBound = manageRow !== undefined && Array.isArray(manageRow.keys) && manageRow.keys.length > 0;
+        if (bound) {
+          manualOff?.();
+          manualOff = null;
+        } else {
+          installManual();
+        }
+        if (manageBound) {
+          manageManualOff?.();
+          manageManualOff = null;
+        } else {
+          installManageManual();
+        }
+        state = {
+          keys: bound ? row.keys : fallbackKeys(),
+          manageKeys: manageBound ? manageRow.keys : fallbackManageKeys(),
+          aria: row?.aria,
+          registered: bound,
+          available: service !== undefined,
+        };
+        emit();
+      };
+
+      const sync = () => {
+        if (service === undefined || typeof service.register !== 'function') {
+          installManual();
+          refresh();
+          return;
+        }
+        registrationOff?.();
+        registrationOff = null;
+        manageRegistrationOff?.();
+        manageRegistrationOff = null;
+        const defaults = {};
+        for (const platform of ['macos', 'windows', 'linux']) {
+          defaults[`desktop:${platform}`] = { code: 'KeyA', modifiers: ['alt'] };
+        }
+        try {
+          registrationOff = service.register({
+            id: 'action-hub.palette',
+            label: () => t('shortcut.open'),
+            aliases: ['action hub', 'actions', 'palette', '收藏夹'],
+            defaults,
+            regions: ['page', 'editable'],
+            modals: [],
+            resolve: () => ({ status: 'handled', run: togglePalette }),
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!message.startsWith('Duplicate shortcut command')) {
+            console.warn('[action-hub] shortcut registration failed, using a local listener:', error);
+          }
+        }
+        try {
+          manageRegistrationOff = service.register({
+            id: 'action-hub.manage',
+            label: () => t('shortcut.manage'),
+            aliases: ['manage actions', 'action hub manage', '管理'],
+            defaults: {},
+            regions: ['page', 'editable'],
+            modals: [],
+            resolve: () => ({ status: 'handled', run: openManage }),
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (!message.startsWith('Duplicate shortcut command')) {
+            console.warn('[action-hub] manage shortcut registration failed:', error);
+          }
+        }
+        refresh();
+      };
+
       const offCatalog = typeof service?.catalog?.subscribe === 'function'
-        ? service.catalog.subscribe(() => refreshKeys())
+        ? service.catalog.subscribe(() => refresh())
         : undefined;
       sync();
 
@@ -1121,12 +1246,13 @@ window.__ModuleLoader__.load({
           return () => listeners.delete(listener);
         },
         sync,
-        keysText: () => (state.keys.length > 0 ? state.keys.join('') : SHORTCUT_FALLBACK_KEYS.join('')),
+        keysText: () => state.keys.join(''),
         dispose() {
-          offPrefs();
           offCatalog?.();
-          dispose?.();
+          registrationOff?.();
+          manageRegistrationOff?.();
           manualOff?.();
+          manageManualOff?.();
           listeners.clear();
         },
       };
@@ -1178,7 +1304,10 @@ window.__ModuleLoader__.load({
         referenceSourceOff = inputTriggers.registerSource({
           trigger: '/',
           name: 'action',
-          candidates: () => [],
+          // The input-trigger pipeline always calls `.then()` on this result; a
+          // bare array throws before later sources (commands, skills) are
+          // fetched, leaving their menu groups stuck on skeletons.
+          candidates: async () => [],
           onPick: () => undefined,
           codec: {
             clipboardText: (ref) => ref,
@@ -1255,7 +1384,7 @@ window.__ModuleLoader__.load({
       const listeners = new Set();
       let state = {
         open: false,
-        mode: 'browse', // 'browse' | 'capture'
+        mode: 'browse',
         query: '',
         category: '',
         selectedId: null,
@@ -1518,13 +1647,40 @@ window.__ModuleLoader__.load({
       h('div', { className: 'ah-row-actions' },
         h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) })),
         h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.edit'), onClick: (event) => { event.stopPropagation(); props.onEdit(action); } }, h(Icons.edit, { size: 13 })),
-        h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.duplicate'), onClick: (event) => { event.stopPropagation(); props.onDuplicate(action); } }, h(Icons.copy, { size: 13 })),
         h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.delete'), onClick: (event) => { event.stopPropagation(); props.onDelete(action); } }, h(Icons.trash, { size: 13 }))));
     }
 
+    function renderResourceTree(resources, t, onPreview) {
+      const root = { folders: new Map(), files: [] };
+      for (const resource of resources) {
+        const segments = resource.name.split('/');
+        let node = root;
+        for (const segment of segments.slice(0, -1)) {
+          if (!node.folders.has(segment)) node.folders.set(segment, { folders: new Map(), files: [] });
+          node = node.folders.get(segment);
+        }
+        node.files.push({ ...resource, leaf: segments[segments.length - 1] });
+      }
+      const rows = [];
+      const walk = (node, depth) => {
+        for (const name of [...node.folders.keys()].sort((left, right) => left.localeCompare(right))) {
+          rows.push(h('div', { key: `d:${depth}:${name}:${rows.length}`, className: 'ah-tree-row', style: { paddingLeft: `${depth * 14}px` } },
+            h(Icons.folder, { size: 12 }),
+            h('span', { className: 'ah-tree-name' }, name)));
+          walk(node.folders.get(name), depth + 1);
+        }
+        for (const file of [...node.files].sort((left, right) => left.leaf.localeCompare(right.leaf))) {
+          rows.push(h('div', { key: `f:${file.name}`, className: 'ah-tree-row', style: { paddingLeft: `${depth * 14}px` } },
+            h('button', { type: 'button', className: 'ah-resource-name', title: file.name, onClick: () => { void onPreview(file.name); } }, file.leaf),
+            h('span', { className: 'ah-resource-size' }, formatBytes(file.bytes))));
+        }
+      };
+      walk(root, 0);
+      return rows;
+    }
+
     function EditorDialog(props) {
-      const { t, initial } = props;
-      const [form, setForm] = React.useState(() => ({
+      const { t, initial } = props;      const [form, setForm] = React.useState(() => ({
         name: initial?.name ?? '',
         category: initial?.category ?? '',
         tags: Array.isArray(initial?.tags) ? initial.tags.join(', ') : '',
@@ -1535,10 +1691,8 @@ window.__ModuleLoader__.load({
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
-      const [resources, setResources] = React.useState(() => (Array.isArray(initial?.resources) ? initial.resources : []));
-      const [resourceBusy, setResourceBusy] = React.useState(false);
+      const [resources] = React.useState(() => (Array.isArray(initial?.resources) ? initial.resources : []));
       const [preview, setPreview] = React.useState(null);
-      const fileRef = React.useRef(null);
       const patch = (key) => (event) => setForm((previous) => ({ ...previous, [key]: event.target.value }));
 
       const loadPreview = async (name) => {
@@ -1553,48 +1707,6 @@ window.__ModuleLoader__.load({
           setPreview(file ?? null);
         } catch (failure) {
           setError(describeError(failure));
-        }
-      };
-
-      const addFiles = async (event) => {
-        const files = [...(event.target.files ?? [])];
-        event.target.value = '';
-        if (files.length === 0 || initial?.id === undefined) return;
-        setResourceBusy(true);
-        setError('');
-        try {
-          let next = resources;
-          for (const file of files) {
-            const bytes = new Uint8Array(await file.arrayBuffer());
-            const data = await api('/resource/add', {
-              id: initial.id,
-              name: file.name,
-              contentBase64: bytesToBase64(bytes),
-            });
-            next = data.resources ?? next;
-          }
-          setResources(next);
-          props.onChanged?.();
-        } catch (failure) {
-          setError(describeError(failure));
-        } finally {
-          setResourceBusy(false);
-        }
-      };
-
-      const removeResource = async (name) => {
-        if (initial?.id === undefined) return;
-        setResourceBusy(true);
-        setError('');
-        try {
-          const data = await api('/resource/delete', { id: initial.id, name });
-          setResources(data.resources ?? []);
-          if (preview?.name === name) setPreview(null);
-          props.onChanged?.();
-        } catch (failure) {
-          setError(describeError(failure));
-        } finally {
-          setResourceBusy(false);
         }
       };
 
@@ -1658,19 +1770,11 @@ window.__ModuleLoader__.load({
         h('textarea', { className: 'ah-textarea', value: form.prompt, rows: 12, spellCheck: false, placeholder: t('editor.promptPlaceholder'), onChange: patch('prompt') }),
         h('span', { className: 'ah-hint' }, t('editor.promptHint'))),
       h('div', { className: 'ah-field' },
-        h('div', { className: 'ah-resource-head' },
-          h('label', { className: 'ah-label' }, t('editor.resources')),
-          h(Button, {
-            small: true,
-            disabled: resourceBusy || initial?.id === undefined,
-            onClick: () => fileRef.current?.click(),
-          }, h(Icons.plus, { size: 13 }), t('editor.addFiles'))),
-        h('input', { ref: fileRef, type: 'file', multiple: true, className: 'ah-hidden', onChange: addFiles }),
+        h('label', { className: 'ah-label' }, t('editor.resources')),
         h('span', { className: 'ah-hint' }, initial?.id === undefined ? t('editor.resourceSaved') : t('editor.resourcesHint')),
-        resources.length === 0 ? null : h('div', { className: 'ah-resource-list' }, resources.map((resource) => h('div', { key: resource.name, className: 'ah-resource-item' },
-          h('button', { type: 'button', className: 'ah-resource-name', title: resource.name, onClick: () => { void loadPreview(resource.name); } }, resource.name),
-          h('span', { className: 'ah-resource-size' }, formatBytes(resource.bytes)),
-          h(Button, { small: true, ghost: true, iconOnly: true, title: t('editor.resourceDelete'), disabled: resourceBusy, onClick: () => { void removeResource(resource.name); } }, h(Icons.trash, { size: 12 }))))),
+        resources.length === 0
+          ? (initial?.id === undefined ? null : h('span', { className: 'ah-hint' }, t('editor.resourcesEmpty')))
+          : h('div', { className: 'ah-resource-list' }, renderResourceTree(resources, t, loadPreview)),
         preview === null ? null : h('pre', { className: 'ah-resource-preview' }, typeof preview.text === 'string' ? preview.text : t('editor.resourceEmptyText'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
@@ -1681,20 +1785,16 @@ window.__ModuleLoader__.load({
 
     function ImportDialog(props) {
       const { t, ctx } = props;
-      const [tab, setTab] = React.useState('json');
+      const [tab, setTab] = React.useState('bundle');
       const [text, setText] = React.useState('');
       const [mode, setMode] = React.useState('merge');
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
-      const [cwd, setCwd] = React.useState('');
-      const [skills, setSkills] = React.useState(null);
-      const [skillError, setSkillError] = React.useState('');
-      const [skillBusy, setSkillBusy] = React.useState(false);
-      const [skillPath, setSkillPath] = React.useState('');
       const [bundleBusy, setBundleBusy] = React.useState(false);
       const [bundleError, setBundleError] = React.useState('');
+      const [preview, setPreview] = React.useState(null);
+      const [choices, setChoices] = React.useState({});
       const fileRef = React.useRef(null);
-      const folderRef = React.useRef(null);
       const bundleRef = React.useRef(null);
 
       const runImport = async () => {
@@ -1724,136 +1824,15 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const loadSkills = async () => {
-        setSkillBusy(true);
-        setSkillError('');
-        try {
-          const query = cwd.trim() === '' ? '' : `?cwd=${encodeURIComponent(cwd.trim())}`;
-          const data = await api(`/skills${query}`);
-          setSkills(data.skills ?? []);
-          if (data.warning) setSkillError(data.warning);
-          if (data.unavailable) setSkillError(t('import.skillUnavailable'));
-        } catch (failure) {
-          setSkillError(describeError(failure));
-        } finally {
-          setSkillBusy(false);
-        }
+      const openPlan = (kind, source, data) => {
+        const initial = {};
+        for (const item of data.items ?? []) initial[item.key] = item.defaultMode;
+        setPreview({ kind, ...source, ...data });
+        setChoices(initial);
+        setBundleError('');
       };
 
-      const importSkillPath = async () => {
-        const target = skillPath.trim();
-        if (target === '') return;
-        setSkillBusy(true);
-        setSkillError('');
-        try {
-          const data = await api('/import-skill', { path: target });
-          const count = Number(data.resources) || 0;
-          const name = data.action?.name ?? target;
-          props.notify(count > 0
-            ? t('import.pathDoneWithResources', { name, count })
-            : t('import.pathDone', { name }), 'ok');
-          props.onDone();
-        } catch (failure) {
-          setSkillError(describeError(failure));
-        } finally {
-          setSkillBusy(false);
-        }
-      };
-
-      const importSkillFolder = async (event) => {
-        const picked = [...(event.target.files ?? [])];
-        event.target.value = '';
-        if (picked.length === 0) return;
-        setSkillBusy(true);
-        setSkillError('');
-        try {
-          const entries = picked.map((file) => ({
-            file,
-            relative: String(file.webkitRelativePath || file.name).replace(/\\/g, '/'),
-          }));
-          const skillEntry = entries
-            .filter((entry) => /(^|\/)SKILL\.md$/iu.test(entry.relative))
-            .sort((left, right) => left.relative.split('/').length - right.relative.split('/').length)[0];
-          if (skillEntry === undefined) throw new Error(t('import.folderNoSkill'));
-          const root = skillEntry.relative.includes('/') ? skillEntry.relative.split('/')[0] : '';
-          const parsed = parseSkillDocument(await skillEntry.file.text());
-          const name = (parsed.meta.name || root || 'Skill').trim();
-          const created = await api('/create', {
-            action: {
-              name,
-              description: parsed.meta.description ?? '',
-              prompt: parsed.body,
-              category: t('import.category'),
-              tags: ['skill'],
-              source: { kind: 'skill', name, detail: root },
-            },
-          });
-          const id = created.action.id;
-          let added = 0;
-          let skipped = 0;
-          for (const entry of entries) {
-            if (entry.relative === skillEntry.relative) continue;
-            const relative = root !== '' && entry.relative.startsWith(`${root}/`)
-              ? entry.relative.slice(root.length + 1)
-              : entry.relative;
-            if (relative === '' || relative.split('/').some((segment) => segment.startsWith('.')) || entry.file.size > 4 * 1024 * 1024 || added >= 60) {
-              skipped += 1;
-              continue;
-            }
-            try {
-              await api('/resource/add', {
-                id,
-                name: relative,
-                contentBase64: bytesToBase64(new Uint8Array(await entry.file.arrayBuffer())),
-              });
-              added += 1;
-            } catch {
-              skipped += 1;
-            }
-          }
-          props.notify(skipped > 0
-            ? t('import.folderDoneSkipped', { name, count: added, skipped })
-            : t('import.folderDone', { name, count: added }), 'ok');
-          props.onDone();
-          props.onClose();
-        } catch (failure) {
-          setSkillError(describeError(failure));
-        } finally {
-          setSkillBusy(false);
-        }
-      };
-
-      const startAiImport = async (target) => {
-        const skillDirectory = typeof target === 'string' ? target : target?.path;
-        if (typeof skillDirectory !== 'string' || skillDirectory.trim() === '') {
-          setSkillError(t('import.aiNoPath'));
-          return;
-        }
-        setSkillBusy(true);
-        setSkillError('');
-        try {
-          const prepared = await api('/assist/prepare', { path: skillDirectory.trim() });
-          const workspace = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined;
-          if (workspace === undefined || typeof workspace.startSession !== 'function') {
-            throw new Error(t('import.aiUnavailable'));
-          }
-          workspace.startSession(undefined, { prompt: prepared.prompt, clearPreviousDraft: true });
-          try {
-            localStorage.setItem('action-hub.aiAssistAt', String(Date.now()));
-          } catch {
-            /* polling is optional */
-          }
-          props.notify(t('import.aiStarted', { name: prepared.skill?.name ?? '' }), 'ok');
-          props.onDone();
-          props.onClose();
-        } catch (failure) {
-          setSkillError(describeError(failure));
-        } finally {
-          setSkillBusy(false);
-        }
-      };
-
-      const importBundleFolder = async () => {
+      const previewBundleFolder = async () => {
         const workspace = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined;
         if (workspace === undefined || typeof workspace.pickDirectory !== 'function') {
           setBundleError(t('import.bundleUnavailable'));
@@ -1864,10 +1843,8 @@ window.__ModuleLoader__.load({
         setBundleBusy(true);
         setBundleError('');
         try {
-          const data = await api('/bundle/import-folder', { path: directory });
-          props.notify(t('import.bundleDone', { count: data.imported, renamed: data.renamed }), 'ok');
-          props.onDone();
-          props.onClose();
+          const data = await api('/bundle/preview-folder', { path: directory });
+          openPlan('folder', { path: directory }, data);
         } catch (failure) {
           setBundleError(describeError(failure));
         } finally {
@@ -1875,7 +1852,7 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const importBundleZip = async (event) => {
+      const previewBundleZip = async (event) => {
         const file = event.target.files?.[0];
         event.target.value = '';
         if (!file) return;
@@ -1883,8 +1860,38 @@ window.__ModuleLoader__.load({
         setBundleError('');
         try {
           const bytes = new Uint8Array(await file.arrayBuffer());
-          const data = await api('/bundle/import-zip', { contentBase64: bytesToBase64(bytes) });
-          props.notify(t('import.bundleDone', { count: data.imported, renamed: data.renamed }), 'ok');
+          const contentBase64 = bytesToBase64(bytes);
+          const data = await api('/bundle/preview-zip', { contentBase64 });
+          openPlan('zip', { contentBase64 }, data);
+        } catch (failure) {
+          setBundleError(describeError(failure));
+        } finally {
+          setBundleBusy(false);
+        }
+      };
+
+      const confirmBundleImport = async () => {
+        if (preview === null) return;
+        const decisions = preview.items.map((item) => ({
+          key: item.key,
+          mode: choices[item.key] ?? item.defaultMode,
+          fingerprint: item.fingerprint,
+        }));
+        setBundleBusy(true);
+        setBundleError('');
+        try {
+          const endpoint = preview.kind === 'folder' ? '/bundle/import-folder' : '/bundle/import-zip';
+          const payload = preview.kind === 'folder'
+            ? { path: preview.path, decisions }
+            : { contentBase64: preview.contentBase64, decisions };
+          const data = await api(endpoint, payload);
+          props.notify(t('import.bundleResult', {
+            imported: data.imported ?? 0,
+            updated: data.updated ?? 0,
+            skipped: data.skipped ?? 0,
+            duplicated: data.duplicated ?? 0,
+            conflicts: data.conflicts ?? 0,
+          }), 'ok');
           props.onDone();
           props.onClose();
         } catch (failure) {
@@ -1894,111 +1901,147 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const importSkill = async (skill) => {
-        setSkillBusy(true);
-        setSkillError('');
+      const statusLabel = (status) => t(`import.status.${status}`);
+      const modeLabel = (value) => t(`import.mode.${value}`);
+      const summary = preview?.summary ?? null;
+
+      const footer = preview !== null
+        ? h(React.Fragment, null,
+          h(Button, { disabled: bundleBusy, onClick: () => { setPreview(null); setChoices({}); setBundleError(''); } }, t('import.back')),
+          h(Button, { primary: true, disabled: bundleBusy, onClick: confirmBundleImport }, t('import.confirm')))
+        : tab === 'json'
+          ? h(React.Fragment, null,
+            h(Button, { onClick: props.onClose }, t('action.cancel')),
+            h(Button, { primary: true, disabled: busy || text.trim() === '', onClick: runImport }, t('import.run')))
+          : h(Button, { onClick: props.onClose }, t('action.cancel'));
+
+      const previewBody = preview === null ? null : h(React.Fragment, null,
+        h('p', { className: 'ah-hint' }, t('import.previewHint', { source: preview.sourceLabel || '' })),
+        summary === null ? null : h('div', { className: 'ah-import-summary' },
+          h('span', null, t('import.summaryTotal', { total: summary.total })),
+          h('span', { className: 'ah-import-stat' }, t('import.status.new'), summary.new),
+          h('span', { className: 'ah-import-stat' }, t('import.status.duplicate'), summary.duplicate),
+          h('span', { className: 'ah-import-stat' }, t('import.status.update'), summary.update),
+          h('span', { className: 'ah-import-stat' }, t('import.status.conflict'), summary.conflict)),
+        h('div', { className: 'ah-import-list' }, preview.items.map((item) => h('div', { key: item.key, className: 'ah-import-item' },
+          h('div', { className: 'ah-import-main' },
+            h('div', { className: 'ah-import-name' },
+              h('span', { className: 'ah-import-title' }, item.name),
+              h('span', { className: 'ah-import-badge', 'data-status': item.status }, statusLabel(item.status)),
+              item.category ? h('span', { className: 'ah-badge ah-badge-accent' }, item.category) : null),
+            item.description ? h('div', { className: 'ah-import-desc' }, item.description) : null,
+            h('div', { className: 'ah-import-meta' },
+              t('import.itemResources', { count: item.resources?.length ?? 0 }),
+              item.target === null ? '' : ` · ${t('import.itemExisting', { name: item.target.name })}`,
+              item.duplicateOf === null ? '' : ` · ${t('import.itemDuplicate', { name: item.duplicateOf.name })}`),
+            item.status === 'conflict' ? h('div', { className: 'ah-import-warning' }, t('import.conflictHint')) : null),
+          h('select', {
+            className: 'ah-import-select',
+            value: choices[item.key] ?? item.defaultMode,
+            onChange: (event) => setChoices((current) => ({ ...current, [item.key]: event.target.value })),
+          }, item.modes.map((value) => h('option', { key: value, value }, modeLabel(value))))))),
+        bundleError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, bundleError));
+
+      const jsonBody = h(React.Fragment, null,
+        h('p', { className: 'ah-hint' }, t('import.jsonHint')),
+        h('textarea', { className: 'ah-textarea', value: text, rows: 9, spellCheck: false, placeholder: '{ "actions": [ … ] }', onChange: (event) => setText(event.target.value) }),
+        h('div', { className: 'ah-radio-row' },
+          h('span', { className: 'ah-hint' }, `${t('import.mode')}:`),
+          h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'merge', onChange: () => setMode('merge') }), ` ${t('import.merge')}`),
+          h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'replace', onChange: () => setMode('replace') }), ` ${t('import.replace')}`)),
+        h('div', null,
+          h('input', {
+            ref: fileRef,
+            type: 'file',
+            accept: '.json,application/json',
+            className: 'ah-hidden',
+            onChange: async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (!file) return;
+              try {
+                setText(await file.text());
+                setError('');
+              } catch (failure) {
+                setError(describeError(failure));
+              }
+            },
+          }),
+          h(Button, { onClick: () => fileRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.chooseFile'))),
+        error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+
+      const bundleBody = h(React.Fragment, null,
+        h('p', { className: 'ah-hint' }, t('import.bundleHint')),
+        h('div', { className: 'ah-field-row' },
+          h(Button, { disabled: bundleBusy, onClick: previewBundleFolder }, h(Icons.folder, { size: 13 }), t('import.bundleFolder')),
+          h(Button, { disabled: bundleBusy, onClick: () => bundleRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.bundleZip'))),
+        h('input', { ref: bundleRef, type: 'file', accept: '.zip,application/zip', className: 'ah-hidden', onChange: previewBundleZip }),
+        bundleError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, bundleError));
+
+      const content = preview !== null ? previewBody : tab === 'bundle' ? bundleBody : jsonBody;
+
+      return h(Modal, {
+        title: preview === null ? t('import.title') : t('import.previewTitle'),
+        t,
+        onClose: props.onClose,
+        footer,
+      },
+      preview === null
+        ? h('div', { className: 'ah-tabs' },
+          h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'bundle', onClick: () => setTab('bundle') }, t('import.bundleTab')),
+          h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'json', onClick: () => setTab('json') }, t('import.jsonTab')))
+        : null,
+      content);
+    }
+
+    function ExportDialog(props) {
+      const { t, actions } = props;
+      const [selected, setSelected] = React.useState(() => new Set(actions.map((action) => action.id)));
+      const [busy, setBusy] = React.useState(false);
+      const [error, setError] = React.useState('');
+
+      const toggle = (id) => {
+        setSelected((previous) => {
+          const next = new Set(previous);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      };
+
+      const run = async () => {
+        if (selected.size === 0) return;
+        setBusy(true);
+        setError('');
         try {
-          const data = await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim(), path: skill.path });
-          const count = Number(data.resources) || 0;
-          props.notify(count > 0
-            ? t('import.skillDoneWithResources', { name: skill.name, count })
-            : t('import.skillDone', { name: skill.name }), 'ok');
-          props.onDone();
+          await downloadZip([...selected]);
+          props.notify(t('lib.exported'), 'ok');
+          props.onClose();
         } catch (failure) {
-          setSkillError(describeError(failure));
+          setError(describeError(failure));
         } finally {
-          setSkillBusy(false);
+          setBusy(false);
         }
       };
 
       return h(Modal, {
-        title: t('import.title'),
+        title: t('export.title'),
         t,
         onClose: props.onClose,
-        footer: tab === 'json'
-          ? h(React.Fragment, null,
-            h(Button, { onClick: props.onClose }, t('action.cancel')),
-            h(Button, { primary: true, disabled: busy || text.trim() === '', onClick: runImport }, t('import.run')))
-          : h(Button, { onClick: props.onClose }, t('action.cancel')),
+        footer: h(React.Fragment, null,
+          h(Button, { onClick: props.onClose }, t('action.cancel')),
+          h(Button, { primary: true, disabled: busy || selected.size === 0, onClick: run }, t('export.run'))),
       },
-      h('div', { className: 'ah-tabs' },
-        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'json', onClick: () => setTab('json') }, t('import.jsonTab')),
-        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'skill', onClick: () => setTab('skill') }, t('import.skillTab')),
-        h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'bundle', onClick: () => setTab('bundle') }, t('import.bundleTab'))),
-      tab === 'json'
-        ? h(React.Fragment, null,
-          h('p', { className: 'ah-hint' }, t('import.jsonHint')),
-          h('textarea', { className: 'ah-textarea', value: text, rows: 9, spellCheck: false, placeholder: '{ "actions": [ … ] }', onChange: (event) => setText(event.target.value) }),
-          h('div', { className: 'ah-radio-row' },
-            h('span', { className: 'ah-hint' }, `${t('import.mode')}:`),
-            h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'merge', onChange: () => setMode('merge') }), ` ${t('import.merge')}`),
-            h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'replace', onChange: () => setMode('replace') }), ` ${t('import.replace')}`)),
-          h('div', null,
-            h('input', {
-              ref: fileRef,
-              type: 'file',
-              accept: '.json,application/json',
-              className: 'ah-hidden',
-              onChange: async (event) => {
-                const file = event.target.files?.[0];
-                event.target.value = '';
-                if (!file) return;
-                try {
-                  setText(await file.text());
-                  setError('');
-                } catch (failure) {
-                  setError(describeError(failure));
-                }
-              },
-            }),
-            h(Button, { onClick: () => fileRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.chooseFile'))))
-        : tab === 'skill' ? h(React.Fragment, null,
-          h('div', { className: 'ah-field' },
-            h('label', { className: 'ah-label' }, t('import.folderLabel')),
-            h('div', null, h(Button, { disabled: skillBusy, onClick: () => folderRef.current?.click() }, h(Icons.folder, { size: 13 }), t('import.folderButton'))),
-            h('input', {
-              ref: folderRef,
-              type: 'file',
-              webkitdirectory: '',
-              directory: '',
-              multiple: true,
-              className: 'ah-hidden',
-              onChange: importSkillFolder,
-            }),
-            h('span', { className: 'ah-hint' }, t('import.folderHint'))),
-          h('div', { className: 'ah-field' },
-            h('label', { className: 'ah-label' }, t('import.skillCwd')),
-            h('input', { className: 'ah-input', value: cwd, placeholder: 'C:\\path\\to\\project', onChange: (event) => setCwd(event.target.value) }),
-            h('span', { className: 'ah-hint' }, t('import.skillCwdHint'))),
-          h('div', null, h(Button, { disabled: skillBusy, onClick: loadSkills }, h(Icons.folder, { size: 13 }), t('import.skillLoad'))),
-          h('div', { className: 'ah-field' },
-            h('label', { className: 'ah-label' }, t('import.pathLabel')),
-            h('div', { className: 'ah-field-row' },
-              h('input', { className: 'ah-input', value: skillPath, placeholder: t('import.pathPlaceholder'), onChange: (event) => setSkillPath(event.target.value) }),
-              h(Button, { disabled: skillBusy || skillPath.trim() === '', onClick: importSkillPath }, t('import.pathButton')),
-              h(Button, { disabled: skillBusy || skillPath.trim() === '', onClick: () => startAiImport(skillPath) }, t('import.aiButton'))),
-            h('span', { className: 'ah-hint' }, t('import.pathHint'))),
-          skills === null
-            ? null
-            : skills.length === 0
-              ? h('div', { className: 'ah-notice' }, t('import.skillEmpty'))
-              : h('div', { className: 'ah-list-plain' }, skills.map((skill) => h('div', { key: `${skill.name}:${skill.path ?? ''}`, className: 'ah-plain-item' },
-                h('div', { className: 'ah-plain-main' },
-                  h('span', { className: 'ah-plain-name' }, skill.name),
-                  h('span', { className: 'ah-plain-desc', title: skill.path ?? skill.description }, skill.path ?? skill.description ?? '')),
-                h(Button, { small: true, disabled: skillBusy, onClick: () => importSkill(skill) }, t('import.skillImport')),
-                h(Button, { small: true, disabled: skillBusy || !skill.path, title: t('import.aiHint'), onClick: () => startAiImport(skill) }, t('import.aiButton')))))) : null,
-      tab === 'bundle'
-        ? h(React.Fragment, null,
-          h('p', { className: 'ah-hint' }, t('import.bundleHint')),
-          h('div', { className: 'ah-field-row' },
-            h(Button, { disabled: bundleBusy, onClick: importBundleFolder }, h(Icons.folder, { size: 13 }), t('import.bundleFolder')),
-            h(Button, { disabled: bundleBusy, onClick: () => bundleRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.bundleZip'))),
-          h('input', { ref: bundleRef, type: 'file', accept: '.zip,application/zip', className: 'ah-hidden', onChange: importBundleZip }))
-        : null,
-      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error),
-      skillError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, skillError),
-      bundleError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, bundleError));
+      h('p', { className: 'ah-hint' }, t('export.hint')),
+      h('div', { className: 'ah-export-list' }, actions.map((action) => h('label', { key: action.id, className: 'ah-export-item' },
+        h('input', { type: 'checkbox', checked: selected.has(action.id), onChange: () => toggle(action.id) }),
+        h('span', { className: 'ah-export-name' }, action.name),
+        h('span', { className: 'ah-export-meta' }, action.category || t('lib.uncategorized'))))),
+      h('div', { className: 'ah-field-row' },
+        h(Button, { small: true, onClick: () => setSelected(new Set(actions.map((action) => action.id))) }, t('export.selectAll')),
+        h(Button, { small: true, onClick: () => setSelected(new Set()) }, t('export.clear')),
+        h('span', { className: 'ah-hint' }, t('export.selected', { count: selected.size, total: actions.length }))),
+      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 
     function CategoryDialog(props) {
@@ -2095,6 +2138,7 @@ window.__ModuleLoader__.load({
         const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
+        const [exporting, setExporting] = React.useState(false);
         const [categoryDialog, setCategoryDialog] = React.useState(false);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
 
@@ -2135,22 +2179,6 @@ window.__ModuleLoader__.load({
           setEditor(undefined);
         };
 
-        const exportDetailFolder = async (action) => {
-          const workspace = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined;
-          if (workspace === undefined || typeof workspace.pickDirectory !== 'function') {
-            notify(t('import.bundleUnavailable'), 'error');
-            return;
-          }
-          const target = await workspace.pickDirectory();
-          if (target === null) return;
-          try {
-            const data = await api('/bundle/export-folder', { id: action.id, target });
-            notify(t('lib.exportedTo', { path: data.path }), 'ok');
-          } catch (failure) {
-            notify(describeError(failure), 'error');
-          }
-        };
-
         const remove = async () => {
           if (deleting === null) return;
           try {
@@ -2164,15 +2192,6 @@ window.__ModuleLoader__.load({
           }
         };
 
-        const duplicate = async (action) => {
-          try {
-            await hub.call('/duplicate', { id: action.id });
-            notify(t('lib.duplicated'), 'ok');
-          } catch (failure) {
-            notify(describeError(failure), 'error');
-          }
-        };
-
         const togglePin = async (action) => {
           try {
             await hub.patchAction(action.id, { pinned: action.pinned !== true });
@@ -2182,14 +2201,6 @@ window.__ModuleLoader__.load({
           }
         };
 
-        const exportAll = async () => {
-          try {
-            await downloadZip();
-            notify(t('lib.exported'), 'ok');
-          } catch (failure) {
-            notify(describeError(failure), 'error');
-          }
-        };
 
         const navItems = [];
         navItems.push(h('button', {
@@ -2229,7 +2240,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ah-head-actions' },
             h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('action.new')),
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
-            h(Button, { onClick: exportAll }, h(Icons.download, { size: 13 }), t('action.export')),
+            h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
         if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'ah-notice', 'data-kind': notice.kind, role: 'status' }, notice.text));
@@ -2276,7 +2287,6 @@ window.__ModuleLoader__.load({
                     onOpen: setDetail,
                     onPin: togglePin,
                     onEdit: (entry) => setEditor(entry),
-                    onDuplicate: duplicate,
                     onDelete: setDeleting,
                   }))))));
 
@@ -2287,7 +2297,6 @@ window.__ModuleLoader__.load({
             categories: categories.map(([name]) => name),
             t,
             onSave: save,
-            onChanged: () => { void hub.refresh(true).catch(() => {}); },
             onClose: () => setEditor(undefined),
           }));
         }
@@ -2300,7 +2309,6 @@ window.__ModuleLoader__.load({
             footer: h(React.Fragment, null,
               h(Button, { onClick: async () => { try { await copyText(detail.prompt); notify(t('lib.copied'), 'ok'); } catch { notify(t('lib.copyFailed'), 'error'); } } }, h(Icons.copy, { size: 13 }), t('action.copy')),
               h(Button, { onClick: async () => { try { await downloadZip(detail.id); notify(t('lib.exported'), 'ok'); } catch (failure) { notify(describeError(failure), 'error'); } } }, h(Icons.download, { size: 13 }), t('lib.exportOne')),
-              h(Button, { onClick: () => { void exportDetailFolder(detail); } }, h(Icons.folder, { size: 13 }), t('lib.exportFolder')),
               h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
               h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
           },
@@ -2333,6 +2341,15 @@ window.__ModuleLoader__.load({
               h(Button, { danger: true, onClick: remove }, t('action.deleteForever'))),
           }, h('p', { className: 'ah-desc' }, t('delete.copy', { name: deleting.name }))));
         }
+        if (exporting) {
+          body.push(h(ExportDialog, {
+            key: 'export',
+            t,
+            actions,
+            notify,
+            onClose: () => setExporting(false),
+          }));
+        }
         if (importing) {
           body.push(h(ImportDialog, {
             key: 'import',
@@ -2361,17 +2378,17 @@ window.__ModuleLoader__.load({
 
     // --------------------------------------------------------------- palette
 
-    function createPaletteView(hub, palette, prefsRef) {
+    function createPaletteView(hub, palette, prefsRef, shortcutStore) {
       return function ActionPalette(props) {
         const t = translate(props);
         const state = usePalette(palette);
         const snapshot = useHub(hub);
         const prefs = usePrefs(prefsRef);
+        const shortcutState = useShortcutStore(shortcutStore);
         const searchRef = React.useRef(null);
         const listRef = React.useRef(null);
         const [selectedId, setSelectedId] = React.useState(null);
         const [args, setArgs] = React.useState('');
-        const [capture, setCapture] = React.useState({ name: '', category: '', tags: '', error: '', busy: false });
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
@@ -2384,13 +2401,32 @@ window.__ModuleLoader__.load({
 
         React.useEffect(() => {
           if (!state.open) return undefined;
+          const composer = document.querySelector('[data-composer-card="true"] [contenteditable="true"]')
+            ?? document.querySelector('[contenteditable="true"]');
           setSelectedId(null);
           setArgs('');
-          setCapture({ name: '', category: '', tags: '', error: '', busy: false });
           setToast({ text: '', kind: 'ok' });
           if (hub.get().status === 'idle' || hub.get().status === 'error') void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
-          return () => clearTimeout(timer);
+          return () => {
+            clearTimeout(timer);
+            if (composer === null || !composer.isConnected) return;
+            // The palette search box owns focus while open. Returning it to the
+            // composer after close lets the user keep typing after an insert.
+            setTimeout(() => {
+              try {
+                composer.focus({ preventScroll: true });
+                const range = document.createRange();
+                range.selectNodeContents(composer);
+                range.collapse(false);
+                const selection = window.getSelection();
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+              } catch {
+                /* focus restoration is best-effort */
+              }
+            }, 0);
+          };
         }, [state.open]);
 
         React.useEffect(() => {
@@ -2405,6 +2441,12 @@ window.__ModuleLoader__.load({
         }, [selected?.id, state.open]);
 
         const close = React.useCallback(() => palette.close(), [palette]);
+        const cycleCategory = React.useCallback((direction) => {
+          const names = ['', ...categories.map(([name]) => name)];
+          const index = Math.max(0, names.indexOf(state.category));
+          const next = names[(index + direction + names.length) % names.length];
+          palette.update({ category: next });
+        }, [categories, palette, state.category]);
 
         React.useEffect(() => {
           if (!state.open) return undefined;
@@ -2413,11 +2455,19 @@ window.__ModuleLoader__.load({
               event.preventDefault();
               event.stopPropagation();
               close();
+              return;
             }
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+            const target = event.target instanceof Element ? event.target : null;
+            const editable = target?.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
+            if (editable && target !== searchRef.current) return;
+            event.preventDefault();
+            event.stopPropagation();
+            cycleCategory(event.key === 'ArrowRight' ? 1 : -1);
           };
-          document.addEventListener('keydown', onKey, true);
-          return () => document.removeEventListener('keydown', onKey, true);
-        }, [state.open, close]);
+          document.addEventListener('keydown', onKey);
+          return () => document.removeEventListener('keydown', onKey);
+        }, [state.open, close, cycleCategory]);
 
         if (!state.open) return null;
 
@@ -2495,36 +2545,6 @@ window.__ModuleLoader__.load({
           if (prefs.closeAfterInsert) setTimeout(() => palette.close(), 220);
         };
 
-        const saveCapture = async () => {
-          const draft = bridge?.input?.draft ?? '';
-          if (draft.trim() === '') {
-            setCapture((current) => ({ ...current, error: t('palette.captureEmpty') }));
-            return;
-          }
-          if (capture.name.trim() === '') {
-            setCapture((current) => ({ ...current, error: t('editor.required') }));
-            return;
-          }
-          setCapture((current) => ({ ...current, busy: true, error: '' }));
-          try {
-            await hub.call('/create', {
-              action: {
-                name: capture.name.trim(),
-                category: capture.category.trim(),
-                tags: capture.tags.split(',').map((tag) => tag.trim()).filter((tag) => tag !== ''),
-                description: '',
-                prompt: draft,
-                pinned: false,
-              },
-            });
-            setToast({ text: t('palette.captureDone', { name: capture.name.trim() }), kind: 'ok' });
-            palette.update({ mode: 'browse' });
-            setCapture({ name: '', category: '', tags: '', error: '', busy: false });
-          } catch (failure) {
-            setCapture((current) => ({ ...current, busy: false, error: describeError(failure) }));
-          }
-        };
-
         const onSearchKey = (event) => {
           if (event.key === 'ArrowDown') {
             event.preventDefault();
@@ -2546,22 +2566,15 @@ window.__ModuleLoader__.load({
             }
           } else if (event.key === 'Tab') {
             event.preventDefault();
-            const names = ['', ...categories.map(([name]) => name)];
-            const index = names.indexOf(state.category);
-            const next = names[(index + (event.shiftKey ? -1 : 1) + names.length) % names.length];
-            palette.update({ category: next });
+            cycleCategory(event.shiftKey ? -1 : 1);
           }
         };
 
-        const header = state.mode === 'capture'
-          ? h('div', { className: 'ah-palette-search' },
-            h('h2', { className: 'ah-preview-title', style: { margin: 0, flex: '1 1 auto' } }, t('palette.captureTitle')),
-            h(Button, { ghost: true, iconOnly: true, small: true, onClick: close, title: t('action.close') }, h(Icons.close, { size: 13 })))
-          : h('div', { className: 'ah-palette-search' },
-            h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
-            h(Kbd, null, 'Esc'));
+        const header = h('div', { className: 'ah-palette-search' },
+          h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
+          h(Kbd, null, 'Esc'));
 
-        const catRow = state.mode === 'capture' ? null : h('div', { className: 'ah-palette-cats' },
+        const catRow = h('div', { className: 'ah-palette-cats' },
           h('button', { type: 'button', className: 'ah-chip', 'data-active': state.category === '', onClick: () => palette.update({ category: '' }) }, t('lib.all')),
           categories.map(([name, count]) => h('button', {
             key: name,
@@ -2599,7 +2612,6 @@ window.__ModuleLoader__.load({
               h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('palette.emptyCopy') : ''),
               actions.length === 0
                 ? h('div', { className: 'ah-empty-actions' },
-                  h(Button, { primary: true, onClick: () => palette.update({ mode: 'capture' }) }, h(Icons.plus, { size: 14 }), t('palette.capture')),
                   h(Button, { onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')))
                 : null))
           : h('div', { className: 'ah-preview' },
@@ -2628,60 +2640,31 @@ window.__ModuleLoader__.load({
               : null,
             h('pre', { className: 'ah-code ah-preview-body' }, selected.prompt));
 
-        const captureDraft = typeof bridge?.input?.draft === 'string' ? bridge.input.draft.trim() : '';
-        const captureView = h('div', { className: 'ah-capture' },
-          h('div', { className: 'ah-field' },
-            h('label', { className: 'ah-label' }, t('editor.name')),
-            h('input', {
-              className: 'ah-input',
-              value: capture.name,
-              autoFocus: true,
-              placeholder: t('editor.namePlaceholder'),
-              onChange: (event) => setCapture((current) => ({ ...current, name: event.target.value })),
-              onKeyDown: (event) => { if (event.key === 'Enter') { event.preventDefault(); void saveCapture(); } },
-            })),
-          h('div', { className: 'ah-field-row' },
-            h('div', { className: 'ah-field' },
-              h('label', { className: 'ah-label' }, t('editor.category')),
-              h('input', { className: 'ah-input', value: capture.category, list: 'ah-capture-categories', onChange: (event) => setCapture((current) => ({ ...current, category: event.target.value })) }),
-              h('datalist', { id: 'ah-capture-categories' }, categories.map(([name]) => h('option', { key: name, value: name })))),
-            h('div', { className: 'ah-field' },
-              h('label', { className: 'ah-label' }, t('editor.tags')),
-              h('input', { className: 'ah-input', value: capture.tags, placeholder: t('editor.tagsPlaceholder'), onChange: (event) => setCapture((current) => ({ ...current, tags: event.target.value })) }))),
-          h('div', { className: 'ah-field' },
-            h('label', { className: 'ah-label' }, t('palette.capturePrompt')),
-            h('pre', { className: 'ah-code' }, captureDraft || t('palette.captureEmpty'))),
-          capture.error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, capture.error),
-          h('div', { className: 'ah-actions' },
-            h('div', { style: { flex: '1 1 auto' } }),
-            h(Button, { onClick: () => palette.update({ mode: 'browse' }) }, t('action.cancel')),
-            h(Button, { primary: true, disabled: capture.busy || captureDraft === '', onClick: saveCapture }, t('action.save'))));
-
-        const footer = state.mode === 'capture' ? null : h('div', { className: 'ah-palette-foot' },
-          h('div', { className: 'ah-args' },
-            h('input', {
-              className: 'ah-input',
-              value: args,
-              placeholder: t('palette.args'),
-              'aria-label': t('palette.args'),
-              onChange: (event) => setArgs(event.target.value),
-            })),
+        const footer = h('div', { className: 'ah-palette-foot' },
+          h('div', { className: 'ah-foot-row' },
+            h('div', { className: 'ah-args' },
+              h('input', {
+                className: 'ah-input',
+                value: args,
+                placeholder: t('palette.args'),
+                'aria-label': t('palette.args'),
+                onChange: (event) => setArgs(event.target.value),
+              })),
+            h('div', { className: 'ah-actions' },
+              h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
+              h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
+              h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null }, h(Icons.send, { size: 13 }), t('palette.send')))),
           h('div', { className: 'ah-hints' },
+            h('span', null, h(Kbd, null, '←→'), ` ${t('palette.hintTab')}`),
             h('span', null, h(Kbd, null, '↑↓'), ` ${t('palette.hintNav')}`),
             h('span', null, h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),
-            h('span', null, h(Kbd, null, 'Ctrl+↵'), ` ${t('palette.hintSend')}`)),
-          h('div', { className: 'ah-actions' },
-            h(Button, { ghost: true, small: true, onClick: () => palette.update({ mode: 'capture' }) }, h(Icons.plus, { size: 13 }), t('palette.capture')),
-            h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
-            h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
-            h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null }, h(Icons.send, { size: 13 }), t('palette.send'))));
+            h('span', null, h(Kbd, null, 'Ctrl+↵'), ` ${t('palette.hintSend')}`),
+            h('span', null, h(Kbd, null, shortcutState.manageKeys.join('')), ` ${t('palette.manage')}`)));
 
         const toastView = toast.text === '' ? null : h('div', { className: 'ah-toast', 'data-kind': toast.kind, role: 'status' }, toast.text);
 
-        const bodyContent = state.mode === 'capture'
-          ? captureView
-          : h(React.Fragment, null,
-            h('div', { className: 'ah-palette-body' }, results, preview));
+        const bodyContent = h(React.Fragment, null,
+          h('div', { className: 'ah-palette-body' }, results, preview));
 
         return h('div', {
           className: 'ah-backdrop',
@@ -2733,7 +2716,7 @@ window.__ModuleLoader__.load({
         const shortcut = useShortcutStore(props.shortcuts);
         const state = usePalette(palette);
         if (!prefs.showTrigger) return null;
-        const keys = shortcut.keys.length > 0 ? shortcut.keys.join('') : (MAC ? '⌘⇧.' : 'Ctrl+Shift+.');
+        const keys = shortcut.keys.length > 0 ? shortcut.keys.join('') : (MAC ? '⌥A' : 'Alt+A');
         return h('button', {
           type: 'button',
           className: 'ah-trigger',
@@ -2778,11 +2761,24 @@ window.__ModuleLoader__.load({
               h(Switch, { checked: state.showTrigger, label: t('settings.trigger'), onChange: (value) => { prefs.set({ showTrigger: value }); saved(t('settings.saved')); } })),
             h('div', { className: 'ah-settings-row' },
               h('div', { className: 'ah-settings-row-main' },
+                h('span', { className: 'ah-settings-row-title' }, t('settings.sidebarEntry')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.sidebarEntryDesc'))),
+              h(Switch, { checked: state.showSidebarEntry, label: t('settings.sidebarEntry'), onChange: (value) => { prefs.set({ showSidebarEntry: value }); saved(t('settings.saved')); } }))),
+          h('section', { className: 'ah-settings-card' },
+            h('h3', { className: 'ah-settings-title' }, t('settings.shortcutsTitle')),
+            h('div', { className: 'ah-settings-row' },
+              h('div', { className: 'ah-settings-row-main' },
                 h('span', { className: 'ah-settings-row-title' }, t('settings.hotkey')),
                 h('span', { className: 'ah-settings-row-desc' }, t('settings.hotkeyDesc')),
                 h('span', { className: 'ah-settings-row-desc' }, t('settings.hotkeyManage'))),
-              h('span', { className: 'ah-kbd' }, shortcuts.keys.length > 0 ? shortcuts.keys.join('') : (MAC ? '⌘⇧.' : 'Ctrl+Shift+.')),
-              h(Switch, { checked: state.hotkeyEnabled, label: t('settings.hotkey'), onChange: (value) => { prefs.set({ hotkeyEnabled: value }); saved(t('settings.saved')); } }))),
+              h('span', { className: 'ah-kbd' }, shortcuts.keys.length > 0 ? shortcuts.keys.join('') : (MAC ? '⌥A' : 'Alt+A'))),
+            h('div', { className: 'ah-settings-row' },
+              h('div', { className: 'ah-settings-row-main' },
+                h('span', { className: 'ah-settings-row-title' }, t('settings.manageHotkey')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.manageHotkeyDesc')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.manageHotkeyManage'))),
+              h('span', { className: 'ah-kbd' }, shortcuts.manageKeys.length > 0 ? shortcuts.manageKeys.join('') : (MAC ? '⌘⌥A' : 'Ctrl+Alt+A'))),
+            h('span', { className: 'ah-hint', style: { marginTop: '-2px' } }, t('settings.shortcutGroupHint'))),
           h('section', { className: 'ah-settings-card' },
             h('h3', { className: 'ah-settings-title' }, t('settings.data')),
             h('p', { className: 'ah-settings-row-desc' }, t('settings.dataDesc', { path: snapshot.meta.dataFileDisplay ?? snapshot.meta.dataFile ?? '—', count: snapshot.actions.length })),
@@ -2790,16 +2786,8 @@ window.__ModuleLoader__.load({
               h(Button, { onClick: () => props.ctx.get('layout')?.selectPanel?.(PANEL_ID) }, t('settings.openLibrary')),
               h(Button, { onClick: async () => {
                 try {
-                  const data = await api('/export');
-                  const blob = new Blob([`${JSON.stringify(data, null, 2)}\n`], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const anchor = document.createElement('a');
-                  anchor.href = url;
-                  anchor.download = `dsh-actions-${new Date().toISOString().slice(0, 10)}.json`;
-                  document.body.appendChild(anchor);
-                  anchor.click();
-                  document.body.removeChild(anchor);
-                  setTimeout(() => URL.revokeObjectURL(url), 2000);
+                  await downloadZip();
+                  saved(t('lib.exported'));
                 } catch (failure) {
                   saved(describeError(failure));
                 }
@@ -2826,7 +2814,7 @@ window.__ModuleLoader__.load({
       const hub = createHub();
       const prefs = createPrefs();
       const palette = createPalette();
-      const shortcuts = createShortcutStore(ctx, palette, prefs, t);
+      const shortcuts = createShortcutStore(ctx, palette, t);
       const previousPalette = typeof window !== 'undefined' ? window.__dshActionHubPalette : undefined;
       if (typeof window !== 'undefined') window.__dshActionHubPalette = palette;
 
@@ -2851,20 +2839,34 @@ window.__ModuleLoader__.load({
       }, 'action-hub: stores');
 
       const Page = createPage(hub, ctx);
-      const PaletteView = createPaletteView(hub, palette, prefs);
+      const PaletteView = createPaletteView(hub, palette, prefs, shortcuts);
       const SessionBridge = createSessionBridge(palette);
       const Trigger = createTrigger(palette);
       const Settings = createSettings(hub, prefs);
 
       ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL_ID, locale: NS }, Page));
 
-      ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-        name: 'sidebar.panellist',
-        id: PANEL_ID,
-        order: 32,
-        label: () => t('app.name'),
-        locale: NS,
-      }, PanelIcon));
+      ctx.slots.inject('sidebar.panellist', () => {
+        let dispose = null;
+        const sync = () => {
+          dispose?.();
+          dispose = null;
+          if (prefs.get().showSidebarEntry === false) return;
+          dispose = ctx.slots.register({
+            name: 'sidebar.panellist',
+            id: PANEL_ID,
+            order: 32,
+            label: () => t('app.name'),
+            locale: NS,
+          }, PanelIcon);
+        };
+        const off = prefs.subscribe(sync);
+        sync();
+        return () => {
+          off();
+          dispose?.();
+        };
+      });
 
       ctx.slots.inject('conversation.input.left', () => ctx.slots.register({
         name: 'conversation.input.left',
@@ -2928,7 +2930,6 @@ window.__ModuleLoader__.load({
         composeDraft,
         composeReferenceDraft,
         matchActionMarker,
-        parseSkillDocument,
         searchScore,
         sortActions,
         categoriesOf,

@@ -83,17 +83,6 @@ export async function removeActionDir(dataDir, actionId) {
 }
 
 /**
- * Copy one Action directory (duplicate / export-folder).
- *
- * @param {string} from
- * @param {string} to
- * @returns {Promise<void>}
- */
-export async function copyActionDir(from, to) {
-  await fs.cp(from, to, { recursive: true, force: true });
-}
-
-/**
  * Sanitize one browser file name into a safe flat name.
  *
  * @param {unknown} raw
@@ -289,21 +278,6 @@ export async function removeResources(dir) {
 }
 
 /**
- * Copy one Action's resource directory (used by duplicate).
- *
- * @param {string} from
- * @param {string} to
- * @returns {Promise<void>}
- */
-export async function copyResources(from, to) {
-  try {
-    await fs.cp(from, to, { recursive: true, force: true });
-  } catch {
-    /* no directory to copy */
-  }
-}
-
-/**
  * Read every resource for export, with base64 content.
  *
  * @param {string} dir
@@ -378,50 +352,3 @@ export async function readInvocationResources(dataDir, action) {
   return { basePath: dir, files };
 }
 
-/**
- * Copy a Skill's sibling files into an Action's resource directory. Used when
- * importing a Skill, so templates/code shipped next to SKILL.md travel with it.
- *
- * @param {string} skillPath - path to the Skill's SKILL.md.
- * @param {string} dir - destination resource directory.
- * @returns {Promise<{ resources: Array<{ name: string, bytes: number }>, skipped: number }>}
- */
-export async function copySkillResources(skillPath, dir) {
-  if (typeof skillPath !== 'string' || skillPath === '') return { resources: [], skipped: 0 };
-  const root = path.dirname(skillPath);
-  const names = await walk(root);
-  const resources = [];
-  let skipped = 0;
-  let total = 0;
-  for (const name of names) {
-    if (name === 'SKILL.md' || name === 'SKILL.MD') continue;
-    if (resources.length >= MAX_RESOURCE_COUNT) {
-      skipped += 1;
-      continue;
-    }
-    const source = resourcePath(root, name);
-    let buffer;
-    try {
-      buffer = await fs.readFile(source);
-    } catch {
-      skipped += 1;
-      continue;
-    }
-    if (buffer.length > MAX_RESOURCE_FILE || total + buffer.length > MAX_RESOURCE_TOTAL) {
-      skipped += 1;
-      continue;
-    }
-    const safe = safeRelativeName(name);
-    if (safe === null) {
-      skipped += 1;
-      continue;
-    }
-    const target = resourcePath(dir, safe);
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, buffer);
-    total += buffer.length;
-    resources.push({ name: safe, bytes: buffer.length });
-  }
-  resources.sort((left, right) => left.name.localeCompare(right.name));
-  return { resources, skipped };
-}

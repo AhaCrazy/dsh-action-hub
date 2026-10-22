@@ -5,12 +5,14 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
+  DEFAULT_ACTIONS,
   SEED_ACTIONS,
   STORE_VERSION,
   createStore,
   defaultDataDir,
   expandPrompt,
   hasArgumentPlaceholder,
+  installDefaultActions,
   matchesQuery,
   mergeActions,
   mintId,
@@ -151,9 +153,56 @@ test('parseState accepts a bare array from a hand-edited file', () => {
   assert.throws(() => parseState('{"nope":true}', false), /actions/);
 });
 
+test('installDefaultActions adds the helper exactly once', async () => {
+  await withTempDir(async (dir) => {
+    const store = createStore({ dataDir: dir, seed: false });
+    await installDefaultActions(store, dir);
+    let state = await store.read();
+    assert.equal(state.actions.filter((action) => action.id === DEFAULT_ACTIONS[0].id).length, 1);
+    await store.mutate((draft) => {
+      draft.actions = draft.actions.filter((action) => action.id !== DEFAULT_ACTIONS[0].id);
+    });
+    await installDefaultActions(store, dir);
+    state = await store.read();
+    assert.equal(state.actions.filter((action) => action.id === DEFAULT_ACTIONS[0].id).length, 0);
+  });
+});
+
+test('store reads resource metadata from the Action files directory', async () => {
+  await withTempDir(async (dir) => {
+    const store = createStore({ dataDir: dir, seed: false });
+    const action = normalizeAction({ name: 'With files', prompt: 'p' });
+    await store.mutate((draft) => {
+      draft.actions = [action];
+    });
+    const files = path.join(dir, 'actions', action.id, 'files', 'docs');
+    await mkdir(files, { recursive: true });
+    await writeFile(path.join(files, 'guide.md'), '# guide\n', 'utf8');
+    const state = await store.read();
+    assert.deepEqual(state.actions[0].resources, [{ name: 'docs/guide.md', bytes: 8 }]);
+  });
+});
+
+test('migrates the old action-hub directory to dsh-action-hub', async () => {
+  await withTempDir(async (dir) => {
+    const legacy = path.join(dir, 'action-hub');
+    const next = path.join(dir, 'dsh-action-hub');
+    const action = normalizeAction({ name: 'Legacy', prompt: 'old' });
+    const oldStore = createStore({ dataDir: legacy, seed: false });
+    await oldStore.mutate((draft) => {
+      draft.actions = [action];
+    });
+    const store = createStore({ dataDir: next, seed: false });
+    const state = await store.read();
+    assert.equal(state.actions[0].name, 'Legacy');
+    assert.equal((await readdir(dir)).includes('action-hub'), false);
+    assert.match(await readFile(path.join(next, 'actions', action.id, 'action.json'), 'utf8'), /Legacy/);
+  });
+});
+
 test('defaultDataDir honours DSH_HOME', () => {
-  assert.equal(defaultDataDir({ DSH_HOME: 'C:\\home\\.dsh' }), path.join('C:\\home\\.dsh', 'action-hub'));
-  assert.ok(defaultDataDir({}).endsWith(path.join('.dsh', 'action-hub')));
+  assert.equal(defaultDataDir({ DSH_HOME: 'C:\\home\\.dsh' }), path.join('C:\\home\\.dsh', 'dsh-action-hub'));
+  assert.ok(defaultDataDir({}).endsWith(path.join('.dsh', 'dsh-action-hub')));
 });
 
 test('store seeds per-Action directories, creates, updates, and deletes', async () => {

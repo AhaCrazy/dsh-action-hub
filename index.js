@@ -13,23 +13,16 @@
  * @module dsh-action-hub
  */
 import { createHash } from 'node:crypto';
-import { promises as fs } from 'node:fs';
 import os from 'node:os';
-import nodePath from 'node:path';
 
-import { prepareAssist, startAssistWatcher } from './assist.js';
 import {
-  exportActionFolder,
-  exportAllFolder,
+  applyFolderPlan,
+  applyZipPlan,
   exportZipBuffer,
-  importFolder,
-  importZipBuffer,
+  previewFolder,
+  previewZipBuffer,
 } from './bundle.js';
 import {
-  addResourceFile,
-  copyResources,
-  copySkillResources,
-  deleteResourceFile,
   exportResourceFiles,
   readInvocationResources,
   readResourcePreviews,
@@ -42,6 +35,7 @@ import {
   createStore,
   defaultDataDir,
   expandPrompt,
+  installDefaultActions,
   mergeActions,
   normalizeAction,
   sortActions,
@@ -55,7 +49,6 @@ export const inject = ['webServer'];
 
 const ROUTE = '/api/dsh-action-hub';
 const MAX_BODY = 40 * 1024 * 1024;
-const IMPORT_CATEGORY = '导入';
 const ACTION_PREFIX = 'ah-';
 const MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{10})(?![0-9a-f])/gu;
 
@@ -207,8 +200,10 @@ export function apply(ctx, config = {}) {
     ? config.dataDir.trim()
     : defaultDataDir();
   const store = createStore({ dataDir, seed: config.seed !== false });
+  void installDefaultActions(store, dataDir).catch((error) => {
+    ctx.logger?.warn?.(`dsh-action-hub: could not install default Actions: ${describe(error)}`);
+  });
   ctx.effect(() => installActionInvocations(ctx, store, dataDir), 'action-hub: action invocations');
-  ctx.effect(() => startAssistWatcher(ctx, store, dataDir), 'action-hub: AI import inbox');
 
   // The command registry may finish activating after this row; a child context
   // waits for it instead of dropping the command when it is momentarily absent.
@@ -330,39 +325,9 @@ async function handle(ctx, store, dataDir, req, res) {
         meta: {
           dataFile: store.filePath(),
           dataFileDisplay: displayPath(store.filePath()),
-          skills: ctx.get('skills') !== undefined,
           referencing: true,
           handles: Object.fromEntries(plan.handles),
         },
-      });
-      return;
-    }
-
-    if (method === 'GET' && route === '/skills') {
-      const skills = ctx.get('skills');
-      if (skills === undefined) {
-        sendJson(res, 200, { ok: true, skills: [], unavailable: '当前 Profile 未启用 Skills 服务' });
-        return;
-      }
-      const cwd = await resolveCwd(ctx, url.searchParams.get('cwd'));
-      let summaries = [];
-      let warning;
-      try {
-        summaries = await skills.list({ cwd });
-      } catch (error) {
-        warning = describe(error);
-      }
-      sendJson(res, 200, {
-        ok: true,
-        cwd,
-        skills: summaries.map((skill) => ({
-          name: skill.name,
-          description: skill.description,
-          source: skill.source,
-          whenToUse: skill.whenToUse,
-          ...(typeof skill.path === 'string' ? { path: skill.path } : {}),
-        })),
-        warning,
       });
       return;
     }
@@ -382,7 +347,10 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (method === 'GET' && route === '/bundle/zip') {
       try {
-        const data = await exportZipBuffer(store, dataDir, url.searchParams.get('id') || undefined);
+        const requested = url.searchParams.getAll('id');
+        const grouped = (url.searchParams.get('ids') ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+        const selection = [...requested, ...grouped];
+        const data = await exportZipBuffer(store, dataDir, selection.length > 0 ? selection : undefined);
         sendBytes(res, 200, data.buffer, 'application/zip', data.filename);
       } catch (error) {
         sendJson(res, 404, { ok: false, error: describe(error) });
@@ -417,20 +385,10 @@ async function handle(ctx, store, dataDir, req, res) {
       return;
     }
 
-    if (route === '/bundle/export-folder') {
+    if (route === '/bundle/preview-folder') {
       try {
-        const exported = await exportActionFolder(store, dataDir, text(body.id), text(body.target));
-        sendJson(res, 200, { ok: true, ...exported });
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-      }
-      return;
-    }
-
-    if (route === '/bundle/export-all') {
-      try {
-        const exported = await exportAllFolder(store, dataDir, text(body.target));
-        sendJson(res, 200, { ok: true, ...exported });
+        const preview = await previewFolder(store, dataDir, text(body.path));
+        sendJson(res, 200, { ok: true, ...preview });
       } catch (error) {
         sendJson(res, 400, { ok: false, error: describe(error) });
       }
@@ -439,15 +397,21 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (route === '/bundle/import-folder') {
       try {
-        const imported = await importFolder(store, dataDir, text(body.path));
+        const imported = await applyFolderPlan(store, dataDir, text(body.path), Array.isArray(body.decisions) ? body.decisions : []);
         const state = await store.read();
-        sendJson(res, 200, {
-          ok: true,
-          imported: imported.actions.length,
-          renamed: imported.renamed,
-          skipped: imported.skipped,
-          actions: sortActions(state.actions),
-        });
+        sendJson(res, 200, { ...imported, ok: true, actions: sortActions(state.actions) });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+      }
+      return;
+    }
+
+    if (route === '/bundle/preview-zip') {
+      try {
+        const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
+        if (buffer.length === 0) throw new Error('ZIP 内容为空');
+        const preview = await previewZipBuffer(store, dataDir, buffer);
+        sendJson(res, 200, { ok: true, ...preview });
       } catch (error) {
         sendJson(res, 400, { ok: false, error: describe(error) });
       }
@@ -458,89 +422,12 @@ async function handle(ctx, store, dataDir, req, res) {
       try {
         const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
         if (buffer.length === 0) throw new Error('ZIP 内容为空');
-        const imported = await importZipBuffer(store, dataDir, buffer);
+        const imported = await applyZipPlan(store, dataDir, buffer, Array.isArray(body.decisions) ? body.decisions : []);
         const state = await store.read();
-        sendJson(res, 200, {
-          ok: true,
-          imported: imported.actions.length,
-          renamed: imported.renamed,
-          skipped: imported.skipped,
-          actions: sortActions(state.actions),
-        });
+        sendJson(res, 200, { ...imported, ok: true, actions: sortActions(state.actions) });
       } catch (error) {
         sendJson(res, 400, { ok: false, error: describe(error) });
       }
-      return;
-    }
-
-    if (route === '/assist/prepare') {
-      const skillPath = text(body.path);
-      if (skillPath === '') {
-        sendJson(res, 400, { ok: false, error: '缺少 Skill 目录' });
-        return;
-      }
-      try {
-        const prepared = await prepareAssist(dataDir, skillPath);
-        sendJson(res, 200, { ok: true, ...prepared });
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-      }
-      return;
-    }
-
-    if (route === '/resource/add') {
-      const id = text(body.id);
-      const state = await store.read();
-      const action = state.actions.find((entry) => entry.id === id);
-      if (action === undefined) {
-        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
-        return;
-      }
-      let buffer;
-      try {
-        buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
-      } catch {
-        sendJson(res, 400, { ok: false, error: '文件内容不是合法的 base64' });
-        return;
-      }
-      let resources;
-      try {
-        resources = await addResourceFile(
-          resourceDir(dataDir, id),
-          typeof body.name === 'string' ? body.name : '',
-          buffer,
-          action.resources,
-        );
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-        return;
-      }
-      const { state: next } = await store.mutate((draft) => {
-        draft.actions = draft.actions.map((entry) => (entry.id === id ? { ...entry, resources, updatedAt: Date.now() } : entry));
-      });
-      sendJson(res, 200, { ok: true, resources, actions: sortActions(next.actions) });
-      return;
-    }
-
-    if (route === '/resource/delete') {
-      const id = text(body.id);
-      const state = await store.read();
-      const action = state.actions.find((entry) => entry.id === id);
-      if (action === undefined) {
-        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
-        return;
-      }
-      let resources;
-      try {
-        resources = await deleteResourceFile(resourceDir(dataDir, id), body.name, action.resources);
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-        return;
-      }
-      const { state: next } = await store.mutate((draft) => {
-        draft.actions = draft.actions.map((entry) => (entry.id === id ? { ...entry, resources, updatedAt: Date.now() } : entry));
-      });
-      sendJson(res, 200, { ok: true, resources, actions: sortActions(next.actions) });
       return;
     }
 
@@ -599,32 +486,6 @@ async function handle(ctx, store, dataDir, req, res) {
       });
       if (result.removed > 0) await removeActionDir(dataDir, id);
       sendJson(res, 200, { ok: true, removed: result.removed, actions: sortActions(state.actions) });
-      return;
-    }
-
-    if (route === '/duplicate') {
-      const id = text(body.id);
-      const { state, result } = await store.mutate((draft) => {
-        const source = draft.actions.find((entry) => entry.id === id);
-        if (source === undefined) return { missing: true };
-        const copy = normalizeAction(
-          {
-            ...source,
-            name: `${source.name} 副本`,
-            usage: { count: 0, lastAt: 0 },
-            source: source.source,
-          },
-          { now: Date.now() },
-        );
-        draft.actions = [...draft.actions, copy];
-        return { action: copy };
-      });
-      if (result?.missing) {
-        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
-        return;
-      }
-      await copyResources(resourceDir(dataDir, id), resourceDir(dataDir, result.action.id));
-      sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
       return;
     }
 
@@ -687,73 +548,7 @@ async function handle(ctx, store, dataDir, req, res) {
     }
 
     if (route === '/import-skill') {
-      const explicitPath = text(body.path);
-      /** @type {{ name: string, description: string, content: string, path?: string }} */
-      let definition;
-      if (explicitPath !== '') {
-        const candidate = nodePath.resolve(explicitPath);
-        let stat;
-        try {
-          stat = await fs.stat(candidate);
-        } catch {
-          sendJson(res, 404, { ok: false, error: `目录不存在：${explicitPath}` });
-          return;
-        }
-        const skillPath = stat.isDirectory() ? nodePath.join(candidate, 'SKILL.md') : candidate;
-        let raw;
-        try {
-          raw = await fs.readFile(skillPath, 'utf8');
-        } catch {
-          sendJson(res, 404, { ok: false, error: `没有找到 SKILL.md：${skillPath}` });
-          return;
-        }
-        const parsed = parseSkillMarkdown(raw);
-        const folder = stat.isDirectory() ? candidate : nodePath.dirname(skillPath);
-        definition = {
-          name: parsed.meta.name || nodePath.basename(folder),
-          description: parsed.meta.description || '',
-          content: parsed.body,
-          path: skillPath,
-        };
-      } else {
-        const skills = ctx.get('skills');
-        if (skills === undefined) {
-          sendJson(res, 400, { ok: false, error: '当前 Profile 未启用 Skills 服务' });
-          return;
-        }
-        const skillName = text(body.name);
-        if (skillName === '') {
-          sendJson(res, 400, { ok: false, error: '缺少 skill 名称或目录' });
-          return;
-        }
-        const cwd = await resolveCwd(ctx, text(body.cwd));
-        const found = await skills.get(skillName, { cwd });
-        if (found === undefined) {
-          sendJson(res, 404, { ok: false, error: `没有找到 skill：${skillName}` });
-          return;
-        }
-        definition = found;
-      }
-      const action = normalizeAction({
-        name: definition.name,
-        description: definition.description,
-        category: text(body.category) || IMPORT_CATEGORY,
-        tags: ['skill'],
-        prompt: String(definition.content ?? ''),
-        source: { kind: 'skill', name: definition.name, detail: definition.path },
-      });
-      const copied = await copySkillResources(definition.path, resourceDir(dataDir, action.id));
-      if (copied.resources.length > 0) action.resources = copied.resources;
-      const { state } = await store.mutate((draft) => {
-        draft.actions = [...draft.actions, action];
-      });
-      sendJson(res, 200, {
-        ok: true,
-        action,
-        resources: copied.resources.length,
-        skipped: copied.skipped,
-        actions: sortActions(state.actions),
-      });
+      sendJson(res, 410, { ok: false, error: '按名称导入 Skill 已移除；请用默认的「Action 导入助手」或导入 Action 包。' });
       return;
     }
 
@@ -838,61 +633,6 @@ function displayPath(filePath) {
     /* keep the absolute path when the home directory is unavailable */
   }
   return filePath;
-}
-
-/**
- * Resolve a directory skill list should scan: the explicit request value first,
- * then the profile's default working directory.
- *
- * @param {object} ctx
- * @param {string} requested
- * @returns {Promise<string | undefined>}
- */
-async function resolveCwd(ctx, requested) {
-  if (typeof requested === 'string' && requested.trim() !== '') return requested.trim();
-  const workingDirectory = ctx.get('workingDirectory');
-  if (workingDirectory !== undefined) {
-    try {
-      const value = workingDirectory.defaultDirectory;
-      if (typeof value === 'string' && value !== '') return value;
-    } catch {
-      /* no default directory available */
-    }
-    try {
-      const agents = ctx.get('agents');
-      const list = agents?.list?.() ?? [];
-      for (const agent of list) {
-        const value = await workingDirectory.get?.(agent.session ?? agent);
-        if (typeof value === 'string' && value !== '') return value;
-      }
-    } catch {
-      /* session lookup is best-effort */
-    }
-  }
-  return undefined;
-}
-
-/**
- * Parse a SKILL.md document into its frontmatter map and body.
- *
- * @param {string} content
- * @returns {{ meta: Record<string, string>, body: string }}
- */
-function parseSkillMarkdown(content) {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/u.exec(content);
-  if (match === null) return { meta: {}, body: content.trim() };
-  const meta = {};
-  for (const line of match[1].split(/\r?\n/)) {
-    const at = line.indexOf(':');
-    if (at <= 0) continue;
-    const key = line.slice(0, at).trim();
-    let value = line.slice(at + 1).trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
-    }
-    if (key !== '') meta[key] = value;
-  }
-  return { meta, body: content.slice(match[0].length).trim() };
 }
 
 /**
