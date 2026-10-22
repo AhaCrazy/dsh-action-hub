@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '2.1.0';
+    const VERSION = '3.0.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -304,6 +304,11 @@ window.__ModuleLoader__.load({
         'import.folderDone': '已导入 {name}，资源文件 {count} 个',
         'import.folderDoneSkipped': '已导入 {name}，资源文件 {count} 个，跳过 {skipped} 个',
         'import.category': '导入',
+        'import.aiButton': '用 AI 导入',
+        'import.aiHint': '让 AI 读取 Skill，与你确认 Skill/Action 差异后生成 Action 和资源选择',
+        'import.aiStarted': '已打开 AI 导入对话：{name}。发送提示词并与 AI 确认，完成后 Action 会自动出现在库中。',
+        'import.aiUnavailable': '当前环境无法打开新对话，请改用「选择 Skill 文件夹」。',
+        'import.aiNoPath': '这个 Skill 没有可用的目录路径，请用「从技能目录导入」填写目录。',
         'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
         'category.empty': '还没有分类',
@@ -486,6 +491,11 @@ window.__ModuleLoader__.load({
         'import.folderDone': 'Imported {name} with {count} resource file(s)',
         'import.folderDoneSkipped': 'Imported {name} with {count} resource file(s), skipped {skipped}',
         'import.category': 'Imported',
+        'import.aiButton': 'AI import',
+        'import.aiHint': 'Let the AI read the Skill, confirm Skill/Action differences with you, then create the Action and pick resources',
+        'import.aiStarted': 'Opened the AI import conversation: {name}. Send the brief, confirm with the AI, and the Action appears in the library automatically.',
+        'import.aiUnavailable': 'This environment cannot open a new conversation; use “Choose a Skill folder” instead.',
+        'import.aiNoPath': 'This Skill has no usable directory path; enter it under “Import from a skill directory”.',
         'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
         'category.empty': 'No categories yet',
@@ -1632,7 +1642,7 @@ window.__ModuleLoader__.load({
     }
 
     function ImportDialog(props) {
-      const { t } = props;
+      const { t, ctx } = props;
       const [tab, setTab] = React.useState('json');
       const [text, setText] = React.useState('');
       const [mode, setMode] = React.useState('merge');
@@ -1772,6 +1782,36 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const startAiImport = async (target) => {
+        const skillDirectory = typeof target === 'string' ? target : target?.path;
+        if (typeof skillDirectory !== 'string' || skillDirectory.trim() === '') {
+          setSkillError(t('import.aiNoPath'));
+          return;
+        }
+        setSkillBusy(true);
+        setSkillError('');
+        try {
+          const prepared = await api('/assist/prepare', { path: skillDirectory.trim() });
+          const workspace = typeof ctx?.get === 'function' ? ctx.get('uiWorkspace') : undefined;
+          if (workspace === undefined || typeof workspace.startSession !== 'function') {
+            throw new Error(t('import.aiUnavailable'));
+          }
+          workspace.startSession(undefined, { prompt: prepared.prompt, clearPreviousDraft: true });
+          try {
+            localStorage.setItem('action-hub.aiAssistAt', String(Date.now()));
+          } catch {
+            /* polling is optional */
+          }
+          props.notify(t('import.aiStarted', { name: prepared.skill?.name ?? '' }), 'ok');
+          props.onDone();
+          props.onClose();
+        } catch (failure) {
+          setSkillError(describeError(failure));
+        } finally {
+          setSkillBusy(false);
+        }
+      };
+
       const importSkill = async (skill) => {
         setSkillBusy(true);
         setSkillError('');
@@ -1852,7 +1892,8 @@ window.__ModuleLoader__.load({
             h('label', { className: 'ah-label' }, t('import.pathLabel')),
             h('div', { className: 'ah-field-row' },
               h('input', { className: 'ah-input', value: skillPath, placeholder: t('import.pathPlaceholder'), onChange: (event) => setSkillPath(event.target.value) }),
-              h(Button, { disabled: skillBusy || skillPath.trim() === '', onClick: importSkillPath }, t('import.pathButton'))),
+              h(Button, { disabled: skillBusy || skillPath.trim() === '', onClick: importSkillPath }, t('import.pathButton')),
+              h(Button, { disabled: skillBusy || skillPath.trim() === '', onClick: () => startAiImport(skillPath) }, t('import.aiButton'))),
             h('span', { className: 'ah-hint' }, t('import.pathHint'))),
           skills === null
             ? null
@@ -1862,7 +1903,8 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'ah-plain-main' },
                   h('span', { className: 'ah-plain-name' }, skill.name),
                   h('span', { className: 'ah-plain-desc', title: skill.path ?? skill.description }, skill.path ?? skill.description ?? '')),
-                h(Button, { small: true, disabled: skillBusy, onClick: () => importSkill(skill) }, t('import.skillImport')))))),
+                h(Button, { small: true, disabled: skillBusy, onClick: () => importSkill(skill) }, t('import.skillImport')),
+                h(Button, { small: true, disabled: skillBusy || !skill.path, title: t('import.aiHint'), onClick: () => startAiImport(skill) }, t('import.aiButton')))))),
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error),
       skillError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, skillError));
     }
@@ -1949,7 +1991,7 @@ window.__ModuleLoader__.load({
         error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 
-    function createPage(hub) {
+    function createPage(hub, ctx) {
       return function ActionHubPage(props) {
         const t = translate(props);
         const snapshot = useHub(hub);
@@ -1973,6 +2015,20 @@ window.__ModuleLoader__.load({
 
         const actions = snapshot.actions ?? [];
         const categories = React.useMemo(() => categoriesOf(actions), [actions]);
+        React.useEffect(() => {
+          const timer = setInterval(() => {
+            let startedAt = 0;
+            try {
+              startedAt = Number(localStorage.getItem('action-hub.aiAssistAt') ?? 0);
+            } catch {
+              startedAt = 0;
+            }
+            if (Date.now() - startedAt < 10 * 60 * 1000) {
+              void hub.refresh(true).catch(() => {});
+            }
+          }, 4000);
+          return () => clearInterval(timer);
+        }, [hub]);
         const visible = React.useMemo(
           () => (uncategorized
             ? visibleActions(actions, { query, uncategorized: true, sortBy })
@@ -2180,6 +2236,7 @@ window.__ModuleLoader__.load({
           body.push(h(ImportDialog, {
             key: 'import',
             t,
+            ctx,
             notify,
             onClose: () => setImporting(false),
             onDone: () => { void hub.refresh(true).catch(() => {}); },
@@ -2692,7 +2749,7 @@ window.__ModuleLoader__.load({
         }
       }, 'action-hub: stores');
 
-      const Page = createPage(hub);
+      const Page = createPage(hub, ctx);
       const PaletteView = createPaletteView(hub, palette, prefs);
       const SessionBridge = createSessionBridge(palette);
       const Trigger = createTrigger(palette);

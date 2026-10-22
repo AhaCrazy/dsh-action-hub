@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.0.0 — 2026-10-22
+
+- **AI-assisted Skill import.** “AI import” opens a fresh conversation with the
+  Skill's body, file manifest, and any same-named Skill directories as a brief.
+  The model compares the candidates, reads files, asks the user one question at a
+  time when Skill/Action differences matter, then writes one JSON package to the
+  Action Hub inbox. A Host watcher imports that package (Action + selected
+  resources) and removes it — deterministic storage, model-driven conversion.
+  If writing the inbox is denied, the brief tells the model to fall back to a
+  code block for the regular JSON import.
+- Conversion brief encodes the real Skill/Action differences: user-invoked only,
+  no Skill registration, independent prompt, `{{args}}` support, and selective
+  resource files.
+- Same-named candidates are surfaced automatically, so a thin `.agents` shim no
+  longer hides a richer `.claude` copy from the model.
+
 ## 2.1.0 — 2026-10-22
 
 - **Pick a Skill folder in the import dialog.** The browser folder picker reads

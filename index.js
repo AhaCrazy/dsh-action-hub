@@ -17,6 +17,7 @@ import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import nodePath from 'node:path';
 
+import { prepareAssist, startAssistWatcher } from './assist.js';
 import {
   addResourceFile,
   copyResources,
@@ -200,6 +201,7 @@ export function apply(ctx, config = {}) {
     : defaultDataDir();
   const store = createStore({ dataDir, seed: config.seed !== false });
   ctx.effect(() => installActionInvocations(ctx, store, dataDir), 'action-hub: action invocations');
+  ctx.effect(() => startAssistWatcher(ctx, store, dataDir), 'action-hub: AI import inbox');
 
   // The command registry may finish activating after this row; a child context
   // waits for it instead of dropping the command when it is momentarily absent.
@@ -395,6 +397,21 @@ async function handle(ctx, store, dataDir, req, res) {
     const body = await readJsonBody(req);
     if (body === undefined) {
       sendJson(res, 400, { ok: false, error: '请求体必须是 JSON' });
+      return;
+    }
+
+    if (route === '/assist/prepare') {
+      const skillPath = text(body.path);
+      if (skillPath === '') {
+        sendJson(res, 400, { ok: false, error: '缺少 Skill 目录' });
+        return;
+      }
+      try {
+        const prepared = await prepareAssist(dataDir, skillPath);
+        sendJson(res, 200, { ok: true, ...prepared });
+      } catch (error) {
+        sendJson(res, 400, { ok: false, error: describe(error) });
+      }
       return;
     }
 

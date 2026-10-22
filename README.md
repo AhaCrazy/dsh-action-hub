@@ -5,7 +5,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DSH 插件](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-2.1.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-3.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub 命令面板](assets/screenshots/01-palette.png)
@@ -49,6 +49,7 @@ Action Hub 把「收藏」和「调用」分开：
 | 管理库 | 分类导航与计数、全文搜索（名称/描述/分类/标签/正文）、按最近使用/名称/创建时间排序 |
 | 参数占位符 | `{{args}}` / `$ARGUMENTS` 由面板参数替换，`{{date}}` 替换为当天日期 |
 | 资源文件 | 每条 Action 可附带代码、模板、说明等本地文件；调用时小文本内联，大文件给出本地路径按需读取 |
+| AI 导入 | 让 AI 读取 Skill、比较同名候选目录、与你确认 Skill/Action 差异后生成 Action，资源自动落入 Action Hub |
 | 从 Skill 导入 | **选择 Skill 文件夹**直接导入 `SKILL.md` 与同目录全部文件（推荐，不受同名遮挡影响）；也可按名称或指定目录导入 |
 | 分享 | 整库导出 JSON（含资源文件内容），可合并或替换导入；使用次数等本机统计不会带出 |
 | 快捷命令 | `/action <名称> [参数]` 直接运行；不带参数时列出全部 Action |
@@ -91,6 +92,7 @@ DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 �
 - **从 Skill 导入**：管理库 →「导入」→「从 Skill 导入」。
   - **推荐**：点「选择 Skill 文件夹」，在系统选择器里选中含 `SKILL.md` 的目录；正文和目录内所有文件都会导入，不经过 DSH 的同名解析，因此不会被 `.agents` 等来源遮挡。
   - 也可以先填项目根目录列出 Skill，再点某一行的「导入」；列表会显示每个 Skill 的实际路径。同名被遮挡时，用「从技能目录导入」填该目录。
+  - **AI 导入**：点「用 AI 导入」会打开一个新对话，把 Skill 正文、文件清单和同名候选目录交给 AI；AI 会读取文件、和你确认 Skill 与 Action 的差异，然后把转换结果写到 Action Hub 的 inbox，插件自动导入。适合内容复杂、需要裁剪资源或拆参数的 Skill。
 - **新建/编辑**：管理库右上角「新建 Action」，或列表行的编辑按钮。
 
 ### 资源文件

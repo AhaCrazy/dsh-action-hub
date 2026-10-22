@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-2.1.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-3.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -49,6 +49,7 @@ Action Hub separates the shelf from the trigger:
 | Library | Category navigation with counts, full-text search, sort by recent / name / created |
 | Arguments | `{{args}}` / `$ARGUMENTS` filled from the palette; `{{date}}` becomes today |
 | Resource files | Attach code, templates, docs, and fixtures to an Action; small text is inlined at invocation, larger files are listed by local path |
+| AI import | Let the AI read the Skill, compare same-named candidates, confirm Skill/Action differences with you, then create the Action and its selected resources |
 | Skill import | **Pick a Skill folder** to import `SKILL.md` and every sibling file directly (recommended; immune to same-name shadowing); name/path import also available |
 | Sharing | Export the library as JSON (including resource file contents); import with merge or replace; local usage counters stay local |
 | Slash command | `/action <name> [args]` runs one Action, or lists them all |
@@ -89,6 +90,7 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 - **Import from a Skill**: Library → Import → From Skill.
   - **Recommended**: “Choose a Skill folder” and pick the directory containing `SKILL.md`; the body and every file inside are imported without asking DSH to resolve the name, so a same-named `.agents` shim cannot shadow the rich copy.
   - Or set a project root, list Skills, and press a row's “Import”. The list shows each resolved path; when shadowed, use “Import from a skill directory” with that path.
+  - **AI import**: “AI import” opens a fresh conversation with the Skill body, file manifest, and same-named candidate directories. The AI reads files, confirms Skill/Action differences with you, writes the conversion package to the Action Hub inbox, and the plugin imports it automatically — useful for complex Skills that need resource curation or argument design.
 - **Create/edit**: “New Action” in the library, or the row's edit button.
 
 ### Resource files
