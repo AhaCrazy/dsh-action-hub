@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '2.0.1';
+    const VERSION = '2.1.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -297,6 +297,13 @@ window.__ModuleLoader__.load({
         'import.pathHint': '同名 Skill 被其他来源遮挡时，直接指定 SKILL.md 所在目录（会一并复制同目录资源文件）。',
         'import.pathDone': '已从目录导入：{name}',
         'import.pathDoneWithResources': '已从目录导入：{name}（含 {count} 个资源文件）',
+        'import.folderLabel': '从文件夹选择 Skill（推荐）',
+        'import.folderButton': '选择 Skill 文件夹',
+        'import.folderHint': '在系统选择器里选中包含 SKILL.md 的文件夹，会导入正文和其中所有文件；不受同名 Skill 遮挡影响。',
+        'import.folderNoSkill': '这个文件夹里没有 SKILL.md',
+        'import.folderDone': '已导入 {name}，资源文件 {count} 个',
+        'import.folderDoneSkipped': '已导入 {name}，资源文件 {count} 个，跳过 {skipped} 个',
+        'import.category': '导入',
         'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
         'category.empty': '还没有分类',
@@ -472,6 +479,13 @@ window.__ModuleLoader__.load({
         'import.pathHint': 'When a same-named Skill is shadowed by another source, point at the directory containing SKILL.md; sibling resource files are copied too.',
         'import.pathDone': 'Imported from directory: {name}',
         'import.pathDoneWithResources': 'Imported from directory: {name} ({count} resource files)',
+        'import.folderLabel': 'Pick a Skill folder (recommended)',
+        'import.folderButton': 'Choose a Skill folder',
+        'import.folderHint': 'Choose the folder containing SKILL.md; its body and every file inside are imported, unaffected by same-named Skill shadowing.',
+        'import.folderNoSkill': 'This folder has no SKILL.md',
+        'import.folderDone': 'Imported {name} with {count} resource file(s)',
+        'import.folderDoneSkipped': 'Imported {name} with {count} resource file(s), skipped {skipped}',
+        'import.category': 'Imported',
         'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
         'category.empty': 'No categories yet',
@@ -702,6 +716,30 @@ window.__ModuleLoader__.load({
         binary += String.fromCharCode(...bytes.subarray(index, index + chunk));
       }
       return btoa(binary);
+    }
+
+    /**
+     * Parse a SKILL.md document into its frontmatter map and body.
+     *
+     * @param {string} text
+     * @returns {{ meta: Record<string, string>, body: string }}
+     */
+    function parseSkillDocument(text) {
+      const source = String(text).replace(/^\uFEFF/u, '');
+      const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/u.exec(source);
+      if (match === null) return { meta: {}, body: source.trim() };
+      const meta = {};
+      for (const line of match[1].split(/\r?\n/u)) {
+        const at = line.indexOf(':');
+        if (at <= 0) continue;
+        const key = line.slice(0, at).trim();
+        let value = line.slice(at + 1).trim();
+        if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+          value = value.slice(1, -1);
+        }
+        if (key !== '') meta[key] = value;
+      }
+      return { meta, body: source.slice(match[0].length).trim() };
     }
 
     async function copyText(text) {
@@ -1606,6 +1644,7 @@ window.__ModuleLoader__.load({
       const [skillBusy, setSkillBusy] = React.useState(false);
       const [skillPath, setSkillPath] = React.useState('');
       const fileRef = React.useRef(null);
+      const folderRef = React.useRef(null);
 
       const runImport = async () => {
         setError('');
@@ -1670,11 +1709,74 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const importSkillFolder = async (event) => {
+        const picked = [...(event.target.files ?? [])];
+        event.target.value = '';
+        if (picked.length === 0) return;
+        setSkillBusy(true);
+        setSkillError('');
+        try {
+          const entries = picked.map((file) => ({
+            file,
+            relative: String(file.webkitRelativePath || file.name).replace(/\\/g, '/'),
+          }));
+          const skillEntry = entries
+            .filter((entry) => /(^|\/)SKILL\.md$/iu.test(entry.relative))
+            .sort((left, right) => left.relative.split('/').length - right.relative.split('/').length)[0];
+          if (skillEntry === undefined) throw new Error(t('import.folderNoSkill'));
+          const root = skillEntry.relative.includes('/') ? skillEntry.relative.split('/')[0] : '';
+          const parsed = parseSkillDocument(await skillEntry.file.text());
+          const name = (parsed.meta.name || root || 'Skill').trim();
+          const created = await api('/create', {
+            action: {
+              name,
+              description: parsed.meta.description ?? '',
+              prompt: parsed.body,
+              category: t('import.category'),
+              tags: ['skill'],
+              source: { kind: 'skill', name, detail: root },
+            },
+          });
+          const id = created.action.id;
+          let added = 0;
+          let skipped = 0;
+          for (const entry of entries) {
+            if (entry.relative === skillEntry.relative) continue;
+            const relative = root !== '' && entry.relative.startsWith(`${root}/`)
+              ? entry.relative.slice(root.length + 1)
+              : entry.relative;
+            if (relative === '' || relative.split('/').some((segment) => segment.startsWith('.')) || entry.file.size > 4 * 1024 * 1024 || added >= 60) {
+              skipped += 1;
+              continue;
+            }
+            try {
+              await api('/resource/add', {
+                id,
+                name: relative,
+                contentBase64: bytesToBase64(new Uint8Array(await entry.file.arrayBuffer())),
+              });
+              added += 1;
+            } catch {
+              skipped += 1;
+            }
+          }
+          props.notify(skipped > 0
+            ? t('import.folderDoneSkipped', { name, count: added, skipped })
+            : t('import.folderDone', { name, count: added }), 'ok');
+          props.onDone();
+          props.onClose();
+        } catch (failure) {
+          setSkillError(describeError(failure));
+        } finally {
+          setSkillBusy(false);
+        }
+      };
+
       const importSkill = async (skill) => {
         setSkillBusy(true);
         setSkillError('');
         try {
-          const data = await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim() });
+          const data = await api('/import-skill', { name: skill.name, cwd: cwd.trim() === '' ? undefined : cwd.trim(), path: skill.path });
           const count = Number(data.resources) || 0;
           props.notify(count > 0
             ? t('import.skillDoneWithResources', { name: skill.name, count })
@@ -1728,6 +1830,19 @@ window.__ModuleLoader__.load({
             }),
             h(Button, { onClick: () => fileRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.chooseFile'))))
         : h(React.Fragment, null,
+          h('div', { className: 'ah-field' },
+            h('label', { className: 'ah-label' }, t('import.folderLabel')),
+            h('div', null, h(Button, { disabled: skillBusy, onClick: () => folderRef.current?.click() }, h(Icons.folder, { size: 13 }), t('import.folderButton'))),
+            h('input', {
+              ref: folderRef,
+              type: 'file',
+              webkitdirectory: '',
+              directory: '',
+              multiple: true,
+              className: 'ah-hidden',
+              onChange: importSkillFolder,
+            }),
+            h('span', { className: 'ah-hint' }, t('import.folderHint'))),
           h('div', { className: 'ah-field' },
             h('label', { className: 'ah-label' }, t('import.skillCwd')),
             h('input', { className: 'ah-input', value: cwd, placeholder: 'C:\\path\\to\\project', onChange: (event) => setCwd(event.target.value) }),
@@ -2655,6 +2770,7 @@ window.__ModuleLoader__.load({
         composeDraft,
         composeReferenceDraft,
         matchActionMarker,
+        parseSkillDocument,
         searchScore,
         sortActions,
         categoriesOf,

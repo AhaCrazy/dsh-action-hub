@@ -174,6 +174,17 @@ test('relativeTime renders a non-empty label for a past timestamp', () => {
   assert.equal(relativeTime(0), '');
 });
 
+test('parseSkillDocument reads frontmatter and body from CRLF SKILL.md', () => {
+  const { parseSkillDocument } = module.internals;
+  const parsed = parseSkillDocument('---\r\nname: grill\r\ndescription: sharpen it\r\n---\r\n\r\nBody here.\r\n');
+  assert.equal(parsed.meta.name, 'grill');
+  assert.equal(parsed.meta.description, 'sharpen it');
+  assert.equal(parsed.body, 'Body here.');
+  const plain = parseSkillDocument('no frontmatter');
+  assert.deepEqual(plain.meta, {});
+  assert.equal(plain.body, 'no frontmatter');
+});
+
 test('every locale key exists in both dictionaries', () => {
   const { TEXT } = module.internals;
   const zh = Object.keys(TEXT.zh).sort();

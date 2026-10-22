@@ -1,6 +1,6 @@
 {
   "name": "dsh-action-hub",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "private": true,
   "type": "module",
   "description": "DeepSeek Harness plugin: a Spotlight-style Action shelf for prompts and local resource bundles (code, templates, docs), with search, categories, pinning, Skill import, and zero context cost.",

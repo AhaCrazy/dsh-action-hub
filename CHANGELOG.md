@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0 — 2026-10-22
+
+- **Pick a Skill folder in the import dialog.** The browser folder picker reads
+  `SKILL.md` and every sibling file directly, creates the Action, and uploads the
+  files as resources. It never asks the DSH Skills service to resolve the name,
+  so a same-named `.agents` shim can no longer shadow the rich `.claude` copy.
+  This is the recommended import path for Skills that ship extra templates/docs.
+- Importing a row from the resolved Skills list now passes that row's concrete
+  path, so what the list shows is what gets imported.
+
 ## 2.0.1 — 2026-10-22
 
 - **Import a Skill by explicit directory.** DSH may resolve a same-named Skill
