@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.1.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -20,7 +20,7 @@ Turning recurring prompts into Skills has two problems:
 Action Hub separates the shelf from the trigger:
 
 - **Zero context cost.** No agent tool, no system-prompt text. A large shelf never grows the per-turn prompt.
-- **User-triggered only.** Open the palette with `⌘/Ctrl + Shift + A` or the composer-toolbar button, insert the body at the caret, and press Enter yourself.
+- **User-triggered only.** Open the palette with `⌘/Ctrl + Shift + .` or the composer-toolbar button; the pick inserts a reference (the transcript shows the Action name), and pressing Enter sends it yourself.
 - **Organized and shareable.** Categories, tags, pinning, full-text search, one-click Skill import, and whole-library export/import.
 
 ## Screens
@@ -39,8 +39,10 @@ Action Hub separates the shelf from the trigger:
 
 | Capability | Details |
 | --- | --- |
-| Spotlight palette | `⌘/Ctrl+Shift+A` or the composer button; search, category tabs, live preview, argument field |
+| Spotlight palette | `⌘/Ctrl+Shift+.` or the composer button; search, category tabs, live preview, argument field |
 | Keyboard first | `↑↓` select, `Enter` insert, `Ctrl/⌘+Enter` insert-and-send, `Tab` category, `Esc` close |
+| Skill-style reference | Without arguments it inserts `/ah-…`: the transcript shows the Action name while DSH's user-invoked skill injection hands the full body to the model |
+| Rebindable shortcut | Default `Ctrl/⌘ + Shift + .`, registered under Settings → General → Shortcuts |
 | Insert at the caret | Uses the host `inputActions.insertText()` facade: one undoable edit at the cursor, existing draft preserved |
 | Capture the draft | Save the current composer draft as an Action from the palette |
 | Pinning | Star an Action to keep it first in the palette and library |
@@ -70,14 +72,15 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 
 ### Open the palette
 
-- `Ctrl + Shift + A` (macOS `⌘ + Shift + A`), or the leftmost icon in the composer toolbar.
+- `Ctrl + Shift + .` (macOS `⌘ + Shift + .`), or the leftmost icon in the composer toolbar. Rebind it in Settings → General → Shortcuts.
 - Type to search, `↑↓` to select, `Enter` to insert.
 
 ### Insert or send
 
-- `Enter` / “Insert”: inserts the body **at the caret** as one undoable edit; the existing draft is kept.
+- `Enter` / “Insert”: inserts at the **caret** as one undoable edit; the existing draft is kept.
+- With no arguments it inserts a **reference**: the composer and transcript show only the Action name (`/ah-…`), and DSH's user-invoked skill injection gives the model the full body without flooding the chat.
+- With arguments it inserts the **full text**, since the arguments are part of the body.
 - `Ctrl/⌘ + Enter` / “Send”: inserts and submits the current draft.
-- Fill the argument field first when the Action has `{{args}}`.
 
 ### Save content
 
@@ -87,13 +90,14 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 
 ### Organize
 
-- Categories are free text, summarized with counts in the sidebar; “Manage categories” renames or deletes one (deleting a category moves its Actions to Uncategorized).
+- Categories are free text, summarized with counts in the sidebar; “Manage categories” renames or deletes one. Deleting asks for confirmation and reports how many Actions move to Uncategorized; the Actions themselves are kept.
 - Pin with the star; search covers name, description, category, tags, and body.
 - “Export” produces a whole-library JSON; import it elsewhere with merge or replace.
 
 ## Design
 
 - **Host half** (`index.js`, `store.js`): atomic JSON store, same-origin `/api/dsh-action-hub` routes, and the `/action` human command, which submits a genuine user message through `sessionController.prompt(..., mode: 'queue')`.
+- **References**: the Host registers one runtime skill per Action with `modelInvocable: false` and `userInvocable: true` (opaque `ah-…` name, expanded body). A `/ah-…` token in a user message is expanded by DSH's own user-explicit skill injection, so no custom tool, prompt section, or pre-step hook is needed — and the skills never enter the model's own skill catalog.
 - **Client half** (`client.js`): registers the composer-toolbar button (`conversation.input.left`), the session bridge (`conversation.input.overlay`), the frame-level palette (`shell.overlay`), the library (`main` + sidebar icon), and the settings page (`settings.section`).
 - **Deliberately absent**: no `ctx.tools`, no `ctx.systemPrompt.section()`, no `agent/pre-step` listener. Shelf size does not affect context.
 

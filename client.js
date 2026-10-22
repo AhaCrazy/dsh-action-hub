@@ -5,7 +5,7 @@
  *   - `conversation.input.left`: a compact "Actions" trigger in the composer tool row.
  *   - `conversation.input.overlay`: a session bridge that hands the palette the
  *     live composer facade (inputActions / input state) it needs to insert text.
- *   - `shell.overlay`: the Spotlight-style palette (Ctrl/⌘+Shift+A), rendered at
+ *   - `shell.overlay`: the Spotlight-style palette (Ctrl/⌘+Shift+.), rendered at
  *     the frame level so it is never clipped by the composer card.
  *   - `main` + `sidebar.panellist`: the management library.
  *   - `settings.section`: preferences and data controls.
@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '1.0.1';
+    const VERSION = '1.1.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -127,6 +127,8 @@ window.__ModuleLoader__.load({
       .ah-radio-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
       .ah-radio-row label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
       .ah-hidden { display: none !important; }
+      .ah-user-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 260px; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent); color: color-mix(in srgb, var(--dsw-alias-brand-primary) 82%, var(--dsw-alias-label-primary)); font-weight: 500; user-select: none; }
+      .ah-user-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       /* palette */
       .ah-palette { width: min(820px, 100%); max-height: min(68vh, 620px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
       .ah-palette-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
@@ -281,6 +283,10 @@ window.__ModuleLoader__.load({
         'category.rename': '重命名',
         'category.delete': '删除分类',
         'category.deleteHint': '分类里的 Action 会移到未分类。',
+        'category.deleteConfirm': '删除分类「{name}」？',
+        'category.deleteConfirmDesc': '该分类下还有 {count} 个 Action。删除分类后它们会移到未分类，Action 本身不会被删除。',
+        'category.deleteConfirmEmpty': '该分类下没有 Action，可以安全删除。',
+        'category.confirmDelete': '确认删除',
         'category.name': '新名称',
         'category.count': '{count} 个',
         'palette.title': '选择一个 Action',
@@ -310,10 +316,14 @@ window.__ModuleLoader__.load({
         'palette.hintTab': '切换分类',
         'palette.noSession': '先在对话中打开输入框，再使用 Actions。',
         'palette.skillsHint': '需要批量导入？在管理页「导入 → 从 Skill 导入」。',
+        'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
+        'palette.refArgsHint': '已填参数，将以完整文本插入',
+        'palette.refInserted': '已插入引用',
         'palette.usage': '用过 {count} 次',
         'palette.pinned': '已置顶',
         'trigger.label': 'Actions',
         'trigger.tooltip': 'Actions 收藏夹（{keys}）',
+        'shortcut.open': '打开 Actions 面板',
         'settings.nav': 'Action Hub',
         'settings.title': 'Action Hub',
         'settings.desc': '快捷面板、插入行为与数据位置。',
@@ -322,8 +332,9 @@ window.__ModuleLoader__.load({
         'settings.closeAfterInsertDesc': '关闭后可以直接按 Enter 发送；关闭此项则留在面板里连续插入。',
         'settings.hotkey': '全局快捷键',
         'settings.hotkeyDesc': '在任意会话里打开 Actions 面板。',
+        'settings.hotkeyManage': '可在 设置 → 通用设置 → 快捷键 中查看或修改。',
         'settings.trigger': '在输入框工具行显示按钮',
-        'settings.triggerDesc': '关闭后仍可用快捷键 ⌘/Ctrl+Shift+A 打开。',
+        'settings.triggerDesc': '关闭后仍可用全局快捷键打开。',
         'settings.data': '数据',
         'settings.dataDesc': 'Actions 保存在本机（{path}），共 {count} 条。',
         'settings.openLibrary': '打开管理页',
@@ -432,6 +443,10 @@ window.__ModuleLoader__.load({
         'category.rename': 'Rename',
         'category.delete': 'Delete',
         'category.deleteHint': 'Its Actions move to Uncategorized.',
+        'category.deleteConfirm': 'Delete category “{name}”?',
+        'category.deleteConfirmDesc': 'It still contains {count} Action(s). They move to Uncategorized; the Actions themselves are kept.',
+        'category.deleteConfirmEmpty': 'This category has no Actions, so it is safe to delete.',
+        'category.confirmDelete': 'Delete category',
         'category.name': 'New name',
         'category.count': '{count}',
         'palette.title': 'Pick an Action',
@@ -461,10 +476,14 @@ window.__ModuleLoader__.load({
         'palette.hintTab': 'category',
         'palette.noSession': 'Open a conversation composer first.',
         'palette.skillsHint': 'Bulk import lives in Manage → Import → From Skill.',
+        'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
+        'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
+        'palette.refInserted': 'Reference inserted',
         'palette.usage': 'Used {count}×',
         'palette.pinned': 'Pinned',
         'trigger.label': 'Actions',
         'trigger.tooltip': 'Action shelf ({keys})',
+        'shortcut.open': 'Open the Actions palette',
         'settings.nav': 'Action Hub',
         'settings.title': 'Action Hub',
         'settings.desc': 'Palette, insertion behavior, and where the data lives.',
@@ -473,8 +492,9 @@ window.__ModuleLoader__.load({
         'settings.closeAfterInsertDesc': 'Then Enter sends right away. Turn off to insert several Actions in a row.',
         'settings.hotkey': 'Global shortcut',
         'settings.hotkeyDesc': 'Opens the Actions palette in any conversation.',
+        'settings.hotkeyManage': 'View or change it in Settings → General → Shortcuts.',
         'settings.trigger': 'Show the composer button',
-        'settings.triggerDesc': 'The ⌘/Ctrl+Shift+A shortcut keeps working when off.',
+        'settings.triggerDesc': 'The global shortcut keeps working when off.',
         'settings.data': 'Data',
         'settings.dataDesc': 'Actions are stored locally at {path} ({count} total).',
         'settings.openLibrary': 'Open library',
@@ -762,6 +782,207 @@ window.__ModuleLoader__.load({
       return snapshot;
     }
 
+    // ------------------------------------------------------------- shortcuts
+
+    const SHORTCUT_ID = 'action-hub.palette';
+    const SHORTCUT_FALLBACK_KEYS = MAC ? ['⌘', '⇧', '.'] : ['Ctrl', '+', 'Shift', '+', '.'];
+
+    /**
+     * Keep the palette shortcut inside the Harness shortcut registry, so it
+     * appears in Settings → General → Shortcuts and can be rebound there.
+     * Falls back to the same physical chord's own listener when the registry is
+     * unavailable or refused the default.
+     */
+    function createShortcutStore(ctx, palette, prefs, t) {
+      const service = typeof ctx?.get === 'function' ? ctx.get('shortcuts') : ctx?.shortcuts;
+      const listeners = new Set();
+      let state = { available: service !== undefined, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice(), aria: undefined };
+      let dispose = null;
+      let manualOff = null;
+      let syncing = false;
+
+      const emit = () => {
+        for (const listener of [...listeners]) listener(state);
+      };
+
+      const refreshKeys = () => {
+        let keys = null;
+        let aria;
+        try {
+          const rows = service?.catalog?.getSnapshot?.();
+          const row = Array.isArray(rows) ? rows.find((entry) => entry.id === SHORTCUT_ID) : undefined;
+          if (row !== undefined && Array.isArray(row.keys) && row.keys.length > 0) {
+            keys = row.keys;
+            aria = row.aria;
+          }
+        } catch {
+          keys = null;
+        }
+        const nextKeys = keys ?? (state.registered ? SHORTCUT_FALLBACK_KEYS : state.keys);
+        state = { ...state, keys: nextKeys, aria: aria ?? state.aria };
+        emit();
+      };
+
+      const togglePalette = () => {
+        const current = palette.get();
+        if (current.open) {
+          palette.close();
+          return;
+        }
+        if (current.bridge === null) return;
+        palette.open();
+      };
+
+      const installManual = () => {
+        if (manualOff !== null) return;
+        const onKey = (event) => {
+          if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return;
+          if (event.key !== '.' && event.code !== 'Period') return;
+          if (!prefs.get().hotkeyEnabled) return;
+          if (palette.get().bridge === null) return;
+          event.preventDefault();
+          event.stopPropagation();
+          togglePalette();
+        };
+        document.addEventListener('keydown', onKey, true);
+        manualOff = () => document.removeEventListener('keydown', onKey, true);
+      };
+
+      const sync = () => {
+        if (syncing) return;
+        syncing = true;
+        try {
+          dispose?.();
+          dispose = null;
+          manualOff?.();
+          manualOff = null;
+          if (!prefs.get().hotkeyEnabled) {
+            state = { ...state, registered: false };
+            emit();
+            return;
+          }
+          if (service === undefined || typeof service.register !== 'function') {
+            installManual();
+            state = { ...state, available: false, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice() };
+            emit();
+            return;
+          }
+          const defaults = {};
+          for (const runtime of ['desktop', 'web']) {
+            for (const platform of ['macos', 'windows', 'linux']) {
+              defaults[`${runtime}:${platform}`] = { code: 'Period', modifiers: ['primary', 'shift'] };
+            }
+          }
+          try {
+            dispose = service.register({
+              id: SHORTCUT_ID,
+              label: () => t('shortcut.open'),
+              aliases: ['action hub', 'actions', 'palette', '收藏夹'],
+              defaults,
+              regions: ['page', 'editable'],
+              modals: [],
+              resolve: () => ({ status: 'handled', run: togglePalette }),
+            });
+            state = { ...state, available: true, registered: true };
+          } catch (error) {
+            console.warn('[action-hub] shortcut registration failed, using a local listener:', error);
+            installManual();
+            state = { ...state, available: false, registered: false, keys: SHORTCUT_FALLBACK_KEYS.slice() };
+          }
+          refreshKeys();
+          setTimeout(refreshKeys, 0);
+        } finally {
+          syncing = false;
+        }
+      };
+
+      const offPrefs = prefs.subscribe(() => sync());
+      const offCatalog = typeof service?.catalog?.subscribe === 'function'
+        ? service.catalog.subscribe(() => refreshKeys())
+        : undefined;
+      sync();
+
+      return {
+        get: () => state,
+        subscribe(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        sync,
+        keysText: () => (state.keys.length > 0 ? state.keys.join('') : SHORTCUT_FALLBACK_KEYS.join('')),
+        dispose() {
+          offPrefs();
+          offCatalog?.();
+          dispose?.();
+          manualOff?.();
+          listeners.clear();
+        },
+      };
+    }
+
+    function useShortcutStore(store) {
+      const [snapshot, setSnapshot] = React.useState(() => store.get());
+      React.useEffect(() => store.subscribe(setSnapshot), [store]);
+      return snapshot;
+    }
+
+    // Action reference chips: `/ah-...` is the wire spelling of an Action, but
+    // the transcript shows the human name instead.
+    const chipNames = new Map();
+
+    function setChipNames(snapshot) {
+      chipNames.clear();
+      const handles = snapshot?.meta?.handles ?? {};
+      for (const action of snapshot?.actions ?? []) {
+        const handle = handles[action.id];
+        if (typeof handle === 'string' && handle !== '') chipNames.set(handle, action.name);
+      }
+    }
+
+    let chipRuleInstalled = false;
+
+    function installActionChipRule(ctx) {
+      if (chipRuleInstalled) return true;
+      const userText = typeof ctx?.get === 'function'
+        ? ctx.get('uiConversation')?.userText
+        : ctx?.uiConversation?.userText;
+      if (userText === undefined || typeof userText.register !== 'function') {
+        // The conversation service may activate after this row; wait for it once.
+        if (typeof ctx?.inject === 'function') {
+          try {
+            ctx.inject(['uiConversation'], (child) => {
+              installActionChipRule(child);
+            });
+          } catch (error) {
+            console.warn('[action-hub] cannot wait for the conversation service:', error);
+          }
+        }
+        return false;
+      }
+      const pattern = /(^|\s)\/(ah-[0-9a-f]{6,20})(?=\s|$)/gu;
+      try {
+        userText.register({
+          id: 'action-hub',
+          order: 15,
+          match(text, from) {
+            pattern.lastIndex = from;
+            for (let token = pattern.exec(text); token !== null; token = pattern.exec(text)) {
+              const name = chipNames.get(token[2]);
+              if (name === undefined) continue;
+              const start = token.index + token[1].length;
+              return { id: 'action-hub', start, end: start + 1 + token[2].length, data: { name, handle: token[2] } };
+            }
+            return undefined;
+          },
+        });
+        chipRuleInstalled = true;
+        return true;
+      } catch (error) {
+        console.warn('[action-hub] user-text rule registration failed:', error);
+        return false;
+      }
+    }
+
     function createPalette() {
       const listeners = new Set();
       let state = {
@@ -892,6 +1113,14 @@ window.__ModuleLoader__.load({
       refresh: iconOf([{ d: 'M13 8a5 5 0 1 1-1.6-3.7' }, { d: 'M13.2 2.6v3.2H10' }]),
       sliders: iconOf([{ d: 'M2.6 4.6h10.8M2.6 8h10.8M2.6 11.4h10.8' }, { d: 'M5.2 3.2v2.8M10.8 6.6v2.8M6.6 10v2.8' }]),
     };
+
+    function ActionUserChip(props) {
+      const data = props?.node?.data ?? {};
+      const name = typeof data.name === 'string' && data.name !== '' ? data.name : (data.handle ?? '');
+      return h('span', { className: 'ah-user-chip', title: `/${data.handle ?? ''}` },
+        h(Icons.shelf, { size: 11 }),
+        h('span', { className: 'ah-user-chip-label' }, name));
+    }
 
     // ------------------------------------------------------------- primitives
 
@@ -1241,6 +1470,7 @@ window.__ModuleLoader__.load({
       const [draft, setDraft] = React.useState('');
       const [busy, setBusy] = React.useState(false);
       const [error, setError] = React.useState('');
+      const [pending, setPending] = React.useState(null);
 
       const submit = async () => {
         if (renaming === null) return;
@@ -1274,7 +1504,24 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const confirmDelete = async () => {
+        if (pending === null) return;
+        const name = pending;
+        await remove(name);
+        setPending(null);
+      };
+
+      const pendingCount = pending === null ? 0 : (props.counts?.[pending] ?? 0);
+      const confirmBlock = pending === null ? null : h('div', { className: 'ah-notice', 'data-kind': 'warn', role: 'alert' },
+        h('p', { style: { margin: '0 0 4px', fontWeight: 600 } }, t('category.deleteConfirm', { name: pending })),
+        h('p', { style: { margin: '0 0 8px' } }, pendingCount > 0 ? t('category.deleteConfirmDesc', { count: pendingCount }) : t('category.deleteConfirmEmpty')),
+        h('div', { className: 'ah-actions' },
+          h('div', { style: { flex: '1 1 auto' } }),
+          h(Button, { small: true, onClick: () => setPending(null) }, t('action.cancel')),
+          h(Button, { small: true, danger: true, disabled: busy, onClick: () => { void confirmDelete(); } }, t('category.confirmDelete'))));
+
       return h(Modal, { title: t('category.title'), t, onClose: props.onClose, footer: h(Button, { onClick: props.onClose }, t('action.cancel')) },
+        confirmBlock,
         props.categories.length === 0
           ? h('div', { className: 'ah-notice' }, t('category.empty'))
           : h('div', { className: 'ah-list-plain' }, props.categories.map((name) => h('div', { key: name, className: 'ah-plain-item' },
@@ -1295,7 +1542,7 @@ window.__ModuleLoader__.load({
                 h(Button, { small: true, ghost: true, onClick: () => setRenaming(null) }, t('action.cancel')))
               : h(React.Fragment, null,
                 h(Button, { small: true, onClick: () => { setRenaming(name); setDraft(name); } }, t('category.rename')),
-                h(Button, { small: true, danger: true, disabled: busy, title: t('category.deleteHint'), onClick: () => remove(name) }, t('category.delete')))))),
+                h(Button, { small: true, danger: true, disabled: busy, onClick: () => setPending(name) }, t('category.delete')))))),
         error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 
@@ -1531,6 +1778,7 @@ window.__ModuleLoader__.load({
             key: 'categories',
             t,
             categories: categories.map(([name]) => name),
+            counts: Object.fromEntries(categories),
             notify,
             onClose: () => setCategoryDialog(false),
             onDone: () => { void hub.refresh(true).catch(() => {}); },
@@ -1616,27 +1864,31 @@ window.__ModuleLoader__.load({
             showToast(t('palette.insertFailed'), 'error');
             return;
           }
-          const text = expandPrompt(action.prompt, { args });
           const inputActions = bridge.inputActions;
           const draft = bridge.input?.draft ?? '';
+          const handle = snapshot.meta?.handles?.[action.id];
+          const referenceMode = args.trim() === '' && typeof handle === 'string' && handle !== '';
+          const referenceText = referenceMode ? `/${handle}` : '';
+          const text = referenceMode ? referenceText : expandPrompt(action.prompt, { args });
           let placed = false;
           let atCaret = false;
+          let referenced = false;
           try {
-            if (typeof inputActions.captureInsertion === 'function' && typeof inputActions.insertText === 'function') {
-              const span = inputActions.captureInsertion();
-              if (span) {
-                const result = inputActions.insertText(text, span);
-                placed = result !== false;
-                atCaret = placed;
-              }
+            const span = typeof inputActions.captureInsertion === 'function' ? inputActions.captureInsertion() : null;
+            if (span && typeof inputActions.insertText === 'function') {
+              const result = inputActions.insertText(referenceMode ? `${referenceText} ` : text, span);
+              placed = result !== false;
+              atCaret = placed;
+              referenced = placed && referenceMode;
             }
           } catch {
             placed = false;
           }
           if (!placed) {
             try {
-              inputActions.setDraft(composeDraft(draft, text));
+              inputActions.setDraft(composeDraft(draft, referenceMode ? `${referenceText} ` : text));
               placed = true;
+              referenced = referenceMode;
             } catch {
               placed = false;
             }
@@ -1658,7 +1910,8 @@ window.__ModuleLoader__.load({
             }, 40);
             return;
           }
-          showToast(atCaret ? t('palette.insertedAtCaret') : t('palette.inserted'));
+          if (referenced) showToast(t('palette.refInserted'));
+          else showToast(atCaret ? t('palette.insertedAtCaret') : t('palette.inserted'));
           if (prefs.closeAfterInsert) setTimeout(() => palette.close(), 220);
         };
 
@@ -1787,6 +2040,11 @@ window.__ModuleLoader__.load({
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
+            selected !== null && snapshot.meta?.referencing && typeof snapshot.meta?.handles?.[selected.id] === 'string'
+              ? h('p', { className: 'ah-hint' }, args.trim() === ''
+                ? t('palette.refHint', { name: selected.name })
+                : t('palette.refArgsHint'))
+              : null,
             h('pre', { className: 'ah-code ah-preview-body' }, selected.prompt));
 
         const captureDraft = typeof bridge?.input?.draft === 'string' ? bridge.input.draft.trim() : '';
@@ -1891,14 +2149,16 @@ window.__ModuleLoader__.load({
       return function ActionTrigger(props) {
         const t = translate(props);
         const prefs = usePrefs(props.prefs);
+        const shortcut = useShortcutStore(props.shortcuts);
         const state = usePalette(palette);
         if (!prefs.showTrigger) return null;
+        const keys = shortcut.keys.length > 0 ? shortcut.keys.join('') : (MAC ? '⌘⇧.' : 'Ctrl+Shift+.');
         return h('button', {
           type: 'button',
           className: 'ah-trigger',
           'data-open': state.open,
-          title: t('trigger.tooltip', { keys: MAC ? '⌘⇧A' : 'Ctrl+Shift+A' }),
-          'aria-label': t('trigger.tooltip', { keys: MAC ? '⌘⇧A' : 'Ctrl+Shift+A' }),
+          title: t('trigger.tooltip', { keys }),
+          'aria-label': t('trigger.tooltip', { keys }),
           onClick: () => (state.open ? palette.close() : palette.open()),
         }, h(Icons.shelf, { size: 16 }));
       };
@@ -1911,6 +2171,7 @@ window.__ModuleLoader__.load({
         const t = translate(props);
         const snapshot = useHub(hub);
         const state = usePrefs(prefs);
+        const shortcuts = useShortcutStore(props.shortcuts);
         const [notice, setNotice] = React.useState('');
         const saved = (text) => {
           setNotice(text);
@@ -1937,8 +2198,9 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ah-settings-row' },
               h('div', { className: 'ah-settings-row-main' },
                 h('span', { className: 'ah-settings-row-title' }, t('settings.hotkey')),
-                h('span', { className: 'ah-settings-row-desc' }, t('settings.hotkeyDesc'))),
-              h('span', { className: 'ah-kbd' }, t('settings.hotkeyKeys')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.hotkeyDesc')),
+                h('span', { className: 'ah-settings-row-desc' }, t('settings.hotkeyManage'))),
+              h('span', { className: 'ah-kbd' }, shortcuts.keys.length > 0 ? shortcuts.keys.join('') : (MAC ? '⌘⇧.' : 'Ctrl+Shift+.')),
               h(Switch, { checked: state.hotkeyEnabled, label: t('settings.hotkey'), onChange: (value) => { prefs.set({ hotkeyEnabled: value }); saved(t('settings.saved')); } }))),
           h('section', { className: 'ah-settings-card' },
             h('h3', { className: 'ah-settings-title' }, t('settings.data')),
@@ -1983,9 +2245,15 @@ window.__ModuleLoader__.load({
       const hub = createHub();
       const prefs = createPrefs();
       const palette = createPalette();
+      const shortcuts = createShortcutStore(ctx, palette, prefs, t);
+
+      setChipNames(hub.get());
+      ctx.effect(() => hub.subscribe(setChipNames), 'action-hub: reference names');
+      installActionChipRule(ctx);
 
       ctx.effect(() => () => {
         hub.dispose();
+        shortcuts.dispose();
         palette.close();
       }, 'action-hub: stores');
 
@@ -2011,7 +2279,7 @@ window.__ModuleLoader__.load({
         order: 30,
         label: () => t('trigger.label'),
         locale: NS,
-      }, (props) => h(Trigger, { ...props, prefs })));
+      }, (props) => h(Trigger, { ...props, prefs, shortcuts })));
 
       ctx.slots.inject('conversation.input.overlay', () => ctx.slots.register({
         name: 'conversation.input.overlay',
@@ -2033,28 +2301,14 @@ window.__ModuleLoader__.load({
         order: 25,
         label: () => t('settings.nav'),
         locale: NS,
-      }, (props) => h(Settings, { ...props, ctx })));
+      }, (props) => h(Settings, { ...props, ctx, shortcuts })));
 
-      // Global shortcut: works from anywhere in a conversation.
-      ctx.effect(() => {
-        const onKey = (event) => {
-          const combo = (event.ctrlKey || event.metaKey) && event.shiftKey && (event.key || '').toLowerCase() === 'a';
-          if (!combo) return;
-          if (!prefs.get().hotkeyEnabled) return;
-          const state = palette.get();
-          if (state.open) {
-            event.preventDefault();
-            palette.close();
-            return;
-          }
-          if (state.bridge === null) return;
-          event.preventDefault();
-          event.stopPropagation();
-          palette.open();
-        };
-        document.addEventListener('keydown', onKey, true);
-        return () => document.removeEventListener('keydown', onKey, true);
-      }, 'action-hub: hotkey');
+      ctx.slots.inject('conversation.user.text.node', () => ctx.slots.register({
+        name: 'conversation.user.text.node',
+        key: 'action-hub',
+        priority: 120,
+        locale: NS,
+      }, ActionUserChip));
     }
 
     function PanelIcon(props) {

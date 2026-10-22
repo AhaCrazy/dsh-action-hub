@@ -5,7 +5,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DSH 插件](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-1.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-1.1.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub 命令面板](assets/screenshots/01-palette.png)
@@ -20,7 +20,7 @@
 Action Hub 把「收藏」和「调用」分开：
 
 - **零上下文占用**：不注册 Agent Tool，不向 system prompt 写入任何内容。收藏夹再大，每轮请求都是 0 token。
-- **只由你触发**：`⌘/Ctrl + Shift + A` 或输入框工具行的按钮打开面板，选中后正文插入光标处，按 Enter 才发送。
+- **只由你触发**：`⌘/Ctrl + Shift + .` 或输入框工具行的按钮打开面板；选中后以引用插入（对话里只显示 Action 名），按 Enter 才发送。
 - **可整理、可分享**：分类、标签、置顶、全文搜索、从 Skill 一键导入、整库导出/导入。
 
 ## 界面
@@ -39,8 +39,10 @@ Action Hub 把「收藏」和「调用」分开：
 
 | 能力 | 说明 |
 | --- | --- |
-| Spotlight 面板 | `⌘/Ctrl+Shift+A` 或输入框工具行按钮；搜索、分类 Tab、实时预览、参数输入 |
+| Spotlight 面板 | `⌘/Ctrl+Shift+.` 或输入框工具行按钮；搜索、分类 Tab、实时预览、参数输入 |
 | 键盘优先 | `↑↓` 选择、`Enter` 插入、`Ctrl/⌘+Enter` 插入并发送、`Tab` 切换分类、`Esc` 关闭 |
+| Skill 式引用 | 无参数时插入 `/ah-…` 引用：对话里只显示 Action 名，模型通过 DSH 的用户显式 Skill 注入拿到完整正文 |
+| 快捷键可改 | 默认 `Ctrl/⌘ + Shift + .`，登记在 设置 → 通用设置 → 快捷键，可自行重绑 |
 | 光标处插入 | 使用宿主 `inputActions.insertText()`，作为一次可撤销编辑插入光标处，不覆盖已有草稿 |
 | 存当前草稿 | 面板内一键把输入框里的内容存成 Action，补名称/分类/标签即可 |
 | 置顶 | 星标常用 Action，面板与列表都排在最前 |
@@ -71,15 +73,16 @@ DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 �
 
 ### 打开面板
 
-- 快捷键：`Ctrl + Shift + A`（macOS 为 `⌘ + Shift + A`）
+- 快捷键：`Ctrl + Shift + .`（macOS 为 `⌘ + Shift + .`），可在 设置 → 通用设置 → 快捷键 中改为自己喜欢的组合
 - 或点击输入框工具行最左侧的图标
 - 面板里可以直接输入关键词搜索，`↑↓` 选择、`Enter` 插入
 
 ### 插入与发送
 
-- `Enter` 或点击「插入」：正文插入**光标处**，作为一次可撤销编辑；已有草稿保留。
+- `Enter` 或点击「插入」：插入**光标处**，作为一次可撤销编辑；已有草稿保留。
+- 未填参数时以**引用**插入：输入框和对话里只显示 Action 名（或 `/ah-…` 引用），完整正文由 DSH 的用户显式 Skill 注入交给模型，不会刷屏。
+- 填了参数时以**完整正文**插入：`{{args}}` 已替换为你的参数。
 - `Ctrl/⌘ + Enter` 或点击「发送」：插入后立即发送当前草稿。
-- 需要参数时先在面板底部填写，`{{args}}` 会被替换。
 
 ### 保存内容
 
@@ -89,13 +92,14 @@ DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 �
 
 ### 整理
 
-- 分类是自由文本；左侧导航自动汇总并显示数量，「管理分类」可重命名/删除（删除分类不删除 Action）。
+- 分类是自由文本；左侧导航自动汇总并显示数量，「管理分类」可重命名/删除。删除分类会二次确认并显示该分类下还有多少 Action；删除后它们移到未分类，Action 本身保留。
 - 星标置顶；搜索支持名称、描述、分类、标签和正文。
 - 「导出」得到整库 JSON；对方「导入」即可合并或替换。
 
 ## 设计
 
 - **Host 半**（`index.js` + `store.js`）：JSON 收藏库（原子写入）、同源 `/api/dsh-action-hub` 路由、`/action` 人类命令。命令通过 `sessionController.prompt(..., mode: 'queue')` 提交一条 `source.kind = 'user'` 的真实用户消息。
+- **引用机制**：Host 为每条 Action 注册一个 `modelInvocable: false`、`userInvocable: true` 的运行时 Skill（名字是不透明的 `ah-…`，正文是展开后的 Action 正文）。用户消息里的 `/ah-…` 由 DSH 原生的用户显式 Skill 注入展开给模型，因此不需要自定义 tool、系统提示或 pre-step hook；这些 Skill 不会进入模型可调用的 Skill 目录。
 - **Client 半**（`client.js`）：注册 `conversation.input.left` 工具行按钮、`conversation.input.overlay` 会话桥、`shell.overlay` 命令面板、`main` 管理库、侧边栏图标与 `settings.section` 设置页。
 - **明确不做**：不注册 `ctx.tools`，不调用 `ctx.systemPrompt.section()`，不监听 `agent/pre-step`。收藏夹的大小与每轮上下文无关。
 

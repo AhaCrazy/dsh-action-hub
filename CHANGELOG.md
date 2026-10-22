@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.1.0 — 2026-10-22
+
+- **Action references.** Picking an Action now inserts it like a Skill: the composer
+  sends `/ah-…` and the transcript shows a chip with the Action's own name, while the
+  model receives the full body through DSH's existing user-invoked skill injection.
+  Actions with filled arguments still insert as full text, because arguments are part
+  of the body.
+- **Shortcut, properly registered.** The palette shortcut now lives in the Harness
+  shortcut registry, appears under Settings → General → Shortcuts, and can be rebound
+  there. The default moves to `Ctrl/⌘ + Shift + .` so it no longer collides with the
+  browser's *Search tabs* (`Ctrl+Shift+A`). A local listener remains as a fallback
+  when the registry is unavailable.
+- **Safe category deletion.** Deleting a category now asks for confirmation and says
+  how many Actions will move to Uncategorized; the Actions themselves are kept.
+- **Zero context unchanged.** The runtime skills behind references are registered with
+  `modelInvocable: false`; they never join the model's skill catalog or system prompt.
+
 ## 1.0.1 — 2026-10-22
 
 - **Dark theme fix.** Primary buttons and checked switches now use the theme's

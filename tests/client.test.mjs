@@ -58,6 +58,14 @@ test('the client half never registers a tool or prompt section', () => {
   assert.equal(source.includes('agent.inject'), false);
 });
 
+test('references ride the registry shortcut and the user-text chip path', () => {
+  assert.match(source, /ctx\.get\('shortcuts'\)/);
+  assert.match(source, /service\.register/);
+  assert.match(source, /code: 'Period'/);
+  assert.match(source, /userText\.register/);
+  assert.match(source, /'conversation\.user\.text\.node'/);
+});
+
 test('expandPrompt matches the Host helper semantics', () => {
   const { expandPrompt } = module.internals;
   assert.equal(expandPrompt('a {{args}} b', { args: 'X' }), 'a X b');

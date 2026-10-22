@@ -12,6 +12,7 @@
  *
  * @module dsh-action-hub
  */
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 
 import {
@@ -33,6 +34,112 @@ export const inject = ['webServer'];
 const ROUTE = '/api/dsh-action-hub';
 const MAX_BODY = 4 * 1024 * 1024;
 const IMPORT_CATEGORY = '导入';
+const SKILL_PREFIX = 'ah-';
+
+/**
+ * Stable, opaque runtime-skill handle for one Action. The id survives renames,
+ * so a reference chip already sitting in a draft keeps resolving.
+ *
+ * @param {string} id
+ * @returns {string}
+ */
+function skillHandle(id) {
+  return `${SKILL_PREFIX}${createHash('sha1').update(String(id)).digest('hex').slice(0, 10)}`;
+}
+
+/**
+ * Map every Action to the runtime skill that carries its body when the user
+ * references it as `/ah-...`. The hash is intentionally not the display name:
+ * the transcript chip shows the Action name, while this handle is only the
+ * wire spelling.
+ *
+ * @param {readonly object[]} actions
+ * @returns {{ handles: Map<string, string>, entries: Array<{ action: object, name: string }> }}
+ */
+export function planActionSkills(actions) {
+  const used = new Set();
+  const handles = new Map();
+  const entries = [];
+  for (const action of actions) {
+    let name = skillHandle(action.id);
+    let suffix = 2;
+    while (used.has(name)) name = `${skillHandle(action.id)}-${suffix++}`;
+    used.add(name);
+    handles.set(action.id, name);
+    entries.push({ action, name });
+  }
+  return { handles, entries };
+}
+
+/**
+ * Mirror the current collection into user-invocable runtime skills. Registering
+ * a skill is how DSH already turns a `/name` gesture in a user message into a
+ * `<skill_content>` injection, so Actions need no tool, no prompt section and no
+ * custom pre-step hook. `modelInvocable: false` keeps them out of the model's
+ * own skill catalog.
+ *
+ * @param {object} ctx
+ * @param {ReturnType<typeof createStore>} store
+ */
+function createActionSkillSync(ctx, store) {
+  /** @type {Map<string, { dispose: () => void, content: string }>} */
+  const registered = new Map();
+  let generation = 0;
+  let lastHandles = new Map();
+
+  async function run() {
+    const skills = ctx.get('skills');
+    if (skills === undefined) return;
+    const current = ++generation;
+    const state = await store.read();
+    if (current !== generation) return;
+    const plan = planActionSkills(sortActions(state.actions));
+    lastHandles = plan.handles;
+    const desired = new Map();
+    for (const entry of plan.entries) {
+      const description = entry.action.description || entry.action.name;
+      desired.set(entry.name, {
+        content: expandPrompt(entry.action.prompt, {}),
+        description: String(description).slice(0, 400),
+        name: entry.action.name,
+      });
+    }
+    for (const [name, entry] of registered) {
+      const next = desired.get(name);
+      if (next !== undefined && next.content === entry.content) continue;
+      entry.dispose();
+      registered.delete(name);
+    }
+    for (const [name, spec] of desired) {
+      if (registered.has(name)) continue;
+      try {
+        const dispose = skills.register({
+          name,
+          description: spec.description,
+          content: spec.content,
+          source: 'action-hub',
+          invocation: { modelInvocable: false, userInvocable: true },
+        });
+        registered.set(name, { dispose, content: spec.content });
+      } catch (error) {
+        // A handle clash with another runtime skill must not break the plugin.
+        ctx.logger?.warn?.(`dsh-action-hub: could not register reference skill "${name}": ${describe(error)}`);
+      }
+    }
+  }
+
+  function dispose() {
+    generation += 1;
+    for (const entry of registered.values()) entry.dispose();
+    registered.clear();
+  }
+
+  return {
+    run,
+    dispose,
+    handles: () => lastHandles,
+  };
+}
 
 /**
  * Register the store route.
@@ -45,6 +152,9 @@ export function apply(ctx, config = {}) {
     ? config.dataDir.trim()
     : defaultDataDir();
   const store = createStore({ dataDir, seed: config.seed !== false });
+  const sync = createActionSkillSync(ctx, store);
+  ctx.effect(() => () => sync.dispose(), 'action-hub: reference skills');
+  void sync.run().catch(() => {});
 
   // The command registry may finish activating after this row; a child context
   // waits for it instead of dropping the command when it is momentarily absent.
@@ -64,7 +174,7 @@ export function apply(ctx, config = {}) {
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: ROUTE,
-    handler: (req, res) => handle(ctx, store, req, res),
+    handler: (req, res) => handle(ctx, store, sync, req, res),
   }), 'action-hub: API route');
 }
 
@@ -140,11 +250,12 @@ function buildCommand(ctx, store) {
  *
  * @param {object} ctx
  * @param {ReturnType<typeof createStore>} store
+ * @param {ReturnType<typeof createActionSkillSync>} sync
  * @param {import('node:http').IncomingMessage} req
  * @param {import('node:http').ServerResponse} res
  * @returns {Promise<void>}
  */
-async function handle(ctx, store, req, res) {
+async function handle(ctx, store, sync, req, res) {
   try {
     if (!originAllowed(ctx, req)) {
       sendJson(res, 403, { ok: false, error: '拒绝跨站请求' });
@@ -156,14 +267,18 @@ async function handle(ctx, store, req, res) {
 
     if (method === 'GET' && route === '/state') {
       const state = await store.read();
+      const actions = sortActions(state.actions);
+      const plan = planActionSkills(actions);
       sendJson(res, 200, {
         ok: true,
         version: state.version,
-        actions: sortActions(state.actions),
+        actions,
         meta: {
           dataFile: store.filePath(),
           dataFileDisplay: displayPath(store.filePath()),
           skills: ctx.get('skills') !== undefined,
+          referencing: ctx.get('skills') !== undefined,
+          handles: Object.fromEntries(plan.handles),
         },
       });
       return;
@@ -233,6 +348,7 @@ async function handle(ctx, store, req, res) {
         }
         draft.actions = [...draft.actions, action];
       });
+      await sync.run();
       sendJson(res, 200, { ok: true, action, actions: sortActions(state.actions) });
       return;
     }
@@ -262,6 +378,7 @@ async function handle(ctx, store, req, res) {
         sendJson(res, 400, { ok: false, error: result.invalid.message, code: result.invalid.code });
         return;
       }
+      await sync.run();
       sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
       return;
     }
@@ -273,6 +390,7 @@ async function handle(ctx, store, req, res) {
         draft.actions = draft.actions.filter((entry) => entry.id !== id);
         return { removed: before - draft.actions.length };
       });
+      await sync.run();
       sendJson(res, 200, { ok: true, removed: result.removed, actions: sortActions(state.actions) });
       return;
     }
@@ -298,6 +416,7 @@ async function handle(ctx, store, req, res) {
         sendJson(res, 404, { ok: false, error: 'Action 不存在' });
         return;
       }
+      await sync.run();
       sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
       return;
     }
@@ -337,6 +456,7 @@ async function handle(ctx, store, req, res) {
         draft.actions = merged.actions;
         return merged;
       });
+      await sync.run();
       sendJson(res, 200, {
         ok: true,
         mode,
@@ -375,6 +495,7 @@ async function handle(ctx, store, req, res) {
       const { state } = await store.mutate((draft) => {
         draft.actions = [...draft.actions, action];
       });
+      await sync.run();
       sendJson(res, 200, { ok: true, action, actions: sortActions(state.actions) });
       return;
     }
@@ -391,6 +512,7 @@ async function handle(ctx, store, req, res) {
         });
         return { changed };
       });
+      await sync.run();
       sendJson(res, 200, { ok: true, changed: result.changed, actions: sortActions(state.actions) });
       return;
     }
@@ -406,6 +528,7 @@ async function handle(ctx, store, req, res) {
         });
         return { changed };
       });
+      await sync.run();
       sendJson(res, 200, { ok: true, changed: result.changed, actions: sortActions(state.actions) });
       return;
     }
@@ -578,4 +701,5 @@ export const internals = {
   exportable,
   expandPrompt,
   MAX_PROMPT,
+  planActionSkills,
 };

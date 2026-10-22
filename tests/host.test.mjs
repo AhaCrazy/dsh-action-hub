@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { internals, parseActionCommand } from '../index.js';
 
-const { originAllowed, exportable } = internals;
+const { originAllowed, exportable, planActionSkills } = internals;
 
 function fakeCtx(origin) {
   return { webServer: { getOrigin: () => origin } };
@@ -85,4 +85,14 @@ test('parseActionCommand refuses ambiguous matches', () => {
     { id: 'same-bbb222', name: 'Two' },
   ], 'same');
   assert.match(prefix.error, /多个 Action/);
+});
+
+test('planActionSkills mints stable, unique, kebab-case handles', () => {
+  const first = planActionSkills([{ id: 'a', name: '代码审查' }, { id: 'b', name: 'Code Review' }]);
+  assert.equal(first.entries.length, 2);
+  for (const entry of first.entries) assert.match(entry.name, /^ah-[0-9a-f]{10}$/u);
+  assert.notEqual(first.entries[0].name, first.entries[1].name);
+  assert.equal(new Set(first.handles.values()).size, 2);
+  const renamed = planActionSkills([{ id: 'a', name: 'Renamed entirely' }]);
+  assert.equal(renamed.handles.get('a'), first.handles.get('a'));
 });
