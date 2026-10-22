@@ -1,0 +1,68 @@
+{
+  "name": "dsh-action-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DeepSeek Harness plugin: a user-invoked Action shelf for reusable prompts and flows, with a management page, search, categories, skill import, and no context injection.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "action",
+    "actions",
+    "prompt",
+    "snippet",
+    "cordis"
+  ],
+  "license": "MIT",
+  "author": "AhaCrazy",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AhaCrazy/dsh-action-hub.git"
+  },
+  "homepage": "https://github.com/AhaCrazy/dsh-action-hub#readme",
+  "bugs": {
+    "url": "https://github.com/AhaCrazy/dsh-action-hub/issues"
+  },
+  "icon": "./icon.svg",
+  "meta": {
+    "title": "Action 收藏夹",
+    "description": "把常用提示词与流程存成 Action：不占上下文、不自动触发，需要时从输入框下方一键取用。"
+  },
+  "scripts": {
+    "test": "node tests/store.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./store": "./store.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "store.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
+    "README.md",
+    "README.en.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

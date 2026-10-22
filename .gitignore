@@ -1,0 +1,7 @@
+node_modules/
+_asar_tmp/
+*.log
+.DS_Store
+Thumbs.db
+*.tmp
+actions.json

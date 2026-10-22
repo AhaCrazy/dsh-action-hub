@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Action shelf">
+  <rect width="64" height="64" rx="14" fill="#1f2937"/>
+  <rect x="13" y="13.5" width="38" height="10" rx="3.4" fill="none" stroke="#94a3b8" stroke-width="3"/>
+  <rect x="13" y="27" width="38" height="10" rx="3.4" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+  <rect x="13" y="40.5" width="24" height="10" rx="3.4" fill="none" stroke="#94a3b8" stroke-width="3"/>
+  <circle cx="19.5" cy="18.5" r="1.7" fill="#64748b"/>
+  <circle cx="19.5" cy="32" r="1.7" fill="#94a3b8"/>
+  <circle cx="19.5" cy="45.5" r="1.7" fill="#64748b"/>
+</svg>

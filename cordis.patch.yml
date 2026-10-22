@@ -1,0 +1,14 @@
+# Bundle patch layer for dsh-action-hub.
+#
+# `insert` adds one Loader row: the Host half (index.js) owns the durable Action
+# collection and its small same-origin API; the package's `dsh.client`
+# declaration makes the Web app load `./client`, which registers the management
+# page, the sidebar icon, and the composer quick launcher.
+#
+# `seed: true` writes three starter Actions on a fresh install. Set it to false
+# to start with an empty shelf, and `dataDir` to move the JSON file elsewhere.
+- insert:
+    - id: action-hub
+      name: 'dsh-action-hub'
+      config:
+        seed: true
