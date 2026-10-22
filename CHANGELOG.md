@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.1 — 2026-10-22
+
+- **Dark theme fix.** Primary buttons and checked switches now use the theme's
+  inverse text token instead of a hard-coded white, so the palette stays readable
+  on dark themes. Verified in the live Web UI in both themes.
+
 ## 1.0.0 — 2026-10-22
 
 Product rebuild and first public release.

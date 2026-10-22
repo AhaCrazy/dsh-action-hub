@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '1.0.0';
+    const VERSION = '1.0.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -39,7 +39,7 @@ window.__ModuleLoader__.load({
       .ah-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
       .ah-btn:active { transform: translateY(.5px); }
       .ah-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
-      .ah-btn-primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: #fff; }
+      .ah-btn-primary { background: var(--dsw-alias-brand-primary); border-color: transparent; color: var(--dsw-alias-bg-base); }
       .ah-btn-primary:hover { background: var(--dsw-alias-brand-primary); filter: brightness(1.07); border-color: transparent; }
       .ah-btn-ghost { background: transparent; border-color: transparent; color: var(--dsw-alias-label-secondary); }
       .ah-btn-ghost:hover { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-2); border-color: transparent; }
@@ -174,7 +174,7 @@ window.__ModuleLoader__.load({
       .ah-switch { appearance: none; width: 36px; height: 20px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); position: relative; cursor: pointer; flex: 0 0 auto; padding: 0; transition: background .15s ease; }
       .ah-switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--dsw-alias-label-secondary); transition: transform .15s ease, background .15s ease; }
       .ah-switch[aria-checked="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); }
-      .ah-switch[aria-checked="true"]::after { transform: translateX(16px); background: #fff; }
+      .ah-switch[aria-checked="true"]::after { transform: translateX(16px); background: var(--dsw-alias-bg-base); }
       @media (max-width: 760px) {
         .ah-body { grid-template-columns: minmax(0, 1fr); }
         .ah-nav { display: none; }
