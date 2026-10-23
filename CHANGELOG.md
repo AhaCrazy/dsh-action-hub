@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.1.0 — 2026-10-23
+
+- The group dialog now lists the Actions in each group directly, with search
+  and checkboxes, so membership can be configured from the group side instead
+  of editing Actions one by one.
+- Added `POST /groups/actions` and `store.setGroupActions()` for bulk group
+  membership; existing Action-side group editing remains available.
+
 ## 7.0.0 — 2026-10-23
 
 - **Project-centric availability through Action groups.** Actions can belong to

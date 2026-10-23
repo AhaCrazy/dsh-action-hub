@@ -545,6 +545,33 @@ export function createStore(options = {}) {
         return state.entries[name];
       });
     },
+    async setGroupActions(id, actionNames) {
+      return serialize(async () => {
+        const state = await readState();
+        state.groups = normalizeGroups(state.groups);
+        if (!state.groups.some((group) => group.id === id)) throw new Error('分组不存在');
+        const { skills } = await readLibrary();
+        const wanted = new Set((Array.isArray(actionNames) ? actionNames : []).filter((name) => typeof name === 'string'));
+        const known = new Set(skills.map((skill) => skill.name));
+        for (const name of Object.keys(state.entries)) known.add(name);
+        let changed = false;
+        for (const name of known) {
+          const hasEntry = state.entries[name] !== undefined;
+          const entry = mergeEntry(state, name);
+          const groups = new Set(entry.groups);
+          const should = wanted.has(name);
+          if (should) groups.add(id);
+          else groups.delete(id);
+          const next = [...groups];
+          if (next.length === entry.groups.length && next.every((groupId, index) => groupId === entry.groups[index])) continue;
+          if (!hasEntry && !should) continue;
+          state.entries[name] = { ...entry, groups: next, updatedAt: Date.now() };
+          changed = true;
+        }
+        if (changed) await writeStateFile(dataDir, state);
+        return { group: state.groups.find((group) => group.id === id), actions: [...wanted] };
+      });
+    },
     async setProjectScope(projectPath, profile = {}) {
       return serialize(async () => {
         const raw = typeof projectPath === 'string' ? projectPath.trim().replace(/[\\/]+$/u, '') : '';

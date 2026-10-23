@@ -7,7 +7,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-7.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-7.1.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -78,6 +78,7 @@ description: 一句话说明何时使用
 ## 分组与项目范围
 
 - Action 可以属于多个分组（例如 Common、AgilityDog、漫剧）；
+- 分组对话框可以直接勾选该分组包含的 Action，不必逐个编辑 Action；
 - 项目在“项目范围”里勾选分组，并可单独追加个别 Action；
 - 未配置的新项目默认只使用 **Common** 分组；
 - 面板会识别当前项目，当前不可用的 Action 会标灰并拒绝插入；

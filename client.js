@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.0.0';
+    const VERSION = '7.1.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -384,6 +384,9 @@ window.__ModuleLoader__.load({
         'groups.renamePrompt': '新的分组名',
         'groups.delete': '删除',
         'groups.deleteConfirm': '删除分组“{name}”？Action 会保留，但项目不再通过该分组获得它们。',
+        'groups.actionCount': '{count} 个 Action',
+        'groups.actionsTitle': '“{name}”包含的 Action',
+        'groups.actionSearch': '搜索要加入分组的 Action',
         'scope.title': '项目可用范围',
         'scope.project': '项目',
         'scope.groups': '可用分组',
@@ -600,6 +603,9 @@ window.__ModuleLoader__.load({
         'groups.renamePrompt': 'New group name',
         'groups.delete': 'Delete',
         'groups.deleteConfirm': 'Delete group “{name}”? Actions stay, but projects no longer get them through this group.',
+        'groups.actionCount': '{count} Actions',
+        'groups.actionsTitle': 'Actions in “{name}”',
+        'groups.actionSearch': 'Search Actions to add',
         'scope.title': 'Project availability',
         'scope.project': 'Project',
         'scope.groups': 'Available groups',
@@ -2342,6 +2348,7 @@ window.__ModuleLoader__.load({
           body.push(h(GroupDialog, {
             key: 'groups',
             groups: snapshot.groups ?? [],
+            actions,
             t,
             onChanged: () => hub.refresh(true),
             onClose: () => setGroupsOpen(false),
@@ -2446,9 +2453,17 @@ window.__ModuleLoader__.load({
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
+      const actions = Array.isArray(props.actions) ? props.actions : [];
       const [name, setName] = React.useState('');
+      const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
+      const [query, setQuery] = React.useState('');
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
+      const active = groups.find((group) => group.id === selectedId) ?? groups[0] ?? null;
+      const activeNames = active === null ? [] : actions.filter((action) => (action.groups ?? []).includes(active.id)).map((action) => action.name);
+      const filteredActions = query.trim() === ''
+        ? actions
+        : actions.filter((action) => `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
 
       const refresh = async () => {
         await props.onChanged?.();
@@ -2484,25 +2499,60 @@ window.__ModuleLoader__.load({
               if (event.key !== 'Enter' || name.trim() === '') return;
               event.preventDefault();
               void run(async () => {
-                await api('/groups/create', { name: name.trim() });
+                const result = await api('/groups/create', { name: name.trim() });
                 setName('');
+                setSelectedId(result.group.id);
               });
             },
           })),
-        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void run(async () => { await api('/groups/create', { name: name.trim() }); setName(''); }) }, t('groups.create'))),
+        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void run(async () => {
+          const result = await api('/groups/create', { name: name.trim() });
+          setName('');
+          setSelectedId(result.group.id);
+        }) }, t('groups.create'))),
       h('div', { className: 'ah-scope-list' },
-        groups.map((group) => h('div', { key: group.id, className: 'ah-settings-row' },
-          h('div', { className: 'ah-settings-row-main' },
-            h('span', { className: 'ah-settings-row-title' }, group.name),
-            group.builtin ? h('span', { className: 'ah-badge' }, t('editor.groupCommon')) : null),
-          group.builtin ? null : h(Button, { ghost: true, small: true, onClick: () => {
-            const next = window.prompt(t('groups.renamePrompt'), group.name);
-            if (next === null || next.trim() === '' || next.trim() === group.name) return;
-            void run(() => api('/groups/rename', { id: group.id, name: next.trim() }));
-          } }, t('groups.rename')),
-          group.builtin ? null : h(Button, { ghost: true, small: true, danger: true, onClick: () => {
-            if (window.confirm(t('groups.deleteConfirm', { name: group.name }))) void run(() => api('/groups/delete', { id: group.id }));
-          } }, t('groups.delete'))))),
+        groups.map((group) => h('div', {
+          key: group.id,
+          className: 'ah-settings-row',
+          'data-active': group.id === active?.id,
+          onClick: () => setSelectedId(group.id),
+        },
+        h('div', { className: 'ah-settings-row-main' },
+          h('span', { className: 'ah-settings-row-title' }, group.name),
+          group.builtin ? h('span', { className: 'ah-badge' }, t('editor.groupCommon')) : null,
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: actions.filter((action) => (action.groups ?? []).includes(group.id)).length }))),
+        group.builtin ? null : h(Button, { ghost: true, small: true, onClick: (event) => {
+          event.stopPropagation();
+          const next = window.prompt(t('groups.renamePrompt'), group.name);
+          if (next === null || next.trim() === '' || next.trim() === group.name) return;
+          void run(() => api('/groups/rename', { id: group.id, name: next.trim() }));
+        } }, t('groups.rename')),
+        group.builtin ? null : h(Button, { ghost: true, small: true, danger: true, onClick: (event) => {
+          event.stopPropagation();
+          if (window.confirm(t('groups.deleteConfirm', { name: group.name }))) {
+            void run(async () => {
+              await api('/groups/delete', { id: group.id });
+              if (selectedId === group.id) setSelectedId('');
+            });
+          }
+        } }, t('groups.delete'))))),
+      active === null ? null : h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('groups.actionsTitle', { name: active.name })),
+        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery }),
+        h('div', { className: 'ah-scope-list' }, filteredActions.map((action) => h('label', { key: action.id, className: 'ah-scope-option' },
+          h('input', {
+            type: 'checkbox',
+            checked: activeNames.includes(action.name),
+            disabled: busy,
+            onChange: (event) => {
+              const next = event.target.checked
+                ? [...new Set([...activeNames, action.name])]
+                : activeNames.filter((entry) => entry !== action.name);
+              void run(() => api('/groups/actions', { id: active.id, actions: next }));
+            },
+          }),
+          ` ${action.name}`,
+          action.builtin ? h('span', { className: 'ah-badge' }, t('lib.builtin')) : null)))),
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 

@@ -1,6 +1,6 @@
 {
   "name": "dsh-action-hub",
-  "version": "7.0.0",
+  "version": "7.1.0",
   "private": true,
   "type": "module",
   "description": "DeepSeek Harness plugin: a library of standard Agent Skill directories that can run as model-visible Skills or user-only Commands, with project scopes, search, and zero context for Commands.",

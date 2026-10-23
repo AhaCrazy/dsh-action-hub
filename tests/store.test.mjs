@@ -90,6 +90,21 @@ test('normalizeScope drops invalid projects and defaults to all', () => {
   assert.equal(scoped.projects[0].label, 'a');
 });
 
+test('assigns a group membership from the group side', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  await store.create({ name: 'one', description: 'One', prompt: 'Body.' });
+  await store.create({ name: 'two', description: 'Two', prompt: 'Body.' });
+  const group = await store.createGroup('Shared');
+  await store.setGroupActions(group.id, ['one']);
+  let result = await store.read();
+  assert.deepEqual(result.actions.find((action) => action.name === 'one').groups, ['common', 'shared']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['common']);
+  await store.setGroupActions(group.id, ['one', 'two']);
+  result = await store.read();
+  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['common', 'shared']);
+});
+
 test('migrates legacy per-Action scopes into groups and project profiles', async () => {
   const dataDir = await tempData();
   await fs.mkdir(path.join(dataDir, 'library', 'legacy'), { recursive: true });

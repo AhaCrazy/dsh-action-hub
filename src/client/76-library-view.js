@@ -189,6 +189,7 @@
           body.push(h(GroupDialog, {
             key: 'groups',
             groups: snapshot.groups ?? [],
+            actions,
             t,
             onChanged: () => hub.refresh(true),
             onClose: () => setGroupsOpen(false),

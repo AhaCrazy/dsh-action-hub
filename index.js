@@ -231,6 +231,13 @@ async function handle(ctx, store, dataDir, req, res) {
       return;
     }
 
+    if (route === '/groups/actions') {
+      const result = await store.setGroupActions(text(body.id), body.actions);
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, ...result });
+      return;
+    }
+
     if (route === '/project-scope') {
       const profile = await store.setProjectScope(text(body.path), body);
       notifySkillCatalog(ctx);
