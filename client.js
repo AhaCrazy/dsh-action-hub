@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.3.3';
+    const VERSION = '7.3.4';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -110,16 +110,31 @@ window.__ModuleLoader__.load({
       .ah-group-create .ah-input { flex: 1 1 auto; }
       .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
       .ah-group-list { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 6px; overflow-y: auto; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; gap: 3px; }
-      .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: auto auto; gap: 3px 8px; align-items: center; width: fit-content; max-width: 100%; align-self: flex-start; }
+      .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; }
       .ah-group-item:hover { background: transparent; }
       .ah-group-item:not([data-active="true"]):hover .ah-group-name { color: var(--dsw-alias-brand-primary); }
-      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); grid-template-columns: minmax(0, 1fr) auto; width: 100%; align-self: stretch; }
+      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); }
       .ah-group-item-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .ah-group-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ah-group-count { font-size: 11px; color: var(--dsw-alias-label-secondary); text-align: right; }
-      .ah-group-item-actions { grid-column: 1 / -1; display: flex; gap: 2px; opacity: 0; pointer-events: none; margin-top: 3px; }
-      .ah-group-item[data-active="true"] .ah-group-item-actions { opacity: 1; pointer-events: auto; }
+      .ah-group-item-actions { display: none; }
       .ah-group-rename { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; }
+      .ah-group-context {
+        position: fixed;
+        z-index: 120;
+        min-width: 132px;
+        padding: 4px;
+        border: 1px solid var(--dsw-alias-border-l2);
+        border-radius: 9px;
+        background: var(--dsw-alias-bg-overlay);
+        box-shadow: 0 16px 44px rgba(0, 0, 0, .38);
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .ah-group-context-item { appearance: none; border: 0; background: transparent; color: var(--dsw-alias-label-primary); text-align: left; padding: 7px 9px; border-radius: 6px; font: inherit; font-size: 12px; cursor: pointer; }
+      .ah-group-context-item:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-group-context-item[data-danger="true"] { color: var(--dsw-alias-state-error-primary); }
       .ah-group-rename .ah-input { flex: 1 1 auto; }
       .ah-group-detail { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
       .ah-group-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
@@ -2540,6 +2555,19 @@ window.__ModuleLoader__.load({
       const [renameValue, setRenameValue] = React.useState('');
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
+      const [menu, setMenu] = React.useState(null);
+
+      React.useEffect(() => {
+        if (menu === null) return undefined;
+        const close = () => setMenu(null);
+        const onKey = (event) => { if (event.key === 'Escape') setMenu(null); };
+        document.addEventListener('mousedown', close);
+        document.addEventListener('keydown', onKey);
+        return () => {
+          document.removeEventListener('mousedown', close);
+          document.removeEventListener('keydown', onKey);
+        };
+      }, [menu]);
 
       const active = groups.find((group) => group.id === selectedId) ?? groups[0] ?? null;
       const originalNames = (group) => actions.filter((action) => (action.groups ?? []).includes(group.id)).map((action) => action.name);
@@ -2698,9 +2726,6 @@ window.__ModuleLoader__.load({
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
           group.builtin ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null);
-        const actionsRow = group.builtin ? null : h('div', { className: 'ah-group-item-actions' },
-          h(Button, { ghost: true, small: true, onClick: (event) => { event.stopPropagation(); startRename(group); } }, t('groups.rename')),
-          h(Button, { ghost: true, small: true, danger: true, onClick: (event) => { event.stopPropagation(); void removeGroup(group); } }, t('groups.delete')));
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
             h('input', {
@@ -2716,13 +2741,22 @@ window.__ModuleLoader__.load({
             h(Button, { small: true, primary: true, onClick: () => void commitRename(group) }, t('action.save')),
             h(Button, { small: true, onClick: () => setRenamingId('') }, t('action.cancel')))
           : h(React.Fragment, null, titleRow,
-            h('span', { className: 'ah-group-count' }, t('groups.actionCount', { count: namesFor(group.id).size })),
-            actionsRow);
+            h('span', { className: 'ah-group-count' }, t('groups.actionCount', { count: namesFor(group.id).size })));
         return h('div', {
           key: group.id,
           className: 'ah-group-item',
           'data-active': group.id === active?.id,
           onClick: () => { if (!renaming) setSelectedId(group.id); },
+          onContextMenu: (event) => {
+            event.preventDefault();
+            if (group.builtin) return;
+            setSelectedId(group.id);
+            setMenu({
+              id: group.id,
+              x: Math.min(event.clientX, window.innerWidth - 160),
+              y: Math.min(event.clientY, window.innerHeight - 90),
+            });
+          },
         }, body);
       });
 
@@ -2797,6 +2831,23 @@ window.__ModuleLoader__.load({
       const layout = h('div', { className: 'ah-group-layout' },
         h('aside', { className: 'ah-group-list', 'aria-label': t('groups.title') }, groupRows),
         h('section', { className: 'ah-group-detail' }, detail));
+      const menuGroup = menu === null ? null : groups.find((group) => group.id === menu.id) ?? null;
+      const contextMenu = menuGroup === null ? null : h('div', {
+        className: 'ah-group-context',
+        style: { left: `${menu.x}px`, top: `${menu.y}px` },
+        onMouseDown: (event) => event.stopPropagation(),
+      },
+      h('button', {
+        type: 'button',
+        className: 'ah-group-context-item',
+        onClick: () => { setMenu(null); startRename(menuGroup); },
+      }, t('groups.rename')),
+      h('button', {
+        type: 'button',
+        className: 'ah-group-context-item',
+        'data-danger': 'true',
+        onClick: () => { setMenu(null); void removeGroup(menuGroup); },
+      }, t('groups.delete')));
 
       return h(Modal, {
         title: t('groups.title'),
@@ -2822,6 +2873,7 @@ window.__ModuleLoader__.load({
         }),
         h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create'))),
       layout,
+      contextMenu,
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 

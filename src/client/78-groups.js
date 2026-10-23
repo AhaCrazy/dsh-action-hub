@@ -13,6 +13,19 @@
       const [renameValue, setRenameValue] = React.useState('');
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
+      const [menu, setMenu] = React.useState(null);
+
+      React.useEffect(() => {
+        if (menu === null) return undefined;
+        const close = () => setMenu(null);
+        const onKey = (event) => { if (event.key === 'Escape') setMenu(null); };
+        document.addEventListener('mousedown', close);
+        document.addEventListener('keydown', onKey);
+        return () => {
+          document.removeEventListener('mousedown', close);
+          document.removeEventListener('keydown', onKey);
+        };
+      }, [menu]);
 
       const active = groups.find((group) => group.id === selectedId) ?? groups[0] ?? null;
       const originalNames = (group) => actions.filter((action) => (action.groups ?? []).includes(group.id)).map((action) => action.name);
@@ -171,9 +184,6 @@
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
           group.builtin ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null);
-        const actionsRow = group.builtin ? null : h('div', { className: 'ah-group-item-actions' },
-          h(Button, { ghost: true, small: true, onClick: (event) => { event.stopPropagation(); startRename(group); } }, t('groups.rename')),
-          h(Button, { ghost: true, small: true, danger: true, onClick: (event) => { event.stopPropagation(); void removeGroup(group); } }, t('groups.delete')));
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
             h('input', {
@@ -189,13 +199,22 @@
             h(Button, { small: true, primary: true, onClick: () => void commitRename(group) }, t('action.save')),
             h(Button, { small: true, onClick: () => setRenamingId('') }, t('action.cancel')))
           : h(React.Fragment, null, titleRow,
-            h('span', { className: 'ah-group-count' }, t('groups.actionCount', { count: namesFor(group.id).size })),
-            actionsRow);
+            h('span', { className: 'ah-group-count' }, t('groups.actionCount', { count: namesFor(group.id).size })));
         return h('div', {
           key: group.id,
           className: 'ah-group-item',
           'data-active': group.id === active?.id,
           onClick: () => { if (!renaming) setSelectedId(group.id); },
+          onContextMenu: (event) => {
+            event.preventDefault();
+            if (group.builtin) return;
+            setSelectedId(group.id);
+            setMenu({
+              id: group.id,
+              x: Math.min(event.clientX, window.innerWidth - 160),
+              y: Math.min(event.clientY, window.innerHeight - 90),
+            });
+          },
         }, body);
       });
 
@@ -270,6 +289,23 @@
       const layout = h('div', { className: 'ah-group-layout' },
         h('aside', { className: 'ah-group-list', 'aria-label': t('groups.title') }, groupRows),
         h('section', { className: 'ah-group-detail' }, detail));
+      const menuGroup = menu === null ? null : groups.find((group) => group.id === menu.id) ?? null;
+      const contextMenu = menuGroup === null ? null : h('div', {
+        className: 'ah-group-context',
+        style: { left: `${menu.x}px`, top: `${menu.y}px` },
+        onMouseDown: (event) => event.stopPropagation(),
+      },
+      h('button', {
+        type: 'button',
+        className: 'ah-group-context-item',
+        onClick: () => { setMenu(null); startRename(menuGroup); },
+      }, t('groups.rename')),
+      h('button', {
+        type: 'button',
+        className: 'ah-group-context-item',
+        'data-danger': 'true',
+        onClick: () => { setMenu(null); void removeGroup(menuGroup); },
+      }, t('groups.delete')));
 
       return h(Modal, {
         title: t('groups.title'),
@@ -295,6 +331,7 @@
         }),
         h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create'))),
       layout,
+      contextMenu,
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 

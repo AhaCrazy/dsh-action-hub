@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.3.4 — 2026-10-23
+
+- Reverted the unselected-group width shrink and removed the inline
+  rename/delete buttons from the selected group row. Group rename and delete
+  now live in a right-click context menu; Common still has no such menu.
+
 ## 7.3.3 — 2026-10-23
 
 - Unselected group rows now shrink to their content instead of spanning the full
