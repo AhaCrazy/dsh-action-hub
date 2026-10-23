@@ -1,5 +1,13 @@
 # Changelog
 
+## 8.3.0 — 2026-10-23
+
+- Removed the obsolete built-in Action `action-import-assistant`.
+- Added built-in **skill-import-assistant**: it turns prompts, SKILL.md files,
+  directories, and ZIPs into standard Agent Skills, then imports them through
+  Action Hub's preview/import APIs, handles duplicate/conflict decisions, and
+  verifies the imported Action.
+
 ## 8.2.1 — 2026-10-23
 
 - The palette sort now offers the same modes as the library: recently used,
