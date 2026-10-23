@@ -70,7 +70,7 @@ async function handle(ctx, store, dataDir, req, res) {
       const { state, actions, invalid } = view;
       const plan = planActionRefs(actions);
       const projects = await listProjects(ctx);
-      const currentProject = await findCurrentProject(ctx, projects);
+      const currentProject = await findCurrentProject(ctx, projects, url.searchParams.get('sessionId') ?? '');
       const currentRoot = currentProject === null ? null : await resolveProjectRoot(currentProject.path, projects);
       const currentProfile = profileFor(view.projects, currentRoot, view.defaultGroup);
       sendJson(res, 200, {

@@ -15,6 +15,7 @@
         error: '',
       };
       let inflight = null;
+      let activeSessionId = '';
 
       const emit = () => {
         for (const listener of [...listeners]) listener(snapshot);
@@ -27,7 +28,8 @@
       async function refresh(force = false) {
         if (inflight !== null && !force) return inflight;
         if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
-        inflight = api('/state').then(
+        const suffix = activeSessionId === '' ? '' : `?sessionId=${encodeURIComponent(activeSessionId)}`;
+        inflight = api(`/state${suffix}`).then(
           (data) => {
             set({
               status: 'ready',
@@ -67,6 +69,16 @@
           return () => listeners.delete(listener);
         },
         refresh,
+        setSession(id) {
+          if (activeSessionId === id) return;
+          activeSessionId = typeof id === 'string' ? id : '';
+          void refresh(true).catch(() => {});
+        },
+        clearSession(id) {
+          if (activeSessionId !== id) return;
+          activeSessionId = '';
+          void refresh(true).catch(() => {});
+        },
         call,
         patchAction(id, patch) {
           return call('/update', { id, patch });

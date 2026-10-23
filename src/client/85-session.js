@@ -5,11 +5,17 @@
     }
 
     // Session bridge: hands the frame-level palette the live composer facade.
-    function createSessionBridge(palette) {
+    function createSessionBridge(palette, hub) {
       return function SessionBridge(props) {
         const input = typeof props.useInput === 'function' ? props.useInput((state) => state) : undefined;
         const sessionId = props.sessionId;
         const actions = props.inputActions;
+
+        React.useEffect(() => {
+          if (sessionId === undefined) return undefined;
+          hub?.setSession(sessionId);
+          return () => hub?.clearSession(sessionId);
+        }, [sessionId]);
 
         React.useEffect(() => {
           if (sessionId === undefined || actions === undefined) return undefined;

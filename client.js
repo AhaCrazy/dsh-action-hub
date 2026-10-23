@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.3.0';
+    const VERSION = '8.3.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -1134,6 +1134,7 @@ window.__ModuleLoader__.load({
         error: '',
       };
       let inflight = null;
+      let activeSessionId = '';
 
       const emit = () => {
         for (const listener of [...listeners]) listener(snapshot);
@@ -1146,7 +1147,8 @@ window.__ModuleLoader__.load({
       async function refresh(force = false) {
         if (inflight !== null && !force) return inflight;
         if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
-        inflight = api('/state').then(
+        const suffix = activeSessionId === '' ? '' : `?sessionId=${encodeURIComponent(activeSessionId)}`;
+        inflight = api(`/state${suffix}`).then(
           (data) => {
             set({
               status: 'ready',
@@ -1186,6 +1188,16 @@ window.__ModuleLoader__.load({
           return () => listeners.delete(listener);
         },
         refresh,
+        setSession(id) {
+          if (activeSessionId === id) return;
+          activeSessionId = typeof id === 'string' ? id : '';
+          void refresh(true).catch(() => {});
+        },
+        clearSession(id) {
+          if (activeSessionId !== id) return;
+          activeSessionId = '';
+          void refresh(true).catch(() => {});
+        },
         call,
         patchAction(id, patch) {
           return call('/update', { id, patch });
@@ -3662,11 +3674,17 @@ window.__ModuleLoader__.load({
     }
 
     // Session bridge: hands the frame-level palette the live composer facade.
-    function createSessionBridge(palette) {
+    function createSessionBridge(palette, hub) {
       return function SessionBridge(props) {
         const input = typeof props.useInput === 'function' ? props.useInput((state) => state) : undefined;
         const sessionId = props.sessionId;
         const actions = props.inputActions;
+
+        React.useEffect(() => {
+          if (sessionId === undefined) return undefined;
+          hub?.setSession(sessionId);
+          return () => hub?.clearSession(sessionId);
+        }, [sessionId]);
 
         React.useEffect(() => {
           if (sessionId === undefined || actions === undefined) return undefined;
@@ -3809,7 +3827,7 @@ window.__ModuleLoader__.load({
 
       const Page = createPage(hub, ctx);
       const PaletteView = createPaletteView(hub, palette, prefs, shortcuts);
-      const SessionBridge = createSessionBridge(palette);
+      const SessionBridge = createSessionBridge(palette, hub);
       const Trigger = createTrigger(palette);
       const Settings = createSettings(hub, prefs);
 

@@ -39,6 +39,23 @@ test('findCurrentProject selects the session cwd inside a registered project', a
   assert.deepEqual(await findCurrentProject(ctx, projects), projects[0]);
 });
 
+test('findCurrentProject prefers the requested session over a newer one', async () => {
+  const first = await tempProject();
+  const second = await tempProject();
+  const projects = [{ label: 'first', path: first.root }, { label: 'second', path: second.root }];
+  const ctx = {
+    get(name) {
+      if (name !== 'sessions') return undefined;
+      return { list: () => [
+        { header: { id: 'older', cwd: first.nested, updatedAt: 1 } },
+        { header: { id: 'newer', cwd: second.nested, updatedAt: 2 } },
+      ] };
+    },
+  };
+  assert.deepEqual(await findCurrentProject(ctx, projects, 'older'), projects[0]);
+  assert.deepEqual(await findCurrentProject(ctx, projects, 'newer'), projects[1]);
+});
+
 test('findCurrentProject fails closed when the session is outside every project', async () => {
   const { root } = await tempProject();
   const outside = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-outside-'));

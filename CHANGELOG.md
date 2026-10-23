@@ -1,5 +1,12 @@
 # Changelog
 
+## 8.3.1 — 2026-10-23
+
+- Availability is now resolved from the current conversation's session cwd
+  instead of whichever session was updated last. This fixes the palette hiding
+  Actions that were available in the active project but not in a newer session
+  from another workspace.
+
 ## 8.3.0 — 2026-10-23
 
 - Removed the obsolete built-in Action `action-import-assistant`.

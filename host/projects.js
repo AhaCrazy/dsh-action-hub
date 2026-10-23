@@ -33,8 +33,8 @@ export async function listProjects(ctx) {
   return out.sort((left, right) => left.label.localeCompare(right.label));
 }
 
-/** Choose the most recent session cwd that belongs to a registered project. */
-export async function findCurrentProject(ctx, projects = []) {
+/** Choose the requested session's project, or fall back to the most recent session cwd. */
+export async function findCurrentProject(ctx, projects = [], preferredSessionId = '') {
   if (!Array.isArray(projects) || projects.length === 0) return null;
   const sessions = ctx.get?.('sessions');
   if (sessions === undefined || typeof sessions.list !== 'function') return null;
@@ -46,24 +46,34 @@ export async function findCurrentProject(ctx, projects = []) {
     return null;
   }
   const roots = new Set(projects.map((project) => canonicalPath(project.path)));
-  const ordered = [...(Array.isArray(list) ? list : [])].sort((left, right) => {
+  const all = Array.isArray(list) ? list : [];
+  const ordered = [...all].sort((left, right) => {
     const a = Number(left?.header?.updatedAt ?? left?.updatedAt ?? left?.header?.createdAt ?? 0) || 0;
     const b = Number(right?.header?.updatedAt ?? right?.updatedAt ?? right?.header?.createdAt ?? 0) || 0;
     return b - a;
   });
-  for (const session of ordered) {
+  const resolveSession = async (session) => {
     const cwd = session?.header?.cwd ?? session?.cwd ?? session?.workspace?.path;
-    if (typeof cwd !== 'string' || cwd === '') continue;
+    if (typeof cwd !== 'string' || cwd === '') return null;
     let root;
     try {
       root = await resolveProjectRoot(cwd, projects);
     } catch {
-      continue;
+      return null;
     }
-    if (root === null) continue;
-    const key = canonicalPath(root);
-    if (!roots.has(key)) continue;
-    return projects.find((project) => canonicalPath(project.path) === key) ?? null;
+    const key = root === null ? '' : canonicalPath(root);
+    return key !== '' && roots.has(key) ? projects.find((project) => canonicalPath(project.path) === key) ?? null : null;
+  };
+  if (typeof preferredSessionId === 'string' && preferredSessionId !== '') {
+    const preferred = all.find((session) => {
+      const id = session?.header?.id ?? session?.header?.sessionId ?? session?.id ?? session?.sessionId;
+      return id === preferredSessionId;
+    });
+    if (preferred !== undefined) return resolveSession(preferred);
+  }
+  for (const session of ordered) {
+    const project = await resolveSession(session);
+    if (project !== null) return project;
   }
   return null;
 }

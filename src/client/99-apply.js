@@ -40,7 +40,7 @@
 
       const Page = createPage(hub, ctx);
       const PaletteView = createPaletteView(hub, palette, prefs, shortcuts);
-      const SessionBridge = createSessionBridge(palette);
+      const SessionBridge = createSessionBridge(palette, hub);
       const Trigger = createTrigger(palette);
       const Settings = createSettings(hub, prefs);
 
