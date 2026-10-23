@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.8.1';
+    const VERSION = '7.9.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -58,6 +58,7 @@ window.__ModuleLoader__.load({
       .ah-chip-count { font-size: 10.5px; opacity: .7; }
       .ah-count { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
       .ah-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 16px; }
+      .ah-body-plain { grid-template-columns: minmax(0, 1fr); }
       .ah-nav { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; min-height: 0; }
       .ah-nav-label { font-size: 10.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--dsw-alias-label-secondary); padding: 8px 10px 6px; }
       .ah-nav-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
@@ -310,7 +311,7 @@ window.__ModuleLoader__.load({
         'lib.uncategorized': '未分类',
         'lib.categories': '分类',
         'lib.manageCategories': '管理分类',
-        'lib.search': '搜索名称、描述、分类、标签或正文…',
+        'lib.search': '搜索名称、描述或正文…',
         'lib.count': '{count} 个条目',
         'lib.countFiltered': '{count} / {total}',
         'lib.sortRecent': '最近使用',
@@ -322,7 +323,7 @@ window.__ModuleLoader__.load({
         'lib.sortLabel': '排序',
         'lib.emptyTitle': '收藏夹还是空的',
         'lib.emptyCopy': '把经常重复输入的提示词存成 Action：从右侧新建，或导入现成的 Action 包。',
-        'lib.emptyFiltered': '没有匹配的 Action。换个关键词或分类试试。',
+        'lib.emptyFiltered': '没有匹配的 Action。换个关键词试试。',
         'lib.emptyCta': '新建第一个 Action',
         'lib.loading': '读取中…',
         'lib.loadFailed': '读取 Actions 失败：{error}',
@@ -559,7 +560,7 @@ window.__ModuleLoader__.load({
         'lib.uncategorized': 'Uncategorized',
         'lib.categories': 'Categories',
         'lib.manageCategories': 'Manage categories',
-        'lib.search': 'Search name, description, category, tag, or body…',
+        'lib.search': 'Search name, description, or body…',
         'lib.count': '{count} entries',
         'lib.countFiltered': '{count} / {total}',
         'lib.sortRecent': 'Recently used',
@@ -571,7 +572,7 @@ window.__ModuleLoader__.load({
         'lib.sortLabel': 'Sort',
         'lib.emptyTitle': 'Your shelf is empty',
         'lib.emptyCopy': 'Save the prompts you keep retyping. Create one here, or import an Action bundle.',
-        'lib.emptyFiltered': 'No Action matches. Try another keyword or category.',
+        'lib.emptyFiltered': 'No Action matches. Try another keyword.',
         'lib.emptyCta': 'Create your first Action',
         'lib.loading': 'Loading…',
         'lib.loadFailed': 'Could not load Actions: {error}',
@@ -1023,8 +1024,6 @@ window.__ModuleLoader__.load({
       if (needle === '') return 0;
       const tokens = needle.split(/\s+/);
       const name = (action.name || '').toLowerCase();
-      const tags = (action.tags ?? []).join(' ').toLowerCase();
-      const category = (action.category || '').toLowerCase();
       const description = (action.description || '').toLowerCase();
       const prompt = (action.prompt || '').toLowerCase();
       let total = 0;
@@ -1033,8 +1032,6 @@ window.__ModuleLoader__.load({
         if (name === token) best = 120;
         else if (name.startsWith(token)) best = 100;
         else if (name.includes(token)) best = 80;
-        else if (tags.includes(token)) best = 55;
-        else if (category.includes(token)) best = 45;
         else if (description.includes(token)) best = 30;
         else if (prompt.includes(token)) best = 12;
         if (best < 0) return -1;
@@ -1079,24 +1076,9 @@ window.__ModuleLoader__.load({
       });
     }
 
-    function categoriesOf(actions) {
-      const counts = new Map();
-      for (const action of actions) {
-        const name = action.category || '';
-        if (name === '') continue;
-        counts.set(name, (counts.get(name) ?? 0) + 1);
-      }
-      return [...counts.entries()].sort((left, right) => left[0].localeCompare(right[0], 'zh-CN'));
-    }
-
-    function visibleActions(actions, { query = '', category = '', uncategorized = false, sortBy = 'recent' } = {}) {
+    function visibleActions(actions, { query = '', sortBy = 'recent' } = {}) {
       const scored = [];
       for (const action of actions) {
-        if (uncategorized) {
-          if ((action.category || '') !== '') continue;
-        } else if (category !== '' && (action.category || '') !== category) {
-          continue;
-        }
         const score = searchScore(action, query);
         if (score < 0) continue;
         scored.push({ action, score });
@@ -1857,10 +1839,8 @@ window.__ModuleLoader__.load({
       h('div', { className: 'ah-row-main' },
         h('div', { className: 'ah-row-title' },
           h('span', { className: 'ah-name' }, action.name),
-          action.builtin === true && action.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
-          action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
-          action.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
-          (action.tags ?? []).slice(0, 3).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`))),
+          action.builtin === true ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
+          action.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command'))),
         action.description ? h('p', { className: 'ah-desc' }, action.description) : null),
       h('div', { className: 'ah-row-actions' },
         h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) }))));
@@ -2135,8 +2115,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ah-import-main' },
             h('div', { className: 'ah-import-name' },
               h('span', { className: 'ah-import-title' }, item.name),
-              h('span', { className: 'ah-import-badge', 'data-status': item.status }, statusLabel(item.status)),
-              item.category ? h('span', { className: 'ah-badge ah-badge-accent' }, item.category) : null),
+              h('span', { className: 'ah-import-badge', 'data-status': item.status }, statusLabel(item.status))),
             item.description ? h('div', { className: 'ah-import-desc' }, item.description) : null,
             h('div', { className: 'ah-import-meta' },
               t('import.itemResources', { count: item.resources?.length ?? 0 }),
@@ -2208,7 +2187,7 @@ window.__ModuleLoader__.load({
       h('div', { className: 'ah-export-list' }, actions.map((action) => h('label', { key: action.id, className: 'ah-export-item' },
         h('input', { type: 'checkbox', checked: selected.has(action.id), onChange: () => toggle(action.id) }),
         h('span', { className: 'ah-export-name' }, action.name),
-        h('span', { className: 'ah-export-meta' }, action.category || t('lib.uncategorized'))))),
+        h('span', { className: 'ah-export-meta' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command'))))),
       h('div', { className: 'ah-field-row' },
         h(Button, { small: true, onClick: () => setSelected(new Set(actions.map((action) => action.id))) }, t('export.selectAll')),
         h(Button, { small: true, onClick: () => setSelected(new Set()) }, t('export.clear')),
@@ -2303,15 +2282,11 @@ window.__ModuleLoader__.load({
         const t = translate(props);
         const snapshot = useHub(hub);
         const [query, setQuery] = React.useState('');
-        const [category, setCategory] = React.useState('');
-        const [uncategorized, setUncategorized] = React.useState(false);
         const [sortBy, setSortBy] = React.useState('recent');
-        const [editor, setEditor] = React.useState(undefined); // undefined closed, null create
         const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
         const [exporting, setExporting] = React.useState(false);
-        const [categoryDialog, setCategoryDialog] = React.useState(false);
         const [configOpen, setConfigOpen] = React.useState(false);
         const [configTab, setConfigTab] = React.useState('groups');
         const [menu, setMenu] = React.useState(null);
@@ -2337,7 +2312,6 @@ window.__ModuleLoader__.load({
         }, [notice]);
 
         const actions = snapshot.actions ?? [];
-        const categories = React.useMemo(() => categoriesOf(actions), [actions]);
         React.useEffect(() => {
           const timer = setInterval(() => {
             let startedAt = 0;
@@ -2353,18 +2327,9 @@ window.__ModuleLoader__.load({
           return () => clearInterval(timer);
         }, [hub]);
         const visible = React.useMemo(
-          () => (uncategorized
-            ? visibleActions(actions, { query, uncategorized: true, sortBy })
-            : visibleActions(actions, { query, category, sortBy })),
-          [actions, category, query, sortBy, uncategorized],
+          () => visibleActions(actions, { query, sortBy }),
+          [actions, query, sortBy],
         );
-
-        const save = async (form) => {
-          if (editor === null) await hub.call('/create', { action: form });
-          else await hub.call('/update', { id: editor.id, patch: form });
-          notify(t('lib.saved'), 'ok');
-          setEditor(undefined);
-        };
 
         const remove = async () => {
           if (deleting === null) return;
@@ -2399,34 +2364,6 @@ window.__ModuleLoader__.load({
         };
 
 
-        const navItems = [];
-        navItems.push(h('button', {
-          key: '__all',
-          type: 'button',
-          className: 'ah-nav-item',
-          'data-active': category === '' && !uncategorized,
-          onClick: () => { setCategory(''); setUncategorized(false); },
-        }, h('span', { className: 'ah-nav-name' }, t('lib.all')), h('span', { className: 'ah-nav-count' }, actions.length)));
-        for (const [name, count] of categories) {
-          navItems.push(h('button', {
-            key: name,
-            type: 'button',
-            className: 'ah-nav-item',
-            'data-active': category === name && !uncategorized,
-            onClick: () => { setCategory(name); setUncategorized(false); },
-          }, h('span', { className: 'ah-nav-name' }, name), h('span', { className: 'ah-nav-count' }, count)));
-        }
-        const unclassified = actions.filter((action) => (action.category || '') === '').length;
-        if (unclassified > 0) {
-          navItems.push(h('button', {
-            key: '__none',
-            type: 'button',
-            className: 'ah-nav-item',
-            'data-active': uncategorized,
-            onClick: () => { setUncategorized(true); setCategory(''); },
-          }, h('span', { className: 'ah-nav-name' }, t('lib.uncategorized')), h('span', { className: 'ah-nav-count' }, unclassified)));
-        }
-
         const sortLabels = {
           recent: t('lib.sortRecent'),
           name: t('lib.sortName'),
@@ -2442,19 +2379,13 @@ window.__ModuleLoader__.load({
             h('h1', { className: 'ah-title' }, t('app.title')),
             h('p', { className: 'ah-sub' }, t('app.subtitle'))),
           h('div', { className: 'ah-head-actions' },
-            h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('action.new')),
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
             h(Button, { onClick: () => { setConfigTab('groups'); setConfigOpen(true); } }, h(Icons.sliders, { size: 13 }), t('action.groups')),
             h(Button, { onClick: () => { setConfigTab('scope'); setConfigOpen(true); } }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
-        body.push(h('div', { key: 'body', className: 'ah-body' },
-          h('nav', { className: 'ah-nav', 'aria-label': t('lib.categories') },
-            h('div', { className: 'ah-nav-label' }, t('lib.categories')),
-            h('div', { className: 'ah-nav-list' }, navItems),
-            h('div', { className: 'ah-nav-foot' },
-              h(Button, { ghost: true, onClick: () => setCategoryDialog(true) }, h(Icons.sliders, { size: 13 }), t('lib.manageCategories')))),
+        body.push(h('div', { key: 'body', className: 'ah-body ah-body-plain' },
           h('div', { className: 'ah-main' },
             h('div', { className: 'ah-main-bar' },
               h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
@@ -2467,7 +2398,7 @@ window.__ModuleLoader__.load({
                   'data-active': sortBy === value,
                   onClick: () => setSortBy(value),
                 }, label))),
-              h('span', { className: 'ah-count' }, query === '' && category === '' && !uncategorized
+              h('span', { className: 'ah-count' }, query === ''
                 ? t('lib.count', { count: actions.length })
                 : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
             snapshot.status === 'loading' && actions.length === 0
@@ -2482,7 +2413,7 @@ window.__ModuleLoader__.load({
                     h('div', { className: 'ah-empty-title' }, actions.length === 0 ? t('lib.emptyTitle') : t('lib.emptyFiltered')),
                     h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('lib.emptyCopy') : ''),
                     actions.length === 0
-                      ? h('div', { className: 'ah-empty-actions' }, h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('lib.emptyCta')))
+                      ? h('div', { className: 'ah-empty-actions' }, h(Button, { primary: true, onClick: () => setImporting(true) }, h(Icons.upload, { size: 14 }), t('action.import')))
                       : null)
                   : h('div', { className: 'ah-list' }, visible.map((action) => h(ActionRow, {
                     key: action.id,
@@ -2490,7 +2421,6 @@ window.__ModuleLoader__.load({
                     t,
                     onOpen: setDetail,
                     onPin: togglePin,
-                    onEdit: (entry) => setEditor(entry),
                     onDelete: setDeleting,
                     onContextMenu: (entry, event) => {
                       setMenu({
@@ -2501,18 +2431,6 @@ window.__ModuleLoader__.load({
                     },
                   }))))));
 
-        if (editor !== undefined) {
-          body.push(h(EditorDialog, {
-            key: 'editor',
-            initial: editor,
-            categories: categories.map(([name]) => name),
-            projects: snapshot.projects ?? [],
-            groups: snapshot.groups ?? [],
-            t,
-            onSave: save,
-            onClose: () => setEditor(undefined),
-          }));
-        }
         if (configOpen) {
           body.push(h(ConfigDialog, {
             key: 'config',
@@ -2536,19 +2454,16 @@ window.__ModuleLoader__.load({
             footer: h(React.Fragment, null,
               h(Button, { onClick: async () => { try { await copyText(detail.prompt); notify(t('lib.copied'), 'ok'); } catch { notify(t('lib.copyFailed'), 'error'); } } }, h(Icons.copy, { size: 13 }), t('action.copy')),
               detail.builtin === true ? null : h(Button, { onClick: async () => { try { await downloadZip(detail.id); notify(t('lib.exported'), 'ok'); } catch (failure) { notify(describeError(failure), 'error'); } } }, h(Icons.download, { size: 13 }), t('lib.exportOne')),
-              detail.builtin === true ? null : h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
               detail.builtin === true ? null : h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
           },
           h('div', { className: 'ah-preview-meta' },
-            detail.builtin === true && detail.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
-            detail.category ? h('span', { className: 'ah-badge ah-badge-accent' }, detail.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
+            detail.builtin === true ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
             detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
             detail.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
             (detail.groups ?? []).map((id) => {
               const group = (snapshot.groups ?? []).find((entry) => entry.id === id);
               return group === undefined ? null : h('span', { key: id, className: 'ah-badge' }, group.name);
             }),
-            (detail.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
             (detail.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: detail.resources.length })) : null,
             h('span', { className: 'ah-count' }, detail.usage?.count > 0 ? t('lib.used', { count: detail.usage.count }) : t('lib.updated', { time: relativeTime(detail.updatedAt) }))),
           detail.description ? h('p', { className: 'ah-desc' }, detail.description) : null,
@@ -2592,18 +2507,6 @@ window.__ModuleLoader__.load({
             onDone: () => { void hub.refresh(true).catch(() => {}); },
           }));
         }
-        if (categoryDialog) {
-          body.push(h(CategoryDialog, {
-            key: 'categories',
-            t,
-            categories: categories.map(([name]) => name),
-            counts: Object.fromEntries(categories),
-            notify,
-            onClose: () => setCategoryDialog(false),
-            onDone: () => { void hub.refresh(true).catch(() => {}); },
-          }));
-        }
-
         if (menu !== null) {
           const action = menu.action;
           body.push(h('div', {
@@ -2617,11 +2520,6 @@ window.__ModuleLoader__.load({
             className: 'ah-group-context-item',
             onClick: () => { setMenu(null); void toggleMode(action); },
           }, action.mode === 'skill' ? t('action.switchToCommand') : t('action.switchToSkill')),
-          action.builtin === true ? null : h('button', {
-            type: 'button',
-            className: 'ah-group-context-item',
-            onClick: () => { setMenu(null); setEditor(action); },
-          }, t('action.edit')),
           action.builtin === true ? null : h('button', {
             type: 'button',
             className: 'ah-group-context-item',
@@ -2729,7 +2627,7 @@ window.__ModuleLoader__.load({
         if (filter === 'selected' && !activeDirectSet.has(action.name)) return false;
         if (filter === 'unselected' && activeDirectSet.has(action.name)) return false;
         if (query.trim() === '') return true;
-        return `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase());
+        return `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase());
       });
       const groupLabel = (id) => groups.find((group) => group.id === id)?.name ?? id;
 
@@ -3102,7 +3000,7 @@ window.__ModuleLoader__.load({
       const selectedActionCount = actions.filter((action) => covered(action) || profile.actions.includes(action.name)).length;
       const filtered = query.trim() === ''
         ? actions
-        : actions.filter((action) => `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
+        : actions.filter((action) => `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase()));
 
       const selectProject = (path) => {
         setProjectPath(path);
@@ -3298,10 +3196,9 @@ window.__ModuleLoader__.load({
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
-        const categories = React.useMemo(() => categoriesOf(actions), [actions]);
         const visible = React.useMemo(
-          () => visibleActions(actions, { query: state.query, category: state.category }),
-          [actions, state.category, state.query],
+          () => visibleActions(actions, { query: state.query }),
+          [actions, state.query],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
@@ -3375,33 +3272,18 @@ window.__ModuleLoader__.load({
         }, [selected?.id, state.open]);
 
         const close = React.useCallback(() => palette.close(), [palette]);
-        const cycleCategory = React.useCallback((direction) => {
-          const names = ['', ...categories.map(([name]) => name)];
-          const index = Math.max(0, names.indexOf(state.category));
-          const next = names[(index + direction + names.length) % names.length];
-          palette.update({ category: next });
-        }, [categories, palette, state.category]);
 
         React.useEffect(() => {
           if (!state.open) return undefined;
           const onKey = (event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              close();
-              return;
-            }
-            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-            const target = event.target instanceof Element ? event.target : null;
-            const editable = target?.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
-            if (editable && target !== searchRef.current) return;
+            if (event.key !== 'Escape') return;
             event.preventDefault();
             event.stopPropagation();
-            cycleCategory(event.key === 'ArrowRight' ? 1 : -1);
+            close();
           };
           document.addEventListener('keydown', onKey);
           return () => document.removeEventListener('keydown', onKey);
-        }, [state.open, close, cycleCategory]);
+        }, [state.open, close]);
 
         if (!state.open) return null;
 
@@ -3522,16 +3404,6 @@ window.__ModuleLoader__.load({
           h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
           h(Kbd, null, 'Esc'));
 
-        const catRow = h('div', { className: 'ah-palette-cats' },
-          h('button', { type: 'button', className: 'ah-chip', 'data-active': state.category === '', onClick: () => palette.update({ category: '' }) }, t('lib.all')),
-          categories.map(([name, count]) => h('button', {
-            key: name,
-            type: 'button',
-            className: 'ah-chip',
-            'data-active': state.category === name,
-            onClick: () => palette.update({ category: state.category === name ? '' : name }),
-          }, name, h('span', { className: 'ah-chip-count' }, count))));
-
         const results = h('div', { className: 'ah-results', ref: listRef, role: 'listbox', 'aria-label': t('palette.title') },
           visible.length === 0
             ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), actions.length === 0 ? t('palette.empty') : t('palette.noMatch'))
@@ -3552,7 +3424,6 @@ window.__ModuleLoader__.load({
               h('div', { className: 'ah-result-title' },
                 action.pinned ? h('span', { className: 'ah-result-star' }, h(Icons.star, { size: 11, filled: true })) : null,
                 h('span', { className: 'ah-result-name' }, action.name),
-                action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : null,
                 action.available === false ? h('span', { className: 'ah-badge' }, t('palette.scopeUnavailable')) : null),
               h('span', { className: 'ah-result-desc' }, action.description || (action.argsHint ? `${action.argsHint}` : action.prompt.slice(0, 80)))))));
 
@@ -3577,9 +3448,7 @@ window.__ModuleLoader__.load({
                 }
               } }, h(Icons.star, { size: 14, filled: selected.pinned === true }))),
             h('div', { className: 'ah-preview-meta' },
-              selected.category ? h('span', { className: 'ah-badge ah-badge-accent' }, selected.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
               selected.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
-              (selected.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
               (selected.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: selected.resources.length })) : null,
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
@@ -3637,7 +3506,6 @@ window.__ModuleLoader__.load({
           onMouseDown: (event) => event.stopPropagation(),
         },
         header,
-        catRow,
         bodyContent,
         toastView,
         footer));
@@ -3890,7 +3758,6 @@ window.__ModuleLoader__.load({
         matchActionMarker,
         searchScore,
         sortActions,
-        categoriesOf,
         visibleActions,
         relativeTime,
         TEXT,

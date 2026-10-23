@@ -132,7 +132,6 @@
         matchActionMarker,
         searchScore,
         sortActions,
-        categoriesOf,
         visibleActions,
         relativeTime,
         TEXT,

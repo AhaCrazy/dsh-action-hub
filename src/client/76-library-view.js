@@ -3,15 +3,11 @@
         const t = translate(props);
         const snapshot = useHub(hub);
         const [query, setQuery] = React.useState('');
-        const [category, setCategory] = React.useState('');
-        const [uncategorized, setUncategorized] = React.useState(false);
         const [sortBy, setSortBy] = React.useState('recent');
-        const [editor, setEditor] = React.useState(undefined); // undefined closed, null create
         const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
         const [exporting, setExporting] = React.useState(false);
-        const [categoryDialog, setCategoryDialog] = React.useState(false);
         const [configOpen, setConfigOpen] = React.useState(false);
         const [configTab, setConfigTab] = React.useState('groups');
         const [menu, setMenu] = React.useState(null);
@@ -37,7 +33,6 @@
         }, [notice]);
 
         const actions = snapshot.actions ?? [];
-        const categories = React.useMemo(() => categoriesOf(actions), [actions]);
         React.useEffect(() => {
           const timer = setInterval(() => {
             let startedAt = 0;
@@ -53,18 +48,9 @@
           return () => clearInterval(timer);
         }, [hub]);
         const visible = React.useMemo(
-          () => (uncategorized
-            ? visibleActions(actions, { query, uncategorized: true, sortBy })
-            : visibleActions(actions, { query, category, sortBy })),
-          [actions, category, query, sortBy, uncategorized],
+          () => visibleActions(actions, { query, sortBy }),
+          [actions, query, sortBy],
         );
-
-        const save = async (form) => {
-          if (editor === null) await hub.call('/create', { action: form });
-          else await hub.call('/update', { id: editor.id, patch: form });
-          notify(t('lib.saved'), 'ok');
-          setEditor(undefined);
-        };
 
         const remove = async () => {
           if (deleting === null) return;
@@ -99,34 +85,6 @@
         };
 
 
-        const navItems = [];
-        navItems.push(h('button', {
-          key: '__all',
-          type: 'button',
-          className: 'ah-nav-item',
-          'data-active': category === '' && !uncategorized,
-          onClick: () => { setCategory(''); setUncategorized(false); },
-        }, h('span', { className: 'ah-nav-name' }, t('lib.all')), h('span', { className: 'ah-nav-count' }, actions.length)));
-        for (const [name, count] of categories) {
-          navItems.push(h('button', {
-            key: name,
-            type: 'button',
-            className: 'ah-nav-item',
-            'data-active': category === name && !uncategorized,
-            onClick: () => { setCategory(name); setUncategorized(false); },
-          }, h('span', { className: 'ah-nav-name' }, name), h('span', { className: 'ah-nav-count' }, count)));
-        }
-        const unclassified = actions.filter((action) => (action.category || '') === '').length;
-        if (unclassified > 0) {
-          navItems.push(h('button', {
-            key: '__none',
-            type: 'button',
-            className: 'ah-nav-item',
-            'data-active': uncategorized,
-            onClick: () => { setUncategorized(true); setCategory(''); },
-          }, h('span', { className: 'ah-nav-name' }, t('lib.uncategorized')), h('span', { className: 'ah-nav-count' }, unclassified)));
-        }
-
         const sortLabels = {
           recent: t('lib.sortRecent'),
           name: t('lib.sortName'),
@@ -142,19 +100,13 @@
             h('h1', { className: 'ah-title' }, t('app.title')),
             h('p', { className: 'ah-sub' }, t('app.subtitle'))),
           h('div', { className: 'ah-head-actions' },
-            h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('action.new')),
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
             h(Button, { onClick: () => { setConfigTab('groups'); setConfigOpen(true); } }, h(Icons.sliders, { size: 13 }), t('action.groups')),
             h(Button, { onClick: () => { setConfigTab('scope'); setConfigOpen(true); } }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
-        body.push(h('div', { key: 'body', className: 'ah-body' },
-          h('nav', { className: 'ah-nav', 'aria-label': t('lib.categories') },
-            h('div', { className: 'ah-nav-label' }, t('lib.categories')),
-            h('div', { className: 'ah-nav-list' }, navItems),
-            h('div', { className: 'ah-nav-foot' },
-              h(Button, { ghost: true, onClick: () => setCategoryDialog(true) }, h(Icons.sliders, { size: 13 }), t('lib.manageCategories')))),
+        body.push(h('div', { key: 'body', className: 'ah-body ah-body-plain' },
           h('div', { className: 'ah-main' },
             h('div', { className: 'ah-main-bar' },
               h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
@@ -167,7 +119,7 @@
                   'data-active': sortBy === value,
                   onClick: () => setSortBy(value),
                 }, label))),
-              h('span', { className: 'ah-count' }, query === '' && category === '' && !uncategorized
+              h('span', { className: 'ah-count' }, query === ''
                 ? t('lib.count', { count: actions.length })
                 : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
             snapshot.status === 'loading' && actions.length === 0
@@ -182,7 +134,7 @@
                     h('div', { className: 'ah-empty-title' }, actions.length === 0 ? t('lib.emptyTitle') : t('lib.emptyFiltered')),
                     h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('lib.emptyCopy') : ''),
                     actions.length === 0
-                      ? h('div', { className: 'ah-empty-actions' }, h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('lib.emptyCta')))
+                      ? h('div', { className: 'ah-empty-actions' }, h(Button, { primary: true, onClick: () => setImporting(true) }, h(Icons.upload, { size: 14 }), t('action.import')))
                       : null)
                   : h('div', { className: 'ah-list' }, visible.map((action) => h(ActionRow, {
                     key: action.id,
@@ -190,7 +142,6 @@
                     t,
                     onOpen: setDetail,
                     onPin: togglePin,
-                    onEdit: (entry) => setEditor(entry),
                     onDelete: setDeleting,
                     onContextMenu: (entry, event) => {
                       setMenu({
@@ -201,18 +152,6 @@
                     },
                   }))))));
 
-        if (editor !== undefined) {
-          body.push(h(EditorDialog, {
-            key: 'editor',
-            initial: editor,
-            categories: categories.map(([name]) => name),
-            projects: snapshot.projects ?? [],
-            groups: snapshot.groups ?? [],
-            t,
-            onSave: save,
-            onClose: () => setEditor(undefined),
-          }));
-        }
         if (configOpen) {
           body.push(h(ConfigDialog, {
             key: 'config',
@@ -236,19 +175,16 @@
             footer: h(React.Fragment, null,
               h(Button, { onClick: async () => { try { await copyText(detail.prompt); notify(t('lib.copied'), 'ok'); } catch { notify(t('lib.copyFailed'), 'error'); } } }, h(Icons.copy, { size: 13 }), t('action.copy')),
               detail.builtin === true ? null : h(Button, { onClick: async () => { try { await downloadZip(detail.id); notify(t('lib.exported'), 'ok'); } catch (failure) { notify(describeError(failure), 'error'); } } }, h(Icons.download, { size: 13 }), t('lib.exportOne')),
-              detail.builtin === true ? null : h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
               detail.builtin === true ? null : h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
           },
           h('div', { className: 'ah-preview-meta' },
-            detail.builtin === true && detail.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
-            detail.category ? h('span', { className: 'ah-badge ah-badge-accent' }, detail.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
+            detail.builtin === true ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
             detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
             detail.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
             (detail.groups ?? []).map((id) => {
               const group = (snapshot.groups ?? []).find((entry) => entry.id === id);
               return group === undefined ? null : h('span', { key: id, className: 'ah-badge' }, group.name);
             }),
-            (detail.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
             (detail.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: detail.resources.length })) : null,
             h('span', { className: 'ah-count' }, detail.usage?.count > 0 ? t('lib.used', { count: detail.usage.count }) : t('lib.updated', { time: relativeTime(detail.updatedAt) }))),
           detail.description ? h('p', { className: 'ah-desc' }, detail.description) : null,
@@ -292,18 +228,6 @@
             onDone: () => { void hub.refresh(true).catch(() => {}); },
           }));
         }
-        if (categoryDialog) {
-          body.push(h(CategoryDialog, {
-            key: 'categories',
-            t,
-            categories: categories.map(([name]) => name),
-            counts: Object.fromEntries(categories),
-            notify,
-            onClose: () => setCategoryDialog(false),
-            onDone: () => { void hub.refresh(true).catch(() => {}); },
-          }));
-        }
-
         if (menu !== null) {
           const action = menu.action;
           body.push(h('div', {
@@ -317,11 +241,6 @@
             className: 'ah-group-context-item',
             onClick: () => { setMenu(null); void toggleMode(action); },
           }, action.mode === 'skill' ? t('action.switchToCommand') : t('action.switchToSkill')),
-          action.builtin === true ? null : h('button', {
-            type: 'button',
-            className: 'ah-group-context-item',
-            onClick: () => { setMenu(null); setEditor(action); },
-          }, t('action.edit')),
           action.builtin === true ? null : h('button', {
             type: 'button',
             className: 'ah-group-context-item',

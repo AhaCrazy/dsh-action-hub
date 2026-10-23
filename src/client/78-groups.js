@@ -91,7 +91,7 @@
         if (filter === 'selected' && !activeDirectSet.has(action.name)) return false;
         if (filter === 'unselected' && activeDirectSet.has(action.name)) return false;
         if (query.trim() === '') return true;
-        return `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase());
+        return `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase());
       });
       const groupLabel = (id) => groups.find((group) => group.id === id)?.name ?? id;
 
@@ -464,7 +464,7 @@
       const selectedActionCount = actions.filter((action) => covered(action) || profile.actions.includes(action.name)).length;
       const filtered = query.trim() === ''
         ? actions
-        : actions.filter((action) => `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
+        : actions.filter((action) => `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase()));
 
       const selectProject = (path) => {
         setProjectPath(path);

@@ -138,10 +138,10 @@ test('composeReferenceDraft inserts a chip at the caret and keeps offsets', () =
 
 test('searchScore prefers names, requires every token, and rejects misses', () => {
   const { searchScore } = module.internals;
-  const action = { name: 'Code Review', description: 'diff reader', category: 'dev', tags: ['git'], prompt: 'inspect changes' };
+  const action = { name: 'Code Review', description: 'diff reader', prompt: 'inspect changes' };
   assert.ok(searchScore(action, 'code') > 0);
   assert.ok(searchScore(action, 'code') > searchScore(action, 'diff'));
-  assert.ok(searchScore(action, 'git dev') > 0);
+  assert.ok(searchScore(action, 'diff reader') > 0);
   assert.equal(searchScore(action, 'code missing'), -1);
   assert.equal(searchScore(action, '  '), 0);
 });
@@ -149,31 +149,23 @@ test('searchScore prefers names, requires every token, and rejects misses', () =
 test('visibleActions filters, scores, and keeps pinned entries first', () => {
   const { visibleActions } = module.internals;
   const actions = [
-    { id: 'a', name: 'Alpha', category: 'dev', pinned: false, prompt: 'x', tags: [], usage: { lastAt: 5 } },
-    { id: 'b', name: 'Beta', category: 'dev', pinned: true, prompt: 'y', tags: [], usage: { lastAt: 1 } },
-    { id: 'c', name: 'Gamma', category: 'ops', pinned: false, prompt: 'z', tags: [], usage: { lastAt: 9 } },
+    { id: 'a', name: 'Alpha', pinned: false, prompt: 'x', usage: { lastAt: 5 } },
+    { id: 'b', name: 'Beta', pinned: true, prompt: 'y', usage: { lastAt: 1 } },
+    { id: 'c', name: 'Gamma', pinned: false, prompt: 'z', usage: { lastAt: 9 } },
   ];
   assert.deepEqual(visibleActions(actions).map((entry) => entry.id), ['b', 'c', 'a']);
-  assert.deepEqual(visibleActions(actions, { category: 'dev' }).map((entry) => entry.id), ['b', 'a']);
-  assert.deepEqual(visibleActions(actions, { uncategorized: true }), []);
   assert.deepEqual(visibleActions(actions, { query: 'gamma' }).map((entry) => entry.id), ['c']);
 });
 
-test('sortActions and categoriesOf shape the library', () => {
-  const { sortActions, categoriesOf } = module.internals;
+test('sortActions shapes the library', () => {
+  const { sortActions } = module.internals;
   assert.deepEqual(
     sortActions([
-      { name: 'b', category: 'x', usage: { lastAt: 0 }, pinned: false },
-      { name: 'a', category: 'x', usage: { lastAt: 9 }, pinned: false },
+      { name: 'b', usage: { lastAt: 0 }, pinned: false },
+      { name: 'a', usage: { lastAt: 9 }, pinned: false },
     ]).map((entry) => entry.name),
     ['a', 'b'],
   );
-  assert.deepEqual(categoriesOf([
-    { category: 'dev' },
-    { category: 'dev' },
-    { category: 'ops' },
-    { category: '' },
-  ]), [['dev', 2], ['ops', 1]]);
 });
 
 test('matchActionMarker accepts text typed right after the chip', () => {
@@ -191,10 +183,9 @@ test('relativeTime renders a non-empty label for a past timestamp', () => {
   assert.equal(relativeTime(0), '');
 });
 
-test('palette arrow keys cycle groups', () => {
-  assert.match(source, /cycleCategory/);
-  assert.match(source, /ArrowRight/);
-  assert.match(source, /ArrowLeft/);
+test('palette closes on Escape and keeps Tab insertion', () => {
+  assert.match(source, /event\.key !== 'Escape'/);
+  assert.doesNotMatch(source, /cycleCategory/);
   assert.match(source, /palette\.hintTab/);
 });
 

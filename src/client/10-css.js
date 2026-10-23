@@ -28,6 +28,7 @@
       .ah-chip-count { font-size: 10.5px; opacity: .7; }
       .ah-count { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
       .ah-body { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 16px; }
+      .ah-body-plain { grid-template-columns: minmax(0, 1fr); }
       .ah-nav { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; min-height: 0; }
       .ah-nav-label { font-size: 10.5px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--dsw-alias-label-secondary); padding: 8px 10px 6px; }
       .ah-nav-list { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }

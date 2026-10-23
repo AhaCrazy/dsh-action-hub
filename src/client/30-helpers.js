@@ -236,8 +236,6 @@
       if (needle === '') return 0;
       const tokens = needle.split(/\s+/);
       const name = (action.name || '').toLowerCase();
-      const tags = (action.tags ?? []).join(' ').toLowerCase();
-      const category = (action.category || '').toLowerCase();
       const description = (action.description || '').toLowerCase();
       const prompt = (action.prompt || '').toLowerCase();
       let total = 0;
@@ -246,8 +244,6 @@
         if (name === token) best = 120;
         else if (name.startsWith(token)) best = 100;
         else if (name.includes(token)) best = 80;
-        else if (tags.includes(token)) best = 55;
-        else if (category.includes(token)) best = 45;
         else if (description.includes(token)) best = 30;
         else if (prompt.includes(token)) best = 12;
         if (best < 0) return -1;
@@ -292,24 +288,9 @@
       });
     }
 
-    function categoriesOf(actions) {
-      const counts = new Map();
-      for (const action of actions) {
-        const name = action.category || '';
-        if (name === '') continue;
-        counts.set(name, (counts.get(name) ?? 0) + 1);
-      }
-      return [...counts.entries()].sort((left, right) => left[0].localeCompare(right[0], 'zh-CN'));
-    }
-
-    function visibleActions(actions, { query = '', category = '', uncategorized = false, sortBy = 'recent' } = {}) {
+    function visibleActions(actions, { query = '', sortBy = 'recent' } = {}) {
       const scored = [];
       for (const action of actions) {
-        if (uncategorized) {
-          if ((action.category || '') !== '') continue;
-        } else if (category !== '' && (action.category || '') !== category) {
-          continue;
-        }
         const score = searchScore(action, query);
         if (score < 0) continue;
         scored.push({ action, score });

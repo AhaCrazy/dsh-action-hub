@@ -1,5 +1,14 @@
 # Changelog
 
+## 7.9.0 — 2026-10-23
+
+- Removed the Action editor UI and the detail-page Edit button. Actions are
+  managed as standard SKILL.md files through Import or the filesystem; the new
+  Action button is gone too.
+- Removed the category sidebar, category management dialog, category/tag badges,
+  category/tag search, and category filtering from the library and palette.
+  Import/export lists now show Skill/Command instead of category metadata.
+
 ## 7.8.1 — 2026-10-23
 
 - Group inclusion rows now use the same three-state check: blue for a direct

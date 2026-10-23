@@ -15,10 +15,9 @@
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
-        const categories = React.useMemo(() => categoriesOf(actions), [actions]);
         const visible = React.useMemo(
-          () => visibleActions(actions, { query: state.query, category: state.category }),
-          [actions, state.category, state.query],
+          () => visibleActions(actions, { query: state.query }),
+          [actions, state.query],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
@@ -92,33 +91,18 @@
         }, [selected?.id, state.open]);
 
         const close = React.useCallback(() => palette.close(), [palette]);
-        const cycleCategory = React.useCallback((direction) => {
-          const names = ['', ...categories.map(([name]) => name)];
-          const index = Math.max(0, names.indexOf(state.category));
-          const next = names[(index + direction + names.length) % names.length];
-          palette.update({ category: next });
-        }, [categories, palette, state.category]);
 
         React.useEffect(() => {
           if (!state.open) return undefined;
           const onKey = (event) => {
-            if (event.key === 'Escape') {
-              event.preventDefault();
-              event.stopPropagation();
-              close();
-              return;
-            }
-            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
-            const target = event.target instanceof Element ? event.target : null;
-            const editable = target?.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
-            if (editable && target !== searchRef.current) return;
+            if (event.key !== 'Escape') return;
             event.preventDefault();
             event.stopPropagation();
-            cycleCategory(event.key === 'ArrowRight' ? 1 : -1);
+            close();
           };
           document.addEventListener('keydown', onKey);
           return () => document.removeEventListener('keydown', onKey);
-        }, [state.open, close, cycleCategory]);
+        }, [state.open, close]);
 
         if (!state.open) return null;
 
@@ -239,16 +223,6 @@
           h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
           h(Kbd, null, 'Esc'));
 
-        const catRow = h('div', { className: 'ah-palette-cats' },
-          h('button', { type: 'button', className: 'ah-chip', 'data-active': state.category === '', onClick: () => palette.update({ category: '' }) }, t('lib.all')),
-          categories.map(([name, count]) => h('button', {
-            key: name,
-            type: 'button',
-            className: 'ah-chip',
-            'data-active': state.category === name,
-            onClick: () => palette.update({ category: state.category === name ? '' : name }),
-          }, name, h('span', { className: 'ah-chip-count' }, count))));
-
         const results = h('div', { className: 'ah-results', ref: listRef, role: 'listbox', 'aria-label': t('palette.title') },
           visible.length === 0
             ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), actions.length === 0 ? t('palette.empty') : t('palette.noMatch'))
@@ -269,7 +243,6 @@
               h('div', { className: 'ah-result-title' },
                 action.pinned ? h('span', { className: 'ah-result-star' }, h(Icons.star, { size: 11, filled: true })) : null,
                 h('span', { className: 'ah-result-name' }, action.name),
-                action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : null,
                 action.available === false ? h('span', { className: 'ah-badge' }, t('palette.scopeUnavailable')) : null),
               h('span', { className: 'ah-result-desc' }, action.description || (action.argsHint ? `${action.argsHint}` : action.prompt.slice(0, 80)))))));
 
@@ -294,9 +267,7 @@
                 }
               } }, h(Icons.star, { size: 14, filled: selected.pinned === true }))),
             h('div', { className: 'ah-preview-meta' },
-              selected.category ? h('span', { className: 'ah-badge ah-badge-accent' }, selected.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
               selected.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
-              (selected.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
               (selected.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: selected.resources.length })) : null,
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
@@ -354,7 +325,6 @@
           onMouseDown: (event) => event.stopPropagation(),
         },
         header,
-        catRow,
         bodyContent,
         toastView,
         footer));
