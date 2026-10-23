@@ -1,5 +1,12 @@
 # Changelog
 
+## 7.10.0 — 2026-10-23
+
+- Added a “Group bar” switch in the library header. It shows or hides a left
+  group list; the choice is persisted in local storage.
+- Selecting a group filters the library to that group's effective Actions,
+  including Actions inherited through nested group references.
+
 ## 7.9.1 — 2026-10-23
 
 - Restored separate “分组” and “项目可用范围” entry buttons and dialogs instead

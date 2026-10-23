@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.9.1';
+    const VERSION = '7.10.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -35,6 +35,7 @@ window.__ModuleLoader__.load({
       .ah-title { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 660; letter-spacing: .01em; }
       .ah-sub { margin: 7px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--dsw-alias-label-secondary); max-width: 74ch; }
       .ah-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ah-switch-field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); cursor: pointer; white-space: nowrap; }
       .ah-btn { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 9px; height: 32px; padding: 0 12px; font: inherit; font-size: 12.5px; line-height: 1; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
       .ah-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
       .ah-btn:active { transform: translateY(.5px); }
@@ -299,6 +300,7 @@ window.__ModuleLoader__.load({
         'action.unpin': '取消置顶',
         'action.close': '关闭',
         'lib.all': '全部',
+        'lib.groupBar': '分组栏',
         'lib.uncategorized': '未分类',
         'lib.categories': '分类',
         'lib.manageCategories': '管理分类',
@@ -548,6 +550,7 @@ window.__ModuleLoader__.load({
         'action.unpin': 'Unpin',
         'action.close': 'Close',
         'lib.all': 'All',
+        'lib.groupBar': 'Group bar',
         'lib.uncategorized': 'Uncategorized',
         'lib.categories': 'Categories',
         'lib.manageCategories': 'Manage categories',
@@ -2274,6 +2277,10 @@ window.__ModuleLoader__.load({
         const snapshot = useHub(hub);
         const [query, setQuery] = React.useState('');
         const [sortBy, setSortBy] = React.useState('recent');
+        const [showGroupBar, setShowGroupBar] = React.useState(() => {
+          try { return localStorage.getItem('action-hub.showGroupBar') !== '0'; } catch { return true; }
+        });
+        const [groupFilter, setGroupFilter] = React.useState('');
         const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
@@ -2303,6 +2310,25 @@ window.__ModuleLoader__.load({
         }, [notice]);
 
         const actions = snapshot.actions ?? [];
+        const groups = snapshot.groups ?? [];
+        const groupIdsFor = (groupId) => {
+          const byId = new Map(groups.map((group) => [group.id, group]));
+          const seen = new Set();
+          const visit = (id) => {
+            if (typeof id !== 'string' || id === '' || seen.has(id)) return;
+            seen.add(id);
+            for (const child of byId.get(id)?.includes ?? []) visit(child);
+          };
+          visit(groupId);
+          return seen;
+        };
+        const groupMatches = (action, groupId) => {
+          const ids = groupIdsFor(groupId);
+          return (action.groups ?? []).some((id) => ids.has(id));
+        };
+        React.useEffect(() => {
+          if (groupFilter !== '' && !groups.some((group) => group.id === groupFilter)) setGroupFilter('');
+        }, [groupFilter, groups]);
         React.useEffect(() => {
           const timer = setInterval(() => {
             let startedAt = 0;
@@ -2317,10 +2343,16 @@ window.__ModuleLoader__.load({
           }, 4000);
           return () => clearInterval(timer);
         }, [hub]);
-        const visible = React.useMemo(
-          () => visibleActions(actions, { query, sortBy }),
-          [actions, query, sortBy],
-        );
+        const visible = React.useMemo(() => {
+          const base = visibleActions(actions, { query, sortBy });
+          if (!showGroupBar || groupFilter === '') return base;
+          return base.filter((action) => groupMatches(action, groupFilter));
+        }, [actions, groupFilter, query, showGroupBar, sortBy]);
+
+        const toggleGroupBar = (next) => {
+          setShowGroupBar(next);
+          try { localStorage.setItem('action-hub.showGroupBar', next ? '1' : '0'); } catch { /* ignore */ }
+        };
 
         const remove = async () => {
           if (deleting === null) return;
@@ -2370,13 +2402,34 @@ window.__ModuleLoader__.load({
             h('h1', { className: 'ah-title' }, t('app.title')),
             h('p', { className: 'ah-sub' }, t('app.subtitle'))),
           h('div', { className: 'ah-head-actions' },
+            h('label', { className: 'ah-switch-field' },
+              h(Switch, { checked: showGroupBar, label: t('lib.groupBar'), onChange: toggleGroupBar }),
+              h('span', null, t('lib.groupBar'))),
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
             h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
             h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
-        body.push(h('div', { key: 'body', className: 'ah-body ah-body-plain' },
+        const groupNav = h('nav', { className: 'ah-nav', 'aria-label': t('lib.groupBar') },
+          h('div', { className: 'ah-nav-label' }, t('lib.groupBar')),
+          h('div', { className: 'ah-nav-list' },
+            h('button', {
+              type: 'button',
+              className: 'ah-nav-item',
+              'data-active': groupFilter === '',
+              onClick: () => setGroupFilter(''),
+            }, h('span', { className: 'ah-nav-name' }, t('lib.all')), h('span', { className: 'ah-nav-count' }, actions.length)),
+            groups.map((group) => h('button', {
+              key: group.id,
+              type: 'button',
+              className: 'ah-nav-item',
+              'data-active': groupFilter === group.id,
+              onClick: () => setGroupFilter(groupFilter === group.id ? '' : group.id),
+            }, h('span', { className: 'ah-nav-name' }, group.name), h('span', { className: 'ah-nav-count' }, actions.filter((action) => groupMatches(action, group.id)).length)))));
+
+        body.push(h('div', { key: 'body', className: showGroupBar ? 'ah-body' : 'ah-body ah-body-plain' },
+          showGroupBar ? groupNav : null,
           h('div', { className: 'ah-main' },
             h('div', { className: 'ah-main-bar' },
               h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
@@ -2389,7 +2442,7 @@ window.__ModuleLoader__.load({
                   'data-active': sortBy === value,
                   onClick: () => setSortBy(value),
                 }, label))),
-              h('span', { className: 'ah-count' }, query === ''
+              h('span', { className: 'ah-count' }, query === '' && (!showGroupBar || groupFilter === '')
                 ? t('lib.count', { count: actions.length })
                 : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
             snapshot.status === 'loading' && actions.length === 0

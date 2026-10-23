@@ -5,6 +5,7 @@
       .ah-title { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 660; letter-spacing: .01em; }
       .ah-sub { margin: 7px 0 0; font-size: 12.5px; line-height: 1.65; color: var(--dsw-alias-label-secondary); max-width: 74ch; }
       .ah-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .ah-switch-field { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); cursor: pointer; white-space: nowrap; }
       .ah-btn { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); border-radius: 9px; height: 32px; padding: 0 12px; font: inherit; font-size: 12.5px; line-height: 1; display: inline-flex; align-items: center; gap: 7px; cursor: pointer; white-space: nowrap; }
       .ah-btn:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
       .ah-btn:active { transform: translateY(.5px); }
