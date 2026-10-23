@@ -40,12 +40,12 @@ test('updates mode/groups/pin without rewriting the skill body', async () => {
   const before = await fs.readFile(path.join(dataDir, 'library', 'demo', 'SKILL.md'), 'utf8');
   await store.setMode('demo', 'skill');
   const group = await store.createGroup('AgilityDog');
-  await store.setActionGroups('demo', ['ungrouped', group.id]);
+  await store.setActionGroups('demo', [group.id]);
   const after = await fs.readFile(path.join(dataDir, 'library', 'demo', 'SKILL.md'), 'utf8');
   assert.equal(after, before);
   const action = (await store.read()).actions[0];
   assert.equal(action.mode, 'skill');
-  assert.deepEqual(action.groups, ['ungrouped', group.id]);
+  assert.deepEqual(action.groups, [group.id]);
 });
 
 test('renames a skill directory and keeps the state key stable', async () => {
@@ -98,22 +98,48 @@ test('assigns a group membership from the group side', async () => {
   const group = await store.createGroup('Shared');
   await store.setGroupActions(group.id, ['one']);
   let result = await store.read();
-  assert.deepEqual(result.actions.find((action) => action.name === 'one').groups, ['ungrouped', 'shared']);
-  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['ungrouped']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'one').groups, ['shared']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, []);
   await store.setGroupActions(group.id, ['one', 'two']);
   result = await store.read();
-  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['ungrouped', 'shared']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['shared']);
 });
 
 test('tracks the new-workspace default group', async () => {
   const dataDir = await tempData();
   const store = createStore({ dataDir });
   const group = await store.createGroup('Default target');
-  assert.equal((await store.readState()).defaultGroup, 'ungrouped');
+  assert.equal((await store.readState()).defaultGroup, '');
   await store.setDefaultGroup(group.id);
   assert.equal((await store.readState()).defaultGroup, group.id);
-  await store.setDefaultGroup('ungrouped');
-  assert.equal((await store.readState()).defaultGroup, 'ungrouped');
+  await store.deleteGroup(group.id);
+  assert.equal((await store.readState()).defaultGroup, '');
+});
+
+test('drops the legacy ungrouped group and its references', async () => {
+  const dataDir = await tempData();
+  await fs.mkdir(path.join(dataDir, 'library', 'legacy'), { recursive: true });
+  await fs.writeFile(path.join(dataDir, 'library', 'legacy', 'SKILL.md'), '---\nname: legacy\ndescription: Legacy\n---\n\nBody.\n');
+  await fs.writeFile(path.join(dataDir, 'state.json'), JSON.stringify({
+    format: 'dsh-action-hub/state@2',
+    groups: [
+      { id: 'ungrouped', name: '未分组', builtin: true, includes: [] },
+      { id: 'common', name: 'Common', builtin: false, includes: ['ungrouped'] },
+    ],
+    entries: { legacy: { groups: ['ungrouped'] } },
+    projects: [{ path: 'C:/p', label: 'p', groups: ['ungrouped'], actions: [] }],
+    defaultGroup: 'ungrouped',
+  }));
+  const store = createStore({ dataDir });
+  const result = await store.read();
+  assert.deepEqual(result.state.groups.map((group) => group.id), ['common']);
+  assert.deepEqual(result.state.groups[0].includes, []);
+  assert.deepEqual(result.actions[0].groups, []);
+  assert.deepEqual(result.state.projects[0].groups, []);
+  assert.equal(result.state.defaultGroup, '');
+  const persisted = JSON.parse(await fs.readFile(path.join(dataDir, 'state.json'), 'utf8'));
+  assert.equal(persisted.groups.some((group) => group.id === 'ungrouped'), false);
+  assert.equal(persisted.defaultGroup, '');
 });
 
 test('nests groups and keeps cycles as one shared pool', async () => {
@@ -140,10 +166,10 @@ test('migrates legacy per-Action scopes into groups and project profiles', async
   }));
   const store = createStore({ dataDir });
   const result = await store.read();
-  assert.equal(result.state.groups[0].id, 'ungrouped');
+  assert.deepEqual(result.state.groups, []);
   assert.deepEqual(result.actions[0].groups, []);
   assert.deepEqual(result.state.projects[0].actions, ['legacy']);
-  assert.deepEqual(result.state.projects[0].groups, ['ungrouped']);
+  assert.deepEqual(result.state.projects[0].groups, []);
   assert.equal((await store.readState()).format, 'dsh-action-hub/state@2');
 });
 

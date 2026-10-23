@@ -5,7 +5,7 @@ import { actionAvailable, profileFor, availableActions } from '../host/availabil
 import { defaultProjectProfile } from '../store.js';
 
 const actions = [
-  { name: 'common-action', groups: ['ungrouped'] },
+  { name: 'common-action', groups: [] },
   { name: 'agility-action', groups: ['agility'] },
   { name: 'loose-action', groups: [] },
   { name: 'builtin-action', groups: [], builtin: true },
@@ -47,10 +47,10 @@ test('cycles contribute the union of the connected groups', () => {
   assert.equal(actionAvailable(cyclic[1], { groups: ['figma'], actions: [] }, groups), true);
 });
 
-test('unknown projects use the ungrouped default and built-ins stay available', () => {
+test('unknown projects start with no groups; built-ins stay available', () => {
   const profile = profileFor([], null);
-  assert.deepEqual(profile.groups, ['ungrouped']);
-  assert.equal(actionAvailable(actions[0], profile), true);
+  assert.deepEqual(profile.groups, []);
+  assert.equal(actionAvailable(actions[0], profile), false);
   assert.equal(actionAvailable(actions[3], profile), true);
   assert.deepEqual(profileFor([], null, 'common').groups, ['common']);
 });

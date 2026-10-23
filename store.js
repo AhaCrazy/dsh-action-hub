@@ -111,7 +111,7 @@ export function normalizeScope(scope) {
 }
 
 export function defaultGroups() {
-  return [{ id: UNGROUPED_GROUP_ID, name: '未分组', builtin: true, includes: [] }];
+  return [];
 }
 
 export function normalizeGroupName(value) {
@@ -138,16 +138,15 @@ export function normalizeGroups(raw) {
     if (item === null || typeof item !== 'object') continue;
     const name = normalizeGroupName(item.name);
     const id = typeof item.id === 'string' ? item.id.trim().toLowerCase() : '';
-    if (name === '' || id === '' || seen.has(id)) continue;
+    if (name === '' || id === '' || id === UNGROUPED_GROUP_ID || seen.has(id)) continue;
     seen.add(id);
     out.push({
       id,
-      name: id === UNGROUPED_GROUP_ID ? '未分组' : name,
-      builtin: id === UNGROUPED_GROUP_ID,
+      name,
+      builtin: false,
       includes: normalizeGroupIds(item.includes),
     });
   }
-  if (!seen.has(UNGROUPED_GROUP_ID)) out.unshift({ id: UNGROUPED_GROUP_ID, name: '未分组', builtin: true, includes: [] });
   const ids = new Set(out.map((group) => group.id));
   for (const group of out) {
     // Cycles are allowed: they describe one shared pool of Actions. Every
@@ -157,8 +156,8 @@ export function normalizeGroups(raw) {
   return out;
 }
 
-export function defaultProjectProfile(path = '', label = '', groupId = UNGROUPED_GROUP_ID) {
-  return { path, label, groups: [groupId], actions: [] };
+export function defaultProjectProfile(path = '', label = '', groupId = '') {
+  return { path, label, groups: groupId === '' ? [] : [groupId], actions: [] };
 }
 
 export function normalizeProjectProfiles(raw, groups = defaultGroups()) {
@@ -197,7 +196,7 @@ export function normalizeAction(input = {}) {
     argsHint: typeof input.argsHint === 'string' ? input.argsHint.trim().slice(0, 120) : '',
     pinned: input.pinned === true,
     mode: normalizeMode(input.mode),
-    groups: Array.isArray(input.groups) ? normalizeGroupIds(input.groups) : [UNGROUPED_GROUP_ID],
+    groups: Array.isArray(input.groups) ? normalizeGroupIds(input.groups) : [],
   };
 }
 
@@ -248,7 +247,7 @@ function emptyState() {
     groups: defaultGroups(),
     entries: {},
     projects: [],
-    defaultGroup: UNGROUPED_GROUP_ID,
+    defaultGroup: '',
   };
 }
 
@@ -261,7 +260,7 @@ function normalizeEntryRecord(raw, projectsByName) {
   } else if (scope?.mode === 'projects') {
     groups = [];
   } else {
-    groups = [UNGROUPED_GROUP_ID];
+    groups = [];
   }
   const legacyProjects = scope?.mode === 'projects' && Array.isArray(scope.projects)
     ? scope.projects.filter((entry) => entry !== null && typeof entry === 'object' && typeof entry.path === 'string')
@@ -280,7 +279,7 @@ function normalizeState(parsed) {
     entries[name] = entry;
     for (const project of legacyProjects) {
       const key = process.platform === 'win32' ? project.path.toLowerCase() : project.path;
-      if (!migrated.has(key)) migrated.set(key, { path: project.path, label: project.label, groups: [UNGROUPED_GROUP_ID], actions: [] });
+      if (!migrated.has(key)) migrated.set(key, { path: project.path, label: project.label, groups: [], actions: [] });
       migrated.get(key).actions.push(name);
     }
   }
@@ -288,13 +287,23 @@ function normalizeState(parsed) {
     Array.isArray(parsed.projects) ? parsed.projects : [...migrated.values()],
     groups,
   );
+  const validIds = new Set(groups.map((group) => group.id));
+  for (const entry of Object.values(entries)) {
+    entry.groups = normalizeGroupIds(entry.groups).filter((id) => validIds.has(id));
+  }
   const validGroupIds = new Set(groups.map((group) => group.id));
   const requestedDefault = typeof parsed.defaultGroup === 'string' ? parsed.defaultGroup.trim().toLowerCase() : '';
-  const defaultGroup = validGroupIds.has(requestedDefault) ? requestedDefault : UNGROUPED_GROUP_ID;
+  const defaultGroup = validGroupIds.has(requestedDefault) ? requestedDefault : '';
+  const rawGroups = Array.isArray(parsed.groups) ? parsed.groups : [];
+  const rawProjects = Array.isArray(parsed.projects) ? parsed.projects : [];
+  const hadLegacyUngrouped = rawGroups.some((group) => group?.id === UNGROUPED_GROUP_ID)
+    || Object.values(sourceEntries).some((entry) => Array.isArray(entry?.groups) && entry.groups.includes(UNGROUPED_GROUP_ID))
+    || rawProjects.some((project) => Array.isArray(project?.groups) && project.groups.includes(UNGROUPED_GROUP_ID));
   const changed = parsed.format !== STATE_FORMAT
     || !Array.isArray(parsed.groups)
     || !Array.isArray(parsed.projects)
     || parsed.defaultGroup !== defaultGroup
+    || hadLegacyUngrouped
     || Object.values(sourceEntries).some((entry) => entry !== null && typeof entry === 'object' && 'scope' in entry);
   return { state: { format: STATE_FORMAT, groups, entries, projects: profiles, defaultGroup }, changed };
 }
@@ -344,7 +353,7 @@ function defaultEntry() {
     argsHint: '',
     pinned: false,
     usage: { count: 0, lastAt: 0 },
-    groups: [UNGROUPED_GROUP_ID],
+    groups: [],
     createdAt: 0,
     updatedAt: 0,
   };
@@ -647,7 +656,6 @@ export function createStore(options = {}) {
       return serialize(async () => {
         const display = normalizeGroupName(name);
         if (display === '') throw new Error('分组名不能为空');
-        if (id === UNGROUPED_GROUP_ID) throw new Error('未分组不能重命名');
         const state = await readState();
         state.groups = normalizeGroups(state.groups);
         const group = state.groups.find((entry) => entry.id === id);
@@ -671,11 +679,10 @@ export function createStore(options = {}) {
     },
     async deleteGroup(id) {
       return serialize(async () => {
-        if (id === UNGROUPED_GROUP_ID) throw new Error('未分组不能删除');
         const state = await readState();
         state.groups = normalizeGroups(state.groups);
         if (!state.groups.some((group) => group.id === id)) throw new Error('分组不存在');
-        if (state.defaultGroup === id) throw new Error('默认分组不能删除，请先设置其它默认分组');
+        if (state.defaultGroup === id) state.defaultGroup = '';
         state.groups = state.groups.filter((group) => group.id !== id);
         state.groups = state.groups.map((group) => ({
           ...group,

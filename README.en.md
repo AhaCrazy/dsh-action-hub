@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.0.1-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -77,16 +77,16 @@ Imported skills start as **Command**. Switch to **Skill** from the Action row's 
 
 ## Groups and project scopes
 
-- An Action may belong to several groups (for example Ungrouped, Common, AgilityDog, Drama);
+- An Action may belong to several groups (for example Common, AgilityDog, Drama);
 - The group dialog can tick the Actions in that group directly, without editing each Action;
 - Groups can include other groups (for example Art includes Figma) and inherit all their Actions; cycles resolve to one merged set;
 - A project selects groups and can add individual Actions;
-- New Actions start in **Ungrouped**; right-click any group to make it the new-workspace default group;
-- A new or unconfigured project defaults to that new-workspace default group (initially **Ungrouped**);
+- New Actions start in no group and must be added manually; right-click any group to make it the new-workspace default group;
+- A new or unconfigured project defaults to the configured new-workspace default group; with none configured, no groups are available;
 - The palette detects the current project and dims Actions unavailable there;
 - A session opened in a project sub-directory matches the nearest registered project root;
 - The provider, Command injection, and palette share one availability check;
-- Unknown projects or corrupt state fall back to the current new-workspace default group; Actions from other groups stay unavailable.
+- Unknown projects or corrupt state fall back to the configured new-workspace default group; with none configured, only built-in Actions are available.
 
 ## Development
 

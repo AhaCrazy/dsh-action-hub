@@ -206,7 +206,7 @@
           body.push(h(GroupDialog, {
             key: 'groups',
             groups: snapshot.groups ?? [],
-            defaultGroup: snapshot.defaultGroup ?? 'ungrouped',
+            defaultGroup: snapshot.defaultGroup ?? '',
             actions,
             t,
             onChanged: () => hub.refresh(true),
@@ -219,7 +219,7 @@
             projects: snapshot.projects ?? [],
             projectScopes: snapshot.projectScopes ?? [],
             groups: snapshot.groups ?? [],
-            defaultGroup: snapshot.defaultGroup ?? 'ungrouped',
+            defaultGroup: snapshot.defaultGroup ?? '',
             actions,
             currentProject: snapshot.currentProject ?? null,
             t,

@@ -29,8 +29,10 @@ function fakeContext(options = {}) {
 test('provider exposes only Skill-mode entries', async () => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-provider-'));
   const store = createStore({ dataDir });
-  await store.create({ name: 'visible-skill', description: 'visible', prompt: 'body', mode: 'skill' });
-  await store.create({ name: 'hidden-command', description: 'hidden', prompt: 'body', mode: 'command' });
+  const group = await store.createGroup('Default');
+  await store.create({ name: 'visible-skill', description: 'visible', prompt: 'body', mode: 'skill', groups: [group.id] });
+  await store.create({ name: 'hidden-command', description: 'hidden', prompt: 'body', mode: 'command', groups: [group.id] });
+  await store.setProjectScope(dataDir, { label: 'default', groups: [group.id], actions: [] });
   const { ctx, provider } = fakeContext();
   installSkillsProvider(ctx, store);
   const listed = await provider().list({ cwd: dataDir });

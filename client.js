@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.0.0';
+    const VERSION = '8.0.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -1112,7 +1112,7 @@ window.__ModuleLoader__.load({
         projects: [],
         projectScopes: [],
         groups: [],
-        defaultGroup: 'ungrouped',
+        defaultGroup: '',
         currentProject: null,
         currentProfile: null,
         meta: {},
@@ -1139,7 +1139,7 @@ window.__ModuleLoader__.load({
               projects: data.projects ?? [],
               projectScopes: data.projectScopes ?? [],
               groups: data.groups ?? [],
-              defaultGroup: data.defaultGroup ?? 'ungrouped',
+              defaultGroup: data.defaultGroup ?? '',
               currentProject: data.currentProject ?? null,
               currentProfile: data.currentProfile ?? null,
               meta: data.meta ?? {},
@@ -2485,7 +2485,7 @@ window.__ModuleLoader__.load({
           body.push(h(GroupDialog, {
             key: 'groups',
             groups: snapshot.groups ?? [],
-            defaultGroup: snapshot.defaultGroup ?? 'ungrouped',
+            defaultGroup: snapshot.defaultGroup ?? '',
             actions,
             t,
             onChanged: () => hub.refresh(true),
@@ -2498,7 +2498,7 @@ window.__ModuleLoader__.load({
             projects: snapshot.projects ?? [],
             projectScopes: snapshot.projectScopes ?? [],
             groups: snapshot.groups ?? [],
-            defaultGroup: snapshot.defaultGroup ?? 'ungrouped',
+            defaultGroup: snapshot.defaultGroup ?? '',
             actions,
             currentProject: snapshot.currentProject ?? null,
             t,
@@ -2614,7 +2614,7 @@ window.__ModuleLoader__.load({
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
-      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : '';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const [name, setName] = React.useState('');
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
@@ -2799,9 +2799,7 @@ window.__ModuleLoader__.load({
         const renaming = renamingId === group.id;
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
-          group.builtin
-            ? (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null)
-            : (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null));
+          defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null);
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
             h('input', {
@@ -2825,7 +2823,6 @@ window.__ModuleLoader__.load({
           onClick: () => { if (!renaming) setSelectedId(group.id); },
           onContextMenu: (event) => {
             event.preventDefault();
-            if (group.builtin && defaultGroup === group.id) return;
             setSelectedId(group.id);
             setMenu({
               id: group.id,
@@ -2937,22 +2934,20 @@ window.__ModuleLoader__.load({
           onClick: () => { setMenu(null); void setAsDefault(menuGroup); },
         }, t('groups.setDefault')));
       }
-      if (menuGroup !== null && menuGroup.builtin !== true) {
+      if (menuGroup !== null) {
         menuItems.push(h('button', {
           key: 'rename',
           type: 'button',
           className: 'ah-group-context-item',
           onClick: () => { setMenu(null); startRename(menuGroup); },
         }, t('groups.rename')));
-        if (defaultGroup !== menuGroup.id) {
-          menuItems.push(h('button', {
-            key: 'delete',
-            type: 'button',
-            className: 'ah-group-context-item',
-            'data-danger': 'true',
-            onClick: () => { setMenu(null); void removeGroup(menuGroup); },
-          }, t('groups.delete')));
-        }
+        menuItems.push(h('button', {
+          key: 'delete',
+          type: 'button',
+          className: 'ah-group-context-item',
+          'data-danger': 'true',
+          onClick: () => { setMenu(null); void removeGroup(menuGroup); },
+        }, t('groups.delete')));
       }
       const contextMenu = menuGroup === null ? null : h('div', {
         className: 'ah-group-context',
@@ -3003,7 +2998,7 @@ window.__ModuleLoader__.load({
       const projects = Array.isArray(props.projects) ? props.projects : [];
       const scopes = Array.isArray(props.projectScopes) ? props.projectScopes : [];
       const groups = Array.isArray(props.groups) ? props.groups : [];
-      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : '';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const currentProject = props.currentProject ?? null;
       const initialPath = currentProject?.path ?? scopes[0]?.path ?? projects[0]?.path ?? '';
@@ -3017,12 +3012,12 @@ window.__ModuleLoader__.load({
       const normalizeProfile = (raw, path) => ({
         path,
         label: typeof raw?.label === 'string' ? raw.label : '',
-        groups: Array.isArray(raw?.groups) ? raw.groups : [defaultGroup],
+        groups: Array.isArray(raw?.groups) ? raw.groups : (defaultGroup === '' ? [] : [defaultGroup]),
         actions: Array.isArray(raw?.actions) ? raw.actions : [],
       });
       const originalFor = (path) => {
         const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
-        return normalizeProfile(found ?? { path, label: '', groups: [defaultGroup], actions: [] }, path);
+        return normalizeProfile(found ?? { path, label: '', groups: defaultGroup === '' ? [] : [defaultGroup], actions: [] }, path);
       };
       const draftFor = (path) => drafts[keyOf(path)] ?? originalFor(path);
       const profile = draftFor(projectPath);

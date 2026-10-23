@@ -1,5 +1,14 @@
 # Changelog
 
+## 8.0.1 — 2026-10-23
+
+- Removed the automatic **未分组 / Ungrouped** group entirely. Initial state now
+  has no groups; the user creates their own.
+- New Actions start with no group membership. The optional “new-workspace
+  default group” remains configurable, but is unset until the user selects one.
+- Migration drops the old automated Ungrouped group and clears its references
+  from Actions, group includes, and project profiles.
+
 ## 8.0.0 — 2026-10-23
 
 - Replaced the built-in **Common** group with **未分组 / Ungrouped**. Existing

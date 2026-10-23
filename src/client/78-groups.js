@@ -17,7 +17,7 @@
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
-      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : '';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const [name, setName] = React.useState('');
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
@@ -202,9 +202,7 @@
         const renaming = renamingId === group.id;
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
-          group.builtin
-            ? (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null)
-            : (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null));
+          defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null);
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
             h('input', {
@@ -228,7 +226,6 @@
           onClick: () => { if (!renaming) setSelectedId(group.id); },
           onContextMenu: (event) => {
             event.preventDefault();
-            if (group.builtin && defaultGroup === group.id) return;
             setSelectedId(group.id);
             setMenu({
               id: group.id,
@@ -340,22 +337,20 @@
           onClick: () => { setMenu(null); void setAsDefault(menuGroup); },
         }, t('groups.setDefault')));
       }
-      if (menuGroup !== null && menuGroup.builtin !== true) {
+      if (menuGroup !== null) {
         menuItems.push(h('button', {
           key: 'rename',
           type: 'button',
           className: 'ah-group-context-item',
           onClick: () => { setMenu(null); startRename(menuGroup); },
         }, t('groups.rename')));
-        if (defaultGroup !== menuGroup.id) {
-          menuItems.push(h('button', {
-            key: 'delete',
-            type: 'button',
-            className: 'ah-group-context-item',
-            'data-danger': 'true',
-            onClick: () => { setMenu(null); void removeGroup(menuGroup); },
-          }, t('groups.delete')));
-        }
+        menuItems.push(h('button', {
+          key: 'delete',
+          type: 'button',
+          className: 'ah-group-context-item',
+          'data-danger': 'true',
+          onClick: () => { setMenu(null); void removeGroup(menuGroup); },
+        }, t('groups.delete')));
       }
       const contextMenu = menuGroup === null ? null : h('div', {
         className: 'ah-group-context',
@@ -406,7 +401,7 @@
       const projects = Array.isArray(props.projects) ? props.projects : [];
       const scopes = Array.isArray(props.projectScopes) ? props.projectScopes : [];
       const groups = Array.isArray(props.groups) ? props.groups : [];
-      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : '';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const currentProject = props.currentProject ?? null;
       const initialPath = currentProject?.path ?? scopes[0]?.path ?? projects[0]?.path ?? '';
@@ -420,12 +415,12 @@
       const normalizeProfile = (raw, path) => ({
         path,
         label: typeof raw?.label === 'string' ? raw.label : '',
-        groups: Array.isArray(raw?.groups) ? raw.groups : [defaultGroup],
+        groups: Array.isArray(raw?.groups) ? raw.groups : (defaultGroup === '' ? [] : [defaultGroup]),
         actions: Array.isArray(raw?.actions) ? raw.actions : [],
       });
       const originalFor = (path) => {
         const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
-        return normalizeProfile(found ?? { path, label: '', groups: [defaultGroup], actions: [] }, path);
+        return normalizeProfile(found ?? { path, label: '', groups: defaultGroup === '' ? [] : [defaultGroup], actions: [] }, path);
       };
       const draftFor = (path) => drafts[keyOf(path)] ?? originalFor(path);
       const profile = draftFor(projectPath);
