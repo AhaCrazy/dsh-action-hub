@@ -34,7 +34,8 @@ function decorateBuiltin(action, entry) {
 }
 
 export async function readAll(store) {
-  const [state, builtins] = await Promise.all([store.read(), getBuiltins()]);
+  const builtins = await getBuiltins();
+  const state = await store.read({ keep: builtins.map((action) => action.id), prune: true });
   const ids = new Set(builtins.map((action) => action.id));
   return {
     state,

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -87,4 +87,14 @@ test('normalizeScope drops invalid projects and defaults to all', () => {
   const scoped = normalizeScope({ mode: 'projects', projects: [{ path: 'C:/a' }, { path: '' }, null] });
   assert.equal(scoped.projects.length, 1);
   assert.equal(scoped.projects[0].label, 'a');
+});
+
+test('drops state entries when a skill is deleted outside the plugin', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  await store.create({ name: 'orphan', description: 'Orphan', prompt: 'Body.' });
+  assert.deepEqual(Object.keys((await store.readState()).entries), ['orphan']);
+  await fs.rm(path.join(dataDir, 'library', 'orphan'), { recursive: true, force: true });
+  await store.read({ prune: true });
+  assert.deepEqual(Object.keys((await store.readState()).entries), []);
 });

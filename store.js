@@ -289,11 +289,29 @@ export function createStore(options = {}) {
     return { skills, invalid };
   }
 
-  async function mergeSkills() {
+  async function mergeSkills(keepNames = [], prune = false) {
     const state = await readState();
     const { skills, invalid } = await readLibrary();
     const actions = [];
     for (const skill of skills) actions.push(toAction(skill, mergeEntry(state, skill.name), await listResources(skill.dir)));
+    // Reconcile state with the actual library: a skill deleted outside the
+    // plugin must not leave a permanent orphan entry behind. Keep entries that
+    // the caller owns (built-ins) and entries whose directory still exists but
+    // is temporarily invalid, so a malformed SKILL.md can be repaired.
+    const keep = new Set([
+      ...keepNames,
+      ...skills.map((skill) => skill.name),
+      ...invalid.map((entry) => entry.name).filter((name) => typeof name === 'string' && name !== ''),
+    ]);
+    let dirty = false;
+    if (prune) {
+      for (const name of Object.keys(state.entries)) {
+        if (keep.has(name)) continue;
+        delete state.entries[name];
+        dirty = true;
+      }
+    }
+    if (dirty) await writeStateFile(dataDir, state);
     return { state, actions, invalid };
   }
 
@@ -301,8 +319,9 @@ export function createStore(options = {}) {
     dataDir,
     filePath: () => statePath(dataDir),
     libraryDir: () => path.join(dataDir, LIBRARY_DIR),
-    async read() {
-      const { state, actions, invalid } = await mergeSkills();
+    async read(options = {}) {
+      const keep = Array.isArray(options?.keep) ? options.keep : [];
+      const { state, actions, invalid } = await mergeSkills(keep, options?.prune === true);
       return { version: STORE_VERSION, actions, state, invalid };
     },
     async readState() {
