@@ -1,5 +1,6 @@
 import { readSkillDir } from '../skill-doc.js';
 import { scopeAllows, resolveProjectRoot } from './scope.js';
+import { listProjects } from './projects.js';
 import { readAll } from './state.js';
 
 const PROVIDER = 'action-hub';
@@ -45,7 +46,7 @@ export function installSkillsProvider(ctx, store) {
       name: PROVIDER,
       async list(options = {}) {
         const { actions } = await readAll(store);
-        const root = await resolveProjectRoot(options.cwd);
+        const root = await resolveProjectRoot(options.cwd, await listProjects(ctx));
         const candidates = [];
         for (const action of actions) {
           if (action.mode !== 'skill') continue;
@@ -69,7 +70,7 @@ export function installSkillsProvider(ctx, store) {
       async get(target, options = {}) {
         if (target === null || typeof target !== 'object' || typeof target.name !== 'string') return undefined;
         const { actions } = await readAll(store);
-        const root = await resolveProjectRoot(options.cwd);
+        const root = await resolveProjectRoot(options.cwd, await listProjects(ctx));
         const action = actions.find((entry) => entry.name === target.name && entry.mode === 'skill');
         if (action === undefined || !scopeAllows(action.scope, root)) return undefined;
         const skill = await readSkillDir(action.dir);

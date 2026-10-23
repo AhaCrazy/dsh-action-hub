@@ -7,7 +7,7 @@ import test from 'node:test';
 import { createStore } from '../store.js';
 import { installSkillsProvider } from '../host/skills-provider.js';
 
-function fakeContext() {
+function fakeContext(options = {}) {
   let provider;
   const skills = {
     registerProvider(make) {
@@ -15,9 +15,10 @@ function fakeContext() {
       return () => {};
     },
   };
+  const workspaceRegistry = options.workspaces === undefined ? undefined : { list: () => options.workspaces };
   const ctx = {
     skills,
-    get: (name) => (name === 'skills' ? skills : undefined),
+    get: (name) => (name === 'skills' ? skills : name === 'workspaceRegistry' ? workspaceRegistry : undefined),
     inject: (deps, cb) => cb({ skills, effect: (fn) => fn() }),
     effect: (fn) => fn(),
     logger: { warn() {} },
@@ -58,3 +59,22 @@ test('provider hides project-scoped entries outside the project', async () => {
   assert.equal((await provider().list({ cwd: dataDir })).candidates.length, 0);
   assert.equal((await provider().list({ cwd: other })).candidates.length, 1);
 });
+
+test('provider matches a registered project ancestor when the session cwd is nested', async () => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-provider-'));
+  const project = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-project-'));
+  const nested = path.join(project, 'src', 'app');
+  await fs.mkdir(nested, { recursive: true });
+  const store = createStore({ dataDir });
+  await store.create({
+    name: 'ancestor-skill',
+    description: 'ancestor',
+    prompt: 'body',
+    mode: 'skill',
+    scope: { mode: 'projects', projects: [{ label: 'project', path: project }] },
+  });
+  const { ctx, provider } = fakeContext({ workspaces: [{ title: 'project', path: project }] });
+  installSkillsProvider(ctx, store);
+  assert.equal((await provider().list({ cwd: nested })).candidates.length, 1);
+});
+

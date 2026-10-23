@@ -13,7 +13,8 @@ import { actionInvocationMessage, planActionRefs, referencedActions } from './ho
 export { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
 import { actionResourceDir, getBuiltins, isBuiltinId, readAll } from './host/state.js';
 import { installSkillsProvider, notifySkillCatalog } from './host/skills-provider.js';
-import { listProjects } from './host/projects.js';
+import { listProjects, findCurrentProject } from './host/projects.js';
+import { resolveProjectRoot, scopeAllows } from './host/scope.js';
 import {
   applyFolderPlan,
   applyZipPlan,
@@ -66,11 +67,15 @@ async function handle(ctx, store, dataDir, req, res) {
     if (method === 'GET' && route === '/state') {
       const { state, actions, invalid } = await readAll(store);
       const plan = planActionRefs(actions);
+      const projects = await listProjects(ctx);
+      const currentProject = await findCurrentProject(ctx, projects);
+      const currentRoot = currentProject === null ? null : await resolveProjectRoot(currentProject.path, projects);
       sendJson(res, 200, {
         ok: true,
         version: state.version,
-        actions: sortActions(actions),
-        projects: await listProjects(ctx),
+        actions: sortActions(actions).map((action) => ({ ...action, available: scopeAllows(action.scope, currentRoot) })),
+        projects,
+        currentProject,
         invalid,
         meta: {
           dataFile: store.filePath(),

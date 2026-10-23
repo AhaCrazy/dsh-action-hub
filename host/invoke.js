@@ -1,4 +1,4 @@
-﻿/**
+/**
  * User-invoked Command expansion for referenced chips.
  *
  * @module dsh-action-hub/host/invoke
@@ -7,6 +7,7 @@ import { readInvocationResources } from '../resources.js';
 import { planActionRefs, referencedActions, actionInvocationMessage } from './refs.js';
 import { actionResourceDir, readAll } from './state.js';
 import { resolveProjectRoot, scopeAllows } from './scope.js';
+import { listProjects } from './projects.js';
 
 function describe(error) {
   return error instanceof Error ? error.message : String(error);
@@ -44,7 +45,7 @@ export function installActionInvocations(ctx, store) {
     const markers = referencedActions(messages, new Set(byHandle.keys()));
     if (markers.length === 0) return decision;
     const cwd = await workingCwd(ctx, agent, signal);
-    const root = await resolveProjectRoot(cwd);
+    const root = await resolveProjectRoot(cwd, await listProjects(ctx));
     const injections = [];
     const notices = new Map();
     for (const marker of markers) {

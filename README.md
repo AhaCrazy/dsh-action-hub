@@ -2,10 +2,12 @@
 
 **DSH 的标准 Agent Skill 库：同一份 `SKILL.md`，可以当模型可调用的 Skill，也可以只当你能调用的 Command。**
 
+本文把 **Skill** 和 **Command** 统称为 **Action**。可用范围只影响 Action 在哪个项目中可见、可调用，不写进 `SKILL.md`。
+
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.0.5-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-6.1.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -77,6 +79,9 @@ description: 一句话说明何时使用
 
 - 范围只做全局 + 项目级；
 - 项目来源是 DSH 已登记工作区，不手输路径；
+- 面板会识别当前项目，并提供“仅当前项目”快捷选项；
+- 当前不可用的 Action 会在面板中标灰并拒绝插入；
+- 会话 cwd 在项目子目录时，按最近的已登记项目根匹配，不再误判为未知项目；
 - 范围在 provider 和 Command 注入点各校验一次；
 - 未知项目/scope 损坏时默认不可用（fail-closed）。
 

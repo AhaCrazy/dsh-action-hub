@@ -57,6 +57,25 @@
         }
       };
 
+      const currentProject = props.currentProject ?? null;
+      const keyOf = (value) => String(value ?? '').toLowerCase();
+      const registered = Array.isArray(props.projects) ? props.projects : [];
+      const scopeProjects = registered.map((project) => ({ ...project, stale: false }));
+      for (const entry of form.scope.mode === 'projects' ? form.scope.projects : []) {
+        if (!scopeProjects.some((project) => keyOf(project.path) === keyOf(entry.path))) {
+          scopeProjects.push({ label: entry.label, path: entry.path, stale: true });
+        }
+      }
+      const toggleProject = (project, checked) => {
+        setForm((previous) => {
+          const remaining = previous.scope.projects.filter((entry) => keyOf(entry.path) !== keyOf(project.path));
+          return {
+            ...previous,
+            scope: { mode: 'projects', projects: checked ? [...remaining, { label: project.label, path: project.path }] : remaining },
+          };
+        });
+      };
+
       return h(Modal, {
         title: initial === null ? t('editor.createTitle') : t('editor.editTitle'),
         t,
@@ -114,22 +133,28 @@
             onChange: (event) => setForm((previous) => ({ ...previous, scope: event.target.checked ? { mode: 'all', projects: [] } : { mode: 'projects', projects: [] } })),
           }),
           ` ${t('editor.scopeAll')}`),
-        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, (props.projects ?? []).map((project) => {
-          const checked = form.scope.projects.some((entry) => entry.path === project.path);
-          return h('label', { key: project.path, className: 'ah-scope-option' },
+        currentProject === null ? null : h('button', {
+          type: 'button',
+          className: 'ah-chip',
+          onClick: () => setForm((previous) => ({
+            ...previous,
+            scope: { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] },
+          })),
+        }, t('editor.scopeCurrent', { name: currentProject.label })),
+        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, scopeProjects.map((project) => {
+          const checked = form.scope.projects.some((entry) => keyOf(entry.path) === keyOf(project.path));
+          return h('label', { key: project.path, className: project.stale ? 'ah-scope-option ah-scope-stale' : 'ah-scope-option' },
             h('input', {
               type: 'checkbox',
               checked,
-              onChange: (event) => setForm((previous) => {
-                const projects = event.target.checked
-                  ? [...previous.scope.projects, { label: project.label, path: project.path }]
-                  : previous.scope.projects.filter((entry) => entry.path !== project.path);
-                return { ...previous, scope: { mode: 'projects', projects } };
-              }),
+              onChange: (event) => toggleProject(project, event.target.checked),
             }),
-            ` ${project.label}`);
+            ` ${project.label}`,
+            project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null,
+            currentProject !== null && keyOf(project.path) === keyOf(currentProject.path) ? h('span', { className: 'ah-badge ah-badge-accent' }, t('editor.scopeCurrentBadge')) : null);
         })) : null,
-        h('span', { className: 'ah-hint' }, t('editor.scopeHint'))),
+        form.scope.mode === 'projects' && form.scope.projects.length === 0 ? h('span', { className: 'ah-hint ah-hint-warn' }, t('editor.scopeEmpty')) : null,
+        h('span', { className: 'ah-hint' }, currentProject === null ? t('editor.scopeNoCurrent') : t('editor.scopeHint'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),

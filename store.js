@@ -90,11 +90,20 @@ export function normalizeScope(scope) {
   if (scope === null || typeof scope !== 'object') return defaultScope();
   const mode = scope.mode === 'projects' ? 'projects' : 'all';
   if (mode === 'all') return defaultScope();
-  const projects = Array.isArray(scope.projects)
-    ? scope.projects
-      .filter((entry) => entry !== null && typeof entry === 'object' && typeof entry.path === 'string' && entry.path !== '')
-      .map((entry) => ({ label: typeof entry.label === 'string' ? entry.label : path.basename(entry.path), path: entry.path }))
-    : [];
+  const projects = [];
+  const seen = new Set();
+  for (const entry of Array.isArray(scope.projects) ? scope.projects : []) {
+    if (entry === null || typeof entry !== 'object' || typeof entry.path !== 'string') continue;
+    const raw = entry.path.trim();
+    if (raw === '') continue;
+    const key = process.platform === 'win32' ? raw.toLowerCase() : raw;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    projects.push({
+      label: typeof entry.label === 'string' && entry.label.trim() !== '' ? entry.label.trim() : path.basename(raw) || raw,
+      path: raw.replace(/[\\/]+$/u, '') || raw,
+    });
+  }
   return { mode, projects };
 }
 

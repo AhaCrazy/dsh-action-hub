@@ -23,10 +23,11 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '6.0.5';
+    const VERSION = '6.1.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
+
 
 
 
@@ -164,6 +165,10 @@ window.__ModuleLoader__.load({
       .ah-result { appearance: none; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 9px; text-align: left; font: inherit; cursor: pointer; }
       .ah-result:hover { background: var(--dsw-alias-bg-layer-2); }
       .ah-result[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-result[data-unavailable="true"] { opacity: 0.52; }
+      .ah-result[data-unavailable="true"]:hover { opacity: 0.7; }
+      .ah-scope-stale { opacity: 0.65; }
+      .ah-hint-warn { color: var(--dsw-alias-state-warn-primary); }
       .ah-result-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
       .ah-result-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .ah-result-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -300,6 +305,11 @@ window.__ModuleLoader__.load({
         'editor.modeSkillHint': '会注册给模型；确认成本后再启用。',
         'editor.scope': '可用范围',
         'editor.scopeAll': '所有项目',
+        'editor.scopeCurrent': '仅当前项目（{name}）',
+        'editor.scopeCurrentBadge': '当前项目',
+        'editor.scopeStale': '项目已失效',
+        'editor.scopeEmpty': '没有选择任何项目，这个 Action 将不可用。',
+        'editor.scopeNoCurrent': '当前无法确定项目；项目范围默认不可用。',
         'editor.scopeHint': '取消“所有项目”后，只勾选的项目能调用；未知项目默认不可用。',
         'editor.required': '请填写名称与正文。',
         'delete.title': '删除这个 Action？',
@@ -358,7 +368,13 @@ window.__ModuleLoader__.load({
         'palette.scope': '可用范围',
         'palette.scopeAll': '所有项目',
         'palette.scopeCustom': '多个项目',
+        'palette.scopeCurrent': '仅当前项目：{name}',
         'palette.scopeSaved': '范围已更新',
+        'palette.scopeUnavailable': '当前不可用',
+        'palette.unavailable': '当前项目不可用此 Action',
+        'palette.unavailableHint': '这个 Action 不在当前项目的可用范围内；可切换范围或到管理页调整。',
+        'palette.currentProject': '当前项目：{name}',
+        'palette.noCurrentProject': '未识别当前项目',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
         'palette.refInserted': '已插入引用',
         'palette.resourceCount': '{count} 个资源',
@@ -485,6 +501,11 @@ window.__ModuleLoader__.load({
         'editor.modeSkillHint': 'Registered for the model; enable after the cost confirmation.',
         'editor.scope': 'Availability',
         'editor.scopeAll': 'All projects',
+        'editor.scopeCurrent': 'Current project only ({name})',
+        'editor.scopeCurrentBadge': 'Current',
+        'editor.scopeStale': 'Missing',
+        'editor.scopeEmpty': 'No project is selected, so this Action is unavailable.',
+        'editor.scopeNoCurrent': 'The current project cannot be determined; project scope fails closed.',
         'editor.scopeHint': 'Uncheck to limit to selected projects; unknown projects never match.',
         'editor.required': 'A name and a body are required.',
         'delete.title': 'Delete this Action?',
@@ -543,7 +564,13 @@ window.__ModuleLoader__.load({
         'palette.scope': 'Availability',
         'palette.scopeAll': 'All projects',
         'palette.scopeCustom': 'Multiple projects',
+        'palette.scopeCurrent': 'Current project only: {name}',
         'palette.scopeSaved': 'Availability updated',
+        'palette.scopeUnavailable': 'Unavailable',
+        'palette.unavailable': 'This Action is unavailable in the current project',
+        'palette.unavailableHint': 'This Action is outside the current project scope; change its availability or edit it in the library.',
+        'palette.currentProject': 'Current project: {name}',
+        'palette.noCurrentProject': 'Current project unknown',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
         'palette.refInserted': 'Reference inserted',
         'palette.resourceCount': '{count} resource(s)',
@@ -1725,6 +1752,25 @@ window.__ModuleLoader__.load({
         }
       };
 
+      const currentProject = props.currentProject ?? null;
+      const keyOf = (value) => String(value ?? '').toLowerCase();
+      const registered = Array.isArray(props.projects) ? props.projects : [];
+      const scopeProjects = registered.map((project) => ({ ...project, stale: false }));
+      for (const entry of form.scope.mode === 'projects' ? form.scope.projects : []) {
+        if (!scopeProjects.some((project) => keyOf(project.path) === keyOf(entry.path))) {
+          scopeProjects.push({ label: entry.label, path: entry.path, stale: true });
+        }
+      }
+      const toggleProject = (project, checked) => {
+        setForm((previous) => {
+          const remaining = previous.scope.projects.filter((entry) => keyOf(entry.path) !== keyOf(project.path));
+          return {
+            ...previous,
+            scope: { mode: 'projects', projects: checked ? [...remaining, { label: project.label, path: project.path }] : remaining },
+          };
+        });
+      };
+
       return h(Modal, {
         title: initial === null ? t('editor.createTitle') : t('editor.editTitle'),
         t,
@@ -1782,22 +1828,28 @@ window.__ModuleLoader__.load({
             onChange: (event) => setForm((previous) => ({ ...previous, scope: event.target.checked ? { mode: 'all', projects: [] } : { mode: 'projects', projects: [] } })),
           }),
           ` ${t('editor.scopeAll')}`),
-        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, (props.projects ?? []).map((project) => {
-          const checked = form.scope.projects.some((entry) => entry.path === project.path);
-          return h('label', { key: project.path, className: 'ah-scope-option' },
+        currentProject === null ? null : h('button', {
+          type: 'button',
+          className: 'ah-chip',
+          onClick: () => setForm((previous) => ({
+            ...previous,
+            scope: { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] },
+          })),
+        }, t('editor.scopeCurrent', { name: currentProject.label })),
+        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, scopeProjects.map((project) => {
+          const checked = form.scope.projects.some((entry) => keyOf(entry.path) === keyOf(project.path));
+          return h('label', { key: project.path, className: project.stale ? 'ah-scope-option ah-scope-stale' : 'ah-scope-option' },
             h('input', {
               type: 'checkbox',
               checked,
-              onChange: (event) => setForm((previous) => {
-                const projects = event.target.checked
-                  ? [...previous.scope.projects, { label: project.label, path: project.path }]
-                  : previous.scope.projects.filter((entry) => entry.path !== project.path);
-                return { ...previous, scope: { mode: 'projects', projects } };
-              }),
+              onChange: (event) => toggleProject(project, event.target.checked),
             }),
-            ` ${project.label}`);
+            ` ${project.label}`,
+            project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null,
+            currentProject !== null && keyOf(project.path) === keyOf(currentProject.path) ? h('span', { className: 'ah-badge ah-badge-accent' }, t('editor.scopeCurrentBadge')) : null);
         })) : null,
-        h('span', { className: 'ah-hint' }, t('editor.scopeHint'))),
+        form.scope.mode === 'projects' && form.scope.projects.length === 0 ? h('span', { className: 'ah-hint ah-hint-warn' }, t('editor.scopeEmpty')) : null,
+        h('span', { className: 'ah-hint' }, currentProject === null ? t('editor.scopeNoCurrent') : t('editor.scopeHint'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),
@@ -2252,6 +2304,7 @@ window.__ModuleLoader__.load({
             initial: editor,
             categories: categories.map(([name]) => name),
             projects: snapshot.projects ?? [],
+            currentProject: snapshot.currentProject ?? null,
             t,
             onSave: save,
             onClose: () => setEditor(undefined),
@@ -2357,6 +2410,19 @@ window.__ModuleLoader__.load({
           [actions, state.category, state.query],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
+        const currentProject = snapshot.currentProject ?? null;
+        const selectedScopePath = selected?.scope?.mode === 'projects' && selected.scope.projects.length === 1 ? selected.scope.projects[0].path : '';
+        const scopePathKnown = selectedScopePath === ''
+          ? true
+          : (snapshot.projects ?? []).some((project) => project.path.toLowerCase() === String(selectedScopePath).toLowerCase())
+            || (currentProject !== null && String(currentProject.path).toLowerCase() === String(selectedScopePath).toLowerCase());
+        const scopeValue = (action) => {
+          if (action === null || action.scope?.mode !== 'projects') return 'all';
+          if (action.scope.projects.length !== 1) return '__custom';
+          const only = action.scope.projects[0]?.path ?? '';
+          if (currentProject !== null && only.toLowerCase() === String(currentProject.path).toLowerCase()) return '__current';
+          return only;
+        };
 
         React.useEffect(() => {
           if (!state.open) return undefined;
@@ -2365,7 +2431,7 @@ window.__ModuleLoader__.load({
           setSelectedId(null);
           setArgs('');
           setToast({ text: '', kind: 'ok' });
-          if (hub.get().status === 'idle' || hub.get().status === 'error') void hub.refresh().catch(() => {});
+          void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
           return () => {
             clearTimeout(timer);
@@ -2463,6 +2529,10 @@ window.__ModuleLoader__.load({
         };
 
         const doInsert = (action, mode) => {
+          if (action.available === false) {
+            showToast(t('palette.unavailable'), 'error');
+            return;
+          }
           if (!canWrite) {
             showToast(t('palette.insertFailed'), 'error');
             return;
@@ -2587,7 +2657,9 @@ window.__ModuleLoader__.load({
               className: 'ah-result',
               'data-action-id': action.id,
               'data-active': action.id === selected?.id,
+              'data-unavailable': action.available === false,
               'aria-selected': action.id === selected?.id,
+              'aria-disabled': action.available === false,
               onMouseEnter: () => setSelectedId(action.id),
               onClick: () => doInsert(action, 'insert'),
             },
@@ -2595,7 +2667,8 @@ window.__ModuleLoader__.load({
               h('div', { className: 'ah-result-title' },
                 action.pinned ? h('span', { className: 'ah-result-star' }, h(Icons.star, { size: 11, filled: true })) : null,
                 h('span', { className: 'ah-result-name' }, action.name),
-                action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : null),
+                action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : null,
+                action.available === false ? h('span', { className: 'ah-badge' }, t('palette.scopeUnavailable')) : null),
               h('span', { className: 'ah-result-desc' }, action.description || (action.argsHint ? `${action.argsHint}` : action.prompt.slice(0, 80)))))));
 
         const preview = selected === null
@@ -2625,6 +2698,8 @@ window.__ModuleLoader__.load({
               (selected.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: selected.resources.length })) : null,
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
+            selected.available === false ? h('p', { className: 'ah-hint ah-hint-warn' }, t('palette.unavailableHint')) : null,
+            h('p', { className: 'ah-hint' }, `${t('editor.scope')}: ${selected.scope?.mode === 'projects' ? (selected.scope.projects.map((project) => project.label).join('、') || t('palette.scopeUnavailable')) : t('palette.scopeAll')}`),
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
             selected !== null && selected.mode === 'skill'
               ? h('p', { className: 'ah-hint' }, t('palette.skillHint', { name: selected.name }))
@@ -2649,14 +2724,20 @@ window.__ModuleLoader__.load({
             h('div', { className: 'ah-actions' },
               selected === null ? null : h('select', {
                 className: 'ah-scope-select',
-                value: selected.scope?.mode === 'projects' && selected.scope.projects.length === 1 ? selected.scope.projects[0].path : selected.scope?.mode === 'projects' ? '__custom' : 'all',
+                value: scopeValue(selected),
                 title: t('palette.scope'),
                 onChange: async (event) => {
                   const value = event.target.value;
                   if (value === '__custom') return;
-                  const scope = value === 'all'
-                    ? { mode: 'all', projects: [] }
-                    : { mode: 'projects', projects: [{ label: (snapshot.projects ?? []).find((project) => project.path === value)?.label ?? value, path: value }] };
+                  let scope;
+                  if (value === 'all') {
+                    scope = { mode: 'all', projects: [] };
+                  } else if (value === '__current' && currentProject !== null) {
+                    scope = { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] };
+                  } else {
+                    const project = (snapshot.projects ?? []).find((entry) => entry.path === value);
+                    scope = { mode: 'projects', projects: [{ label: project?.label ?? value, path: value }] };
+                  }
                   try {
                     await hub.call('/scope', { id: selected.id, scope });
                     await hub.refresh(true);
@@ -2667,12 +2748,17 @@ window.__ModuleLoader__.load({
                 },
               },
               h('option', { value: 'all' }, t('palette.scopeAll')),
-              (snapshot.projects ?? []).map((project) => h('option', { key: project.path, value: project.path }, project.label)),
+              currentProject === null ? null : h('option', { value: '__current' }, t('palette.scopeCurrent', { name: currentProject.label })),
+              selectedScopePath !== '' && !scopePathKnown
+                ? h('option', { value: selectedScopePath }, selected.scope.projects[0]?.label ?? selectedScopePath)
+                : null,
+              (snapshot.projects ?? []).filter((project) => currentProject === null || project.path.toLowerCase() !== String(currentProject.path).toLowerCase()).map((project) => h('option', { key: project.path, value: project.path }, project.label)),
               selected.scope?.mode === 'projects' && selected.scope.projects.length !== 1 ? h('option', { value: '__custom', disabled: true }, t('palette.scopeCustom')) : null),
               h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
-              h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
-              h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null }, h(Icons.send, { size: 13 }), t('palette.send')))),
+              h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
+              h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.send, { size: 13 }), t('palette.send')))),
           h('div', { className: 'ah-hints' },
+            h('span', null, currentProject === null ? t('palette.noCurrentProject') : t('palette.currentProject', { name: currentProject.label })),
             h('span', null, h(Kbd, null, '←→'), ` ${t('palette.hintTab')}`),
             h('span', null, h(Kbd, null, '↑↓'), ` ${t('palette.hintNav')}`),
             h('span', null, h(Kbd, null, 'Tab'), ' / ', h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),

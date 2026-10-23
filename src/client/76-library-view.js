@@ -175,6 +175,7 @@
             initial: editor,
             categories: categories.map(([name]) => name),
             projects: snapshot.projects ?? [],
+            currentProject: snapshot.currentProject ?? null,
             t,
             onSave: save,
             onClose: () => setEditor(undefined),

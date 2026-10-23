@@ -2,10 +2,12 @@
 
 **A standard Agent Skill library for DSH: one `SKILL.md` can be a model-invocable Skill or a user-only Command.**
 
+This README uses **Action** as the umbrella term for a Skill or a Command. Availability decides where an Action can be seen and invoked; it is never written into `SKILL.md`.
+
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.0.5-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-6.1.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -77,6 +79,9 @@ Imported skills start as **Command**. Switch to **Skill** in the editor before t
 
 - Global + project-level only;
 - Projects come from DSH-registered workspaces, never hand-typed paths;
+- The palette detects the current project and offers a “current project only” shortcut;
+- Actions unavailable in the current project are dimmed and cannot be inserted;
+- A session opened in a project sub-directory matches the nearest registered project root;
 - Scope is checked by the provider and by the Command injection point;
 - Unknown projects or corrupt scope fail closed.
 

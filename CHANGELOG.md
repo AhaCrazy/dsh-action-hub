@@ -1,5 +1,17 @@
 # Changelog
 
+## 6.1.0 — 2026-10-23
+
+- **Action as the umbrella term** for Skill and Command in the docs.
+- **Availability improvements.** The current project is detected from the
+  latest session cwd, a registered workspace ancestor wins over a nested `.git`,
+  the palette marks Actions unavailable in the current project and refuses to
+  insert them, and its scope picker gains a “current project only” choice.
+- The editor adds a current-project shortcut, labels stale or missing project
+  entries, and warns when an empty project selection makes an Action unavailable.
+- Project entries are de-duplicated when saved, and availability is returned
+  per Action by `/state`.
+
 ## 6.0.5 — 2026-10-23
 
 - **Complete the loaded skill definition.** `get()` now also returns the

@@ -36,15 +36,27 @@ async function realpathOrSelf(value) {
 }
 
 /**
- * Resolve the project root for a cwd. Only a real project root is accepted:
- * the cwd itself, a registered workspace, or the nearest `.git` ancestor.
- * A bare child directory without `.git` is unknown.
+ * Resolve the project root for a cwd. A registered workspace ancestor wins
+ * over a nested `.git` so that a session opened in a sub-directory still
+ * matches the project the user configured. Otherwise the nearest `.git`
+ * ancestor is used, falling back to the cwd itself.
  */
-export async function resolveProjectRoot(cwd) {
+export async function resolveProjectRoot(cwd, projects = []) {
   if (typeof cwd !== 'string' || cwd.trim() === '') return null;
   const real = await realpathOrSelf(cwd.trim());
   const stat = await fs.stat(real).catch(() => undefined);
   if (stat === undefined || !stat.isDirectory()) return null;
+  const realKey = canonicalPath(real);
+  let best = null;
+  for (const entry of Array.isArray(projects) ? projects : []) {
+    const candidate = canonicalPath(entry?.path);
+    if (candidate === '') continue;
+    const prefix = candidate.endsWith(path.sep) ? candidate : `${candidate}${path.sep}`;
+    if (realKey === candidate || realKey.startsWith(prefix)) {
+      if (best === null || candidate.length > canonicalPath(best).length) best = entry.path;
+    }
+  }
+  if (best !== null) return canonicalPath(best);
   let current = real;
   for (;;) {
     if (await fs.stat(path.join(current, '.git')).then(() => true).catch(() => false)) return current;

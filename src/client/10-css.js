@@ -130,6 +130,10 @@
       .ah-result { appearance: none; border: 1px solid transparent; background: transparent; color: var(--dsw-alias-label-primary); border-radius: 8px; padding: 8px 10px; display: flex; align-items: flex-start; gap: 9px; text-align: left; font: inherit; cursor: pointer; }
       .ah-result:hover { background: var(--dsw-alias-bg-layer-2); }
       .ah-result[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-result[data-unavailable="true"] { opacity: 0.52; }
+      .ah-result[data-unavailable="true"]:hover { opacity: 0.7; }
+      .ah-scope-stale { opacity: 0.65; }
+      .ah-hint-warn { color: var(--dsw-alias-state-warn-primary); }
       .ah-result-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
       .ah-result-title { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .ah-result-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,6 +1,6 @@
 {
   "name": "dsh-action-hub",
-  "version": "6.0.5",
+  "version": "6.1.0",
   "private": true,
   "type": "module",
   "description": "DeepSeek Harness plugin: a library of standard Agent Skill directories that can run as model-visible Skills or user-only Commands, with project scopes, search, and zero context for Commands.",
@@ -37,7 +37,7 @@
     "dev": "node scripts/watch-client.mjs",
     "pretest": "npm run build",
     "prepack": "npm run build",
-    "test": "node tests/store.test.mjs && node tests/resources.test.mjs && node tests/bundle.test.mjs && node tests/builtins.test.mjs && node tests/provider.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
+    "test": "node tests/store.test.mjs && node tests/resources.test.mjs && node tests/bundle.test.mjs && node tests/builtins.test.mjs && node tests/provider.test.mjs && node tests/scope.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
   },
   "exports": {
     ".": "./index.js",
