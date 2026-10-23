@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.3.4';
+    const VERSION = '7.3.5';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -2578,9 +2578,10 @@ window.__ModuleLoader__.load({
         const names = new Set();
         if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return names;
         seen.add(groupId);
-        for (const action of actions) if ((action.groups ?? []).includes(groupId)) names.add(action.name);
         const group = groups.find((entry) => entry.id === groupId);
-        for (const child of group === undefined ? [] : draftIncludes(group)) {
+        if (group === undefined) return names;
+        for (const name of draftNames(group)) names.add(name);
+        for (const child of draftIncludes(group)) {
           for (const name of namesFor(child, seen)) names.add(name);
         }
         return names;

@@ -36,9 +36,10 @@
         const names = new Set();
         if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return names;
         seen.add(groupId);
-        for (const action of actions) if ((action.groups ?? []).includes(groupId)) names.add(action.name);
         const group = groups.find((entry) => entry.id === groupId);
-        for (const child of group === undefined ? [] : draftIncludes(group)) {
+        if (group === undefined) return names;
+        for (const name of draftNames(group)) names.add(name);
+        for (const child of draftIncludes(group)) {
           for (const name of namesFor(child, seen)) names.add(name);
         }
         return names;

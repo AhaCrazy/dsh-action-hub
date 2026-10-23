@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.3.5 — 2026-10-23
+
+- Fix the group editor reporting a just-unchecked directly assigned Action as
+  “inherited through a child group”. Effective membership now uses the current
+  draft for every group instead of stale saved membership.
+
 ## 7.3.4 — 2026-10-23
 
 - Reverted the unselected-group width shrink and removed the inline
