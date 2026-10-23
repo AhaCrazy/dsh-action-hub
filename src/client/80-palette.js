@@ -227,6 +227,9 @@
         const sortOptions = [
           ['recent', t('lib.sortRecent')],
           ['name', t('lib.sortName')],
+          ['created', t('lib.sortCreated')],
+          ['week', t('lib.sortWeek')],
+          ['month', t('lib.sortMonth')],
           ['total', t('lib.sortTotal')],
         ];
 

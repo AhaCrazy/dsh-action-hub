@@ -1,5 +1,10 @@
 # Changelog
 
+## 8.2.1 — 2026-10-23
+
+- The palette sort now offers the same modes as the library: recently used,
+  name, recently created, this week, this month, and total uses.
+
 ## 8.2.0 — 2026-10-23
 
 - The Action palette now hides Actions that are unavailable in the current

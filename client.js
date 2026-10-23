@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.2.0';
+    const VERSION = '8.2.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -3528,6 +3528,9 @@ window.__ModuleLoader__.load({
         const sortOptions = [
           ['recent', t('lib.sortRecent')],
           ['name', t('lib.sortName')],
+          ['created', t('lib.sortCreated')],
+          ['week', t('lib.sortWeek')],
+          ['month', t('lib.sortMonth')],
           ['total', t('lib.sortTotal')],
         ];
 
