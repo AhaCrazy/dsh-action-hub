@@ -1,5 +1,19 @@
     // -------------------------------------------------------- groups & scopes
 
+    function ActionCheck(props) {
+      return h(React.Fragment, null,
+        h('input', {
+          type: 'checkbox',
+          className: 'ah-action-input',
+          checked: props.checked,
+          disabled: props.disabled === true,
+          ref: (node) => { if (node !== null) node.indeterminate = props.state === 'inherited'; },
+          onChange: props.onChange,
+        }),
+        h('span', { className: 'ah-action-check', 'data-state': props.state, 'aria-hidden': true },
+          props.state === 'off' ? null : h(Icons.check, { size: 10 })));
+    }
+
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
@@ -291,17 +305,19 @@
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
             const inheritedOnly = inheritedNames.has(action.name) && !activeDirectSet.has(action.name);
+            const state = activeDirectSet.has(action.name) ? 'on' : inheritedOnly ? 'inherited' : 'off';
             const directGroups = (action.groups ?? []).map(groupLabel).filter((name) => name !== '').join('、');
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
               'data-checked': activeDirectSet.has(action.name),
+              'data-state': state,
               title: inheritedOnly ? t('groups.inheritedFrom', { groups: directGroups }) : undefined,
             },
-            h('input', {
-              type: 'checkbox',
+            h(ActionCheck, {
               checked: activeDirectSet.has(action.name),
-              disabled: inheritedOnly || busy,
+              state,
+              disabled: busy,
               onChange: () => toggle(action),
             }),
             h('span', { className: 'ah-group-action-main' },
@@ -552,15 +568,18 @@
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
             const inherited = covered(action);
+            const direct = profile.actions.includes(action.name);
+            const state = direct ? 'on' : inherited ? 'inherited' : 'off';
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
-              'data-checked': profile.actions.includes(action.name),
+              'data-checked': direct,
               'data-covered': inherited,
+              'data-state': state,
             },
-            inherited ? null : h('input', {
-              type: 'checkbox',
-              checked: profile.actions.includes(action.name),
+            h(ActionCheck, {
+              checked: direct,
+              state,
               disabled: busy,
               onChange: (event) => toggleAction(action.name, event.target.checked),
             }),

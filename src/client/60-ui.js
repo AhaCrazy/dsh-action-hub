@@ -41,6 +41,7 @@
         { d: 'M10.8 10.8 14 14' },
       ]),
       plus: iconOf([{ d: 'M8 3v10M3 8h10' }]),
+      check: iconOf([{ d: 'M3.2 8.4l3 3 6.6-6.8' }]),
       close: iconOf([{ d: 'M4 4l8 8M12 4l-8 8' }]),
       star: function StarIcon(props) {
         const size = iconSize(props, 16);

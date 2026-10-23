@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.7.1';
+    const VERSION = '7.8.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -158,10 +158,14 @@ window.__ModuleLoader__.load({
       .ah-group-tools .ah-search, .ah-field .ah-search { flex: 0 0 auto; width: 100%; }
       .ah-group-filters { display: flex; gap: 4px; }
       .ah-group-actions { overflow-y: auto; padding: 2px 8px 10px; display: flex; flex-direction: column; gap: 2px; }
-      .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+      .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; position: relative; }
       .ah-group-action:hover { background: var(--dsw-alias-bg-layer-2); }
       .ah-group-action[data-checked="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
-      .ah-group-action[data-covered="true"] { cursor: default; padding-left: 29px; }
+      .ah-action-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+      .ah-action-check { width: 14px; height: 14px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--dsw-alias-border-l2); border-radius: 4px; color: transparent; background: transparent; }
+      .ah-action-check[data-state="on"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-overlay); }
+      .ah-action-check[data-state="inherited"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); }
+      .ah-action-input:focus-visible + .ah-action-check { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
       .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
       .ah-group-action-desc { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -479,7 +483,7 @@ window.__ModuleLoader__.load({
         'groups.filterUnselected': '未选',
         'groups.noMatch': '没有匹配的 Action',
         'groups.includesTitle': '包含其他分组',
-        'groups.includesHint': '勾选后，该分组会继承子分组的全部 Action；环引用会合并为同一个可用集合。',
+        'groups.includesHint': '勾选后继承子分组的全部 Action；灰色勾表示由子分组继承，点击可切换为蓝色直接选中；环引用合并为同一集合。',
         'groups.cycleHint': '会形成环，按合集生效',
         'groups.effectiveBadge': '已间接生效',
         'groups.effectiveHint': '该分组已通过当前引用关系间接包含，无需重复勾选。',
@@ -494,7 +498,7 @@ window.__ModuleLoader__.load({
         'scope.viaGroup': '已由分组覆盖',
         'scope.projects': '项目列表',
         'scope.groupsHint': '勾选分组后，该项目的 Action 范围会自动包含子分组的 Action。',
-        'scope.extraHint': '分组已覆盖的 Action 无需重复追加；这里只处理额外单独启用的 Action。',
+        'scope.extraHint': '灰色勾表示由已选分组覆盖，点击可切换为蓝色单独选中；无需重复追加。',
         'scope.groupCount': '{count} 个分组',
         'scope.noProjects': '没有可配置的项目',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
@@ -728,7 +732,7 @@ window.__ModuleLoader__.load({
         'groups.filterUnselected': 'Unselected',
         'groups.noMatch': 'No matching Actions',
         'groups.includesTitle': 'Includes groups',
-        'groups.includesHint': 'Selected groups contribute all their Actions to this group; cycles merge into one shared set.',
+        'groups.includesHint': 'Selecting a group includes its child groups. A grey check means inherited; click it to switch to a blue direct selection. Cycles merge into one set.',
         'groups.cycleHint': 'Forms a cycle; merged set applies',
         'groups.effectiveBadge': 'Already active',
         'groups.effectiveHint': 'This group is already included indirectly through the current references.',
@@ -743,7 +747,7 @@ window.__ModuleLoader__.load({
         'scope.viaGroup': 'Covered by a group',
         'scope.projects': 'Projects',
         'scope.groupsHint': 'Selecting a group automatically includes the Actions of its child groups.',
-        'scope.extraHint': 'Actions covered by a group do not need to be added again; use this only for individual extras.',
+        'scope.extraHint': 'A grey check means the Action is covered by a selected group; click it to switch to a blue individual selection.',
         'scope.groupCount': '{count} groups',
         'scope.noProjects': 'No projects to configure',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
@@ -1694,6 +1698,7 @@ window.__ModuleLoader__.load({
         { d: 'M10.8 10.8 14 14' },
       ]),
       plus: iconOf([{ d: 'M8 3v10M3 8h10' }]),
+      check: iconOf([{ d: 'M3.2 8.4l3 3 6.6-6.8' }]),
       close: iconOf([{ d: 'M4 4l8 8M12 4l-8 8' }]),
       star: function StarIcon(props) {
         const size = iconSize(props, 16);
@@ -2635,6 +2640,20 @@ window.__ModuleLoader__.load({
 
     // -------------------------------------------------------- groups & scopes
 
+    function ActionCheck(props) {
+      return h(React.Fragment, null,
+        h('input', {
+          type: 'checkbox',
+          className: 'ah-action-input',
+          checked: props.checked,
+          disabled: props.disabled === true,
+          ref: (node) => { if (node !== null) node.indeterminate = props.state === 'inherited'; },
+          onChange: props.onChange,
+        }),
+        h('span', { className: 'ah-action-check', 'data-state': props.state, 'aria-hidden': true },
+          props.state === 'off' ? null : h(Icons.check, { size: 10 })));
+    }
+
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
@@ -2926,17 +2945,19 @@ window.__ModuleLoader__.load({
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
             const inheritedOnly = inheritedNames.has(action.name) && !activeDirectSet.has(action.name);
+            const state = activeDirectSet.has(action.name) ? 'on' : inheritedOnly ? 'inherited' : 'off';
             const directGroups = (action.groups ?? []).map(groupLabel).filter((name) => name !== '').join('、');
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
               'data-checked': activeDirectSet.has(action.name),
+              'data-state': state,
               title: inheritedOnly ? t('groups.inheritedFrom', { groups: directGroups }) : undefined,
             },
-            h('input', {
-              type: 'checkbox',
+            h(ActionCheck, {
               checked: activeDirectSet.has(action.name),
-              disabled: inheritedOnly || busy,
+              state,
+              disabled: busy,
               onChange: () => toggle(action),
             }),
             h('span', { className: 'ah-group-action-main' },
@@ -3187,15 +3208,18 @@ window.__ModuleLoader__.load({
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
             const inherited = covered(action);
+            const direct = profile.actions.includes(action.name);
+            const state = direct ? 'on' : inherited ? 'inherited' : 'off';
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
-              'data-checked': profile.actions.includes(action.name),
+              'data-checked': direct,
               'data-covered': inherited,
+              'data-state': state,
             },
-            inherited ? null : h('input', {
-              type: 'checkbox',
-              checked: profile.actions.includes(action.name),
+            h(ActionCheck, {
+              checked: direct,
+              state,
               disabled: busy,
               onChange: (event) => toggleAction(action.name, event.target.checked),
             }),

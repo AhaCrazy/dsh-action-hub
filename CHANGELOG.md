@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.8.0 — 2026-10-23
+
+- Introduced a three-state checkbox for Actions in both the group and project
+  editors: unchecked (not included), blue check (directly selected), and grey
+  check (inherited from another group). Clicking toggles the direct selection,
+  so a grey check becomes blue and a blue check falls back to grey when the
+  Action is still covered by a group.
+
 ## 7.7.1 — 2026-10-23
 
 - Removed the remaining checkbox placeholder from project Actions covered by a
