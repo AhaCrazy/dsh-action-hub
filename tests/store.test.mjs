@@ -40,12 +40,12 @@ test('updates mode/groups/pin without rewriting the skill body', async () => {
   const before = await fs.readFile(path.join(dataDir, 'library', 'demo', 'SKILL.md'), 'utf8');
   await store.setMode('demo', 'skill');
   const group = await store.createGroup('AgilityDog');
-  await store.setActionGroups('demo', ['common', group.id]);
+  await store.setActionGroups('demo', ['ungrouped', group.id]);
   const after = await fs.readFile(path.join(dataDir, 'library', 'demo', 'SKILL.md'), 'utf8');
   assert.equal(after, before);
   const action = (await store.read()).actions[0];
   assert.equal(action.mode, 'skill');
-  assert.deepEqual(action.groups, ['common', group.id]);
+  assert.deepEqual(action.groups, ['ungrouped', group.id]);
 });
 
 test('renames a skill directory and keeps the state key stable', async () => {
@@ -98,11 +98,22 @@ test('assigns a group membership from the group side', async () => {
   const group = await store.createGroup('Shared');
   await store.setGroupActions(group.id, ['one']);
   let result = await store.read();
-  assert.deepEqual(result.actions.find((action) => action.name === 'one').groups, ['common', 'shared']);
-  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['common']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'one').groups, ['ungrouped', 'shared']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['ungrouped']);
   await store.setGroupActions(group.id, ['one', 'two']);
   result = await store.read();
-  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['common', 'shared']);
+  assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['ungrouped', 'shared']);
+});
+
+test('tracks the new-workspace default group', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  const group = await store.createGroup('Default target');
+  assert.equal((await store.readState()).defaultGroup, 'ungrouped');
+  await store.setDefaultGroup(group.id);
+  assert.equal((await store.readState()).defaultGroup, group.id);
+  await store.setDefaultGroup('ungrouped');
+  assert.equal((await store.readState()).defaultGroup, 'ungrouped');
 });
 
 test('nests groups and keeps cycles as one shared pool', async () => {
@@ -129,10 +140,10 @@ test('migrates legacy per-Action scopes into groups and project profiles', async
   }));
   const store = createStore({ dataDir });
   const result = await store.read();
-  assert.equal(result.state.groups[0].id, 'common');
+  assert.equal(result.state.groups[0].id, 'ungrouped');
   assert.deepEqual(result.actions[0].groups, []);
   assert.deepEqual(result.state.projects[0].actions, ['legacy']);
-  assert.deepEqual(result.state.projects[0].groups, ['common']);
+  assert.deepEqual(result.state.projects[0].groups, ['ungrouped']);
   assert.equal((await store.readState()).format, 'dsh-action-hub/state@2');
 });
 

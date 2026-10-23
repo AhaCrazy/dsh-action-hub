@@ -1,5 +1,16 @@
 # Changelog
 
+## 8.0.0 — 2026-10-23
+
+- Replaced the built-in **Common** group with **未分组 / Ungrouped**. Existing
+  Common data migrates to an ordinary user group named Common; new Actions and
+  bundled Actions default to 未分组.
+- Unconfigured projects now default to a configurable “new-workspace default
+  group” (initially 未分组). Right-click any group and choose “Set as
+  new-workspace default” to change it.
+- 未分组 cannot be renamed or deleted; another group that is the current
+  workspace default must be replaced before it can be deleted.
+
 ## 7.10.0 — 2026-10-23
 
 - Added a “Group bar” switch in the library header. It shows or hides a left

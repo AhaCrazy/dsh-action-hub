@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-7.10.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -59,7 +59,7 @@ description: One sentence describing when to use it
 Body...
 ```
 
-Imported skills start as **Command**. Switch to **Skill** in the editor before the model can invoke them; the cost is shown first.
+Imported skills start as **Command**. Switch to **Skill** from the Action row's right-click menu before the model can invoke them; the cost is shown first.
 
 ## Data
 
@@ -77,15 +77,16 @@ Imported skills start as **Command**. Switch to **Skill** in the editor before t
 
 ## Groups and project scopes
 
-- An Action may belong to several groups (for example Common, AgilityDog, Drama);
+- An Action may belong to several groups (for example Ungrouped, Common, AgilityDog, Drama);
 - The group dialog can tick the Actions in that group directly, without editing each Action;
 - Groups can include other groups (for example Art includes Figma) and inherit all their Actions; cycles resolve to one merged set;
 - A project selects groups and can add individual Actions;
-- A new or unconfigured project defaults to the **Common** group only;
+- New Actions start in **Ungrouped**; right-click any group to make it the new-workspace default group;
+- A new or unconfigured project defaults to that new-workspace default group (initially **Ungrouped**);
 - The palette detects the current project and dims Actions unavailable there;
 - A session opened in a project sub-directory matches the nearest registered project root;
 - The provider, Command injection, and palette share one availability check;
-- Unknown projects or corrupt state fall back to Common; non-Common Actions stay unavailable.
+- Unknown projects or corrupt state fall back to the current new-workspace default group; Actions from other groups stay unavailable.
 
 ## Development
 

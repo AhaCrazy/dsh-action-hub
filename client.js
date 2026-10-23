@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.10.0';
+    const VERSION = '8.0.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -463,6 +463,8 @@ window.__ModuleLoader__.load({
         'groups.actionsTitle': '“{name}”包含的 Action',
         'groups.actionSearch': '搜索要加入分组的 Action',
         'groups.defaultBadge': '默认',
+        'groups.workspaceDefault': '工作区默认',
+        'groups.setDefault': '设为新工作区默认',
         'groups.save': '保存修改',
         'groups.unsaved': '已修改 {count} 项',
         'groups.noChanges': '没有未保存的修改',
@@ -713,6 +715,8 @@ window.__ModuleLoader__.load({
         'groups.actionsTitle': 'Actions in “{name}”',
         'groups.actionSearch': 'Search Actions to add',
         'groups.defaultBadge': 'Default',
+        'groups.workspaceDefault': 'Workspace default',
+        'groups.setDefault': 'Set as new-workspace default',
         'groups.save': 'Save changes',
         'groups.unsaved': '{count} unsaved changes',
         'groups.noChanges': 'No unsaved changes',
@@ -1108,6 +1112,7 @@ window.__ModuleLoader__.load({
         projects: [],
         projectScopes: [],
         groups: [],
+        defaultGroup: 'ungrouped',
         currentProject: null,
         currentProfile: null,
         meta: {},
@@ -1134,6 +1139,7 @@ window.__ModuleLoader__.load({
               projects: data.projects ?? [],
               projectScopes: data.projectScopes ?? [],
               groups: data.groups ?? [],
+              defaultGroup: data.defaultGroup ?? 'ungrouped',
               currentProject: data.currentProject ?? null,
               currentProfile: data.currentProfile ?? null,
               meta: data.meta ?? {},
@@ -2479,6 +2485,7 @@ window.__ModuleLoader__.load({
           body.push(h(GroupDialog, {
             key: 'groups',
             groups: snapshot.groups ?? [],
+            defaultGroup: snapshot.defaultGroup ?? 'ungrouped',
             actions,
             t,
             onChanged: () => hub.refresh(true),
@@ -2491,6 +2498,7 @@ window.__ModuleLoader__.load({
             projects: snapshot.projects ?? [],
             projectScopes: snapshot.projectScopes ?? [],
             groups: snapshot.groups ?? [],
+            defaultGroup: snapshot.defaultGroup ?? 'ungrouped',
             actions,
             currentProject: snapshot.currentProject ?? null,
             t,
@@ -2606,6 +2614,7 @@ window.__ModuleLoader__.load({
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const [name, setName] = React.useState('');
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
@@ -2779,11 +2788,20 @@ window.__ModuleLoader__.load({
         });
       };
 
+      const setAsDefault = async (group) => {
+        await run(async () => {
+          await api('/groups/default', { id: group.id });
+          setMenu(null);
+        });
+      };
+
       const groupRows = groups.map((group) => {
         const renaming = renamingId === group.id;
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
-          group.builtin ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null);
+          group.builtin
+            ? (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null)
+            : (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null));
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
             h('input', {
@@ -2807,7 +2825,7 @@ window.__ModuleLoader__.load({
           onClick: () => { if (!renaming) setSelectedId(group.id); },
           onContextMenu: (event) => {
             event.preventDefault();
-            if (group.builtin) return;
+            if (group.builtin && defaultGroup === group.id) return;
             setSelectedId(group.id);
             setMenu({
               id: group.id,
@@ -2910,22 +2928,37 @@ window.__ModuleLoader__.load({
         h('aside', { className: 'ah-group-list', 'aria-label': t('groups.title') }, groupRows),
         h('section', { className: 'ah-group-detail' }, detail));
       const menuGroup = menu === null ? null : groups.find((group) => group.id === menu.id) ?? null;
+      const menuItems = [];
+      if (menuGroup !== null && defaultGroup !== menuGroup.id) {
+        menuItems.push(h('button', {
+          key: 'default',
+          type: 'button',
+          className: 'ah-group-context-item',
+          onClick: () => { setMenu(null); void setAsDefault(menuGroup); },
+        }, t('groups.setDefault')));
+      }
+      if (menuGroup !== null && menuGroup.builtin !== true) {
+        menuItems.push(h('button', {
+          key: 'rename',
+          type: 'button',
+          className: 'ah-group-context-item',
+          onClick: () => { setMenu(null); startRename(menuGroup); },
+        }, t('groups.rename')));
+        if (defaultGroup !== menuGroup.id) {
+          menuItems.push(h('button', {
+            key: 'delete',
+            type: 'button',
+            className: 'ah-group-context-item',
+            'data-danger': 'true',
+            onClick: () => { setMenu(null); void removeGroup(menuGroup); },
+          }, t('groups.delete')));
+        }
+      }
       const contextMenu = menuGroup === null ? null : h('div', {
         className: 'ah-group-context',
         style: { left: `${menu.x}px`, top: `${menu.y}px` },
         onMouseDown: (event) => event.stopPropagation(),
-      },
-      h('button', {
-        type: 'button',
-        className: 'ah-group-context-item',
-        onClick: () => { setMenu(null); startRename(menuGroup); },
-      }, t('groups.rename')),
-      h('button', {
-        type: 'button',
-        className: 'ah-group-context-item',
-        'data-danger': 'true',
-        onClick: () => { setMenu(null); void removeGroup(menuGroup); },
-      }, t('groups.delete')));
+      }, menuItems);
 
       const footer = h(React.Fragment, null,
         h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
@@ -2970,6 +3003,7 @@ window.__ModuleLoader__.load({
       const projects = Array.isArray(props.projects) ? props.projects : [];
       const scopes = Array.isArray(props.projectScopes) ? props.projectScopes : [];
       const groups = Array.isArray(props.groups) ? props.groups : [];
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const currentProject = props.currentProject ?? null;
       const initialPath = currentProject?.path ?? scopes[0]?.path ?? projects[0]?.path ?? '';
@@ -2983,12 +3017,12 @@ window.__ModuleLoader__.load({
       const normalizeProfile = (raw, path) => ({
         path,
         label: typeof raw?.label === 'string' ? raw.label : '',
-        groups: Array.isArray(raw?.groups) ? raw.groups : ['common'],
+        groups: Array.isArray(raw?.groups) ? raw.groups : [defaultGroup],
         actions: Array.isArray(raw?.actions) ? raw.actions : [],
       });
       const originalFor = (path) => {
         const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
-        return normalizeProfile(found ?? { path, label: '', groups: ['common'], actions: [] }, path);
+        return normalizeProfile(found ?? { path, label: '', groups: [defaultGroup], actions: [] }, path);
       };
       const draftFor = (path) => drafts[keyOf(path)] ?? originalFor(path);
       const profile = draftFor(projectPath);

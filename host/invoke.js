@@ -37,11 +37,13 @@ export function installActionInvocations(ctx, store) {
     let actions;
     let projects;
     let groups;
+    let defaultGroup;
     try {
       const snapshot = await readAll(store);
       actions = snapshot.actions;
       projects = snapshot.projects;
       groups = snapshot.groups;
+      defaultGroup = snapshot.defaultGroup;
     } catch (error) {
       ctx.logger?.warn?.(`dsh-action-hub: could not read skills for an invocation: ${describe(error)}`);
       return decision;
@@ -52,7 +54,7 @@ export function installActionInvocations(ctx, store) {
     if (markers.length === 0) return decision;
     const cwd = await workingCwd(ctx, agent, signal);
     const root = await resolveProjectRoot(cwd, await listProjects(ctx));
-    const profile = profileFor(projects, root);
+    const profile = profileFor(projects, root, defaultGroup);
     const injections = [];
     const notices = new Map();
     for (const marker of markers) {

@@ -72,7 +72,7 @@ async function handle(ctx, store, dataDir, req, res) {
       const projects = await listProjects(ctx);
       const currentProject = await findCurrentProject(ctx, projects);
       const currentRoot = currentProject === null ? null : await resolveProjectRoot(currentProject.path, projects);
-      const currentProfile = profileFor(view.projects, currentRoot);
+      const currentProfile = profileFor(view.projects, currentRoot, view.defaultGroup);
       sendJson(res, 200, {
         ok: true,
         version: state.version,
@@ -80,6 +80,7 @@ async function handle(ctx, store, dataDir, req, res) {
         projects,
         projectScopes: view.projects,
         groups: state.state.groups,
+        defaultGroup: view.defaultGroup,
         currentProject,
         currentProfile,
         invalid,
@@ -261,6 +262,13 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (route === '/groups/rename') {
       const group = await store.renameGroup(text(body.id), text(body.name));
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, group });
+      return;
+    }
+
+    if (route === '/groups/default') {
+      const group = await store.setDefaultGroup(text(body.id));
       notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, group });
       return;

@@ -6,7 +6,7 @@
 import path from 'node:path';
 
 import { loadBuiltinActions } from '../builtins.js';
-import { sortActions } from '../store.js';
+import { sortActions, UNGROUPED_GROUP_ID } from '../store.js';
 
 let builtinPromise = null;
 
@@ -26,7 +26,7 @@ function decorateBuiltin(action, entry) {
     mode: 'command',
     pinned: entry?.pinned === true,
     usage: entry?.usage ?? { count: 0, lastAt: 0 },
-    groups: ['common'],
+    groups: [UNGROUPED_GROUP_ID],
     category: entry?.category ?? '内置',
   };
   Object.defineProperty(next, 'builtinDir', { value: action.dir, enumerable: false });
@@ -43,6 +43,7 @@ export async function readAll(store) {
     builtins,
     groups: state.state.groups,
     projects: state.state.projects,
+    defaultGroup: state.state.defaultGroup ?? UNGROUPED_GROUP_ID,
     actions: sortActions([
       ...state.actions.filter((action) => !ids.has(action.id)),
       ...builtins.map((action) => decorateBuiltin(action, state.state.entries[action.id])),

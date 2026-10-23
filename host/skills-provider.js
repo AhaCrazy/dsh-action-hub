@@ -46,9 +46,9 @@ export function installSkillsProvider(ctx, store) {
     return {
       name: PROVIDER,
       async list(options = {}) {
-        const { actions, projects, groups } = await readAll(store);
+        const { actions, projects, groups, defaultGroup } = await readAll(store);
         const root = await resolveProjectRoot(options.cwd, await listProjects(ctx));
-        const profile = profileFor(projects, root);
+        const profile = profileFor(projects, root, defaultGroup);
         const candidates = [];
         for (const action of actions) {
           if (action.mode !== 'skill') continue;
@@ -71,9 +71,9 @@ export function installSkillsProvider(ctx, store) {
       },
       async get(target, options = {}) {
         if (target === null || typeof target !== 'object' || typeof target.name !== 'string') return undefined;
-        const { actions, projects, groups } = await readAll(store);
+        const { actions, projects, groups, defaultGroup } = await readAll(store);
         const root = await resolveProjectRoot(options.cwd, await listProjects(ctx));
-        const profile = profileFor(projects, root);
+        const profile = profileFor(projects, root, defaultGroup);
         const action = actions.find((entry) => entry.name === target.name && entry.mode === 'skill');
         if (action === undefined || !actionAvailable(action, profile, groups)) return undefined;
         const skill = await readSkillDir(action.dir);

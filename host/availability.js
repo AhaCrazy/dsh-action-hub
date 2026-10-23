@@ -3,11 +3,12 @@
  *
  * A project selects groups and can add individual Actions. An Action is
  * available when one of its groups is selected, or when it is explicitly
- * listed. A project without a stored profile defaults to the Common group.
+ * listed. A project without a stored profile defaults to the configured new
+ * workspace group (initially “未分组”).
  *
  * @module dsh-action-hub/host/availability
  */
-import { COMMON_GROUP_ID, defaultProjectProfile } from '../store.js';
+import { UNGROUPED_GROUP_ID, defaultProjectProfile } from '../store.js';
 import { canonicalPath } from './scope.js';
 
 export function findProjectProfile(projects, projectRoot) {
@@ -17,8 +18,9 @@ export function findProjectProfile(projects, projectRoot) {
   return projects.find((project) => canonicalPath(project.path) === key) ?? null;
 }
 
-export function profileFor(projects, projectRoot) {
-  return findProjectProfile(projects, projectRoot) ?? defaultProjectProfile(typeof projectRoot === 'string' ? projectRoot : '');
+export function profileFor(projects, projectRoot, defaultGroup = UNGROUPED_GROUP_ID) {
+  return findProjectProfile(projects, projectRoot)
+    ?? defaultProjectProfile(typeof projectRoot === 'string' ? projectRoot : '', '', defaultGroup);
 }
 
 export function expandGroupIds(groups, selectedIds) {
@@ -36,7 +38,7 @@ export function expandGroupIds(groups, selectedIds) {
 }
 
 export function selectedGroupIds(profile, groups = []) {
-  const selected = Array.isArray(profile?.groups) ? profile.groups : [COMMON_GROUP_ID];
+  const selected = Array.isArray(profile?.groups) ? profile.groups : [UNGROUPED_GROUP_ID];
   return expandGroupIds(groups, selected);
 }
 

@@ -17,6 +17,7 @@
     function GroupDialog(props) {
       const { t } = props;
       const groups = Array.isArray(props.groups) ? props.groups : [];
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const [name, setName] = React.useState('');
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
@@ -190,11 +191,20 @@
         });
       };
 
+      const setAsDefault = async (group) => {
+        await run(async () => {
+          await api('/groups/default', { id: group.id });
+          setMenu(null);
+        });
+      };
+
       const groupRows = groups.map((group) => {
         const renaming = renamingId === group.id;
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
-          group.builtin ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null);
+          group.builtin
+            ? (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null)
+            : (defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null));
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
             h('input', {
@@ -218,7 +228,7 @@
           onClick: () => { if (!renaming) setSelectedId(group.id); },
           onContextMenu: (event) => {
             event.preventDefault();
-            if (group.builtin) return;
+            if (group.builtin && defaultGroup === group.id) return;
             setSelectedId(group.id);
             setMenu({
               id: group.id,
@@ -321,22 +331,37 @@
         h('aside', { className: 'ah-group-list', 'aria-label': t('groups.title') }, groupRows),
         h('section', { className: 'ah-group-detail' }, detail));
       const menuGroup = menu === null ? null : groups.find((group) => group.id === menu.id) ?? null;
+      const menuItems = [];
+      if (menuGroup !== null && defaultGroup !== menuGroup.id) {
+        menuItems.push(h('button', {
+          key: 'default',
+          type: 'button',
+          className: 'ah-group-context-item',
+          onClick: () => { setMenu(null); void setAsDefault(menuGroup); },
+        }, t('groups.setDefault')));
+      }
+      if (menuGroup !== null && menuGroup.builtin !== true) {
+        menuItems.push(h('button', {
+          key: 'rename',
+          type: 'button',
+          className: 'ah-group-context-item',
+          onClick: () => { setMenu(null); startRename(menuGroup); },
+        }, t('groups.rename')));
+        if (defaultGroup !== menuGroup.id) {
+          menuItems.push(h('button', {
+            key: 'delete',
+            type: 'button',
+            className: 'ah-group-context-item',
+            'data-danger': 'true',
+            onClick: () => { setMenu(null); void removeGroup(menuGroup); },
+          }, t('groups.delete')));
+        }
+      }
       const contextMenu = menuGroup === null ? null : h('div', {
         className: 'ah-group-context',
         style: { left: `${menu.x}px`, top: `${menu.y}px` },
         onMouseDown: (event) => event.stopPropagation(),
-      },
-      h('button', {
-        type: 'button',
-        className: 'ah-group-context-item',
-        onClick: () => { setMenu(null); startRename(menuGroup); },
-      }, t('groups.rename')),
-      h('button', {
-        type: 'button',
-        className: 'ah-group-context-item',
-        'data-danger': 'true',
-        onClick: () => { setMenu(null); void removeGroup(menuGroup); },
-      }, t('groups.delete')));
+      }, menuItems);
 
       const footer = h(React.Fragment, null,
         h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
@@ -381,6 +406,7 @@
       const projects = Array.isArray(props.projects) ? props.projects : [];
       const scopes = Array.isArray(props.projectScopes) ? props.projectScopes : [];
       const groups = Array.isArray(props.groups) ? props.groups : [];
+      const defaultGroup = typeof props.defaultGroup === 'string' ? props.defaultGroup : 'ungrouped';
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const currentProject = props.currentProject ?? null;
       const initialPath = currentProject?.path ?? scopes[0]?.path ?? projects[0]?.path ?? '';
@@ -394,12 +420,12 @@
       const normalizeProfile = (raw, path) => ({
         path,
         label: typeof raw?.label === 'string' ? raw.label : '',
-        groups: Array.isArray(raw?.groups) ? raw.groups : ['common'],
+        groups: Array.isArray(raw?.groups) ? raw.groups : [defaultGroup],
         actions: Array.isArray(raw?.actions) ? raw.actions : [],
       });
       const originalFor = (path) => {
         const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
-        return normalizeProfile(found ?? { path, label: '', groups: ['common'], actions: [] }, path);
+        return normalizeProfile(found ?? { path, label: '', groups: [defaultGroup], actions: [] }, path);
       };
       const draftFor = (path) => drafts[keyOf(path)] ?? originalFor(path);
       const profile = draftFor(projectPath);
