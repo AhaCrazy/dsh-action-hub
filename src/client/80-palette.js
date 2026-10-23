@@ -5,6 +5,13 @@
         const t = translate(props);
         const state = usePalette(palette);
         const snapshot = useHub(hub);
+        const sessions = typeof props.useSessions === 'function' ? props.useSessions((value) => value) : undefined;
+        const mainSessionId = React.useMemo(() => {
+          const byId = sessions?.byId;
+          if (byId === null || typeof byId !== 'object') return '';
+          const current = Object.values(byId).find((row) => (row?.retainedBy?.mainView ?? 0) > 0);
+          return typeof current?.id === 'string' ? current.id : '';
+        }, [sessions]);
         const prefs = usePrefs(prefsRef);
         const shortcutState = useShortcutStore(shortcutStore);
         const searchRef = React.useRef(null);
@@ -31,13 +38,19 @@
           .filter((name) => typeof name === 'string' && name !== '');
 
         React.useEffect(() => {
+          if (mainSessionId !== '') hub.setSession(mainSessionId);
+        }, [mainSessionId, hub]);
+
+        React.useEffect(() => {
           if (!state.open) return undefined;
           const composer = document.querySelector('[data-composer-card="true"] [contenteditable="true"]')
             ?? document.querySelector('[contenteditable="true"]');
           setSelectedId(null);
           setArgs('');
           setToast({ text: '', kind: 'ok' });
-          if (state.bridge?.sessionId) hub.setSession(state.bridge.sessionId);
+          if (mainSessionId !== '' || state.bridge?.sessionId) {
+            hub.setSession(mainSessionId !== '' ? mainSessionId : state.bridge.sessionId);
+          }
           void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
           return () => {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 8.3.3 — 2026-10-23
+
+- The palette now resolves availability from the main-view Session snapshot
+  (`useSessions` + `retainedBy.mainView`) instead of trusting whichever
+  composer bridge updated last. Background sessions can no longer overwrite the
+  active project context.
+
 ## 8.3.2 — 2026-10-23
 
 - Serialized session-aware `/state` refreshes so an older request without the
