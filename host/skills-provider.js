@@ -1,4 +1,4 @@
-﻿import { readSkillDir } from '../skill-doc.js';
+import { readSkillDir } from '../skill-doc.js';
 import { scopeAllows, resolveProjectRoot } from './scope.js';
 import { readAll } from './state.js';
 
@@ -10,6 +10,31 @@ export function invalidateSkills() {
     control?.invalidate?.();
   } catch {
     /* provider teardown */
+  }
+}
+
+/**
+ * Invalidate the provider cache and wake the Web `/` skill menu. DSH caches the
+ * client-side skill catalog until an agent-preset event (or reconnect), so a
+ * mode/scope change otherwise stays invisible until a reload.
+ */
+export function notifySkillCatalog(ctx) {
+  invalidateSkills();
+  try {
+    if (typeof ctx.emit === 'function') ctx.emit('commands/change');
+  } catch {
+    /* older host */
+  }
+  try {
+    const sessions = typeof ctx.get === 'function' ? ctx.get('sessions') : undefined;
+    const list = sessions !== null && typeof sessions?.list === 'function' ? sessions.list() : [];
+    for (const session of Array.isArray(list) ? list : []) {
+      const id = session?.id ?? session?.header?.id;
+      const preset = typeof session?.header?.agentPreset === 'string' ? session.header.agentPreset : '';
+      if (id !== undefined && preset !== '' && typeof ctx.emit === 'function') ctx.emit('agent-preset/selected', id, preset);
+    }
+  } catch {
+    /* best effort */
   }
 }
 

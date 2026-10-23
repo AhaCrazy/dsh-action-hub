@@ -12,7 +12,7 @@ import { installActionInvocations } from './host/invoke.js';
 import { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
 export { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
 import { actionResourceDir, getBuiltins, isBuiltinId, readAll } from './host/state.js';
-import { installSkillsProvider, invalidateSkills } from './host/skills-provider.js';
+import { installSkillsProvider, notifySkillCatalog } from './host/skills-provider.js';
 import { listProjects } from './host/projects.js';
 import {
   applyFolderPlan,
@@ -142,7 +142,7 @@ async function handle(ctx, store, dataDir, req, res) {
     if (route === '/bundle/import-folder') {
       const reserved = (await getBuiltins()).map((action) => action.name);
       const imported = await applyFolderPlan(store, dataDir, text(body.path), Array.isArray(body.decisions) ? body.decisions : [], reserved);
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ...imported, ok: true, actions: sortActions((await readAll(store)).actions) });
       return;
     }
@@ -160,7 +160,7 @@ async function handle(ctx, store, dataDir, req, res) {
       if (buffer.length === 0) throw new Error('ZIP 内容为空');
       const reserved = (await getBuiltins()).map((action) => action.name);
       const imported = await applyZipPlan(store, dataDir, buffer, Array.isArray(body.decisions) ? body.decisions : [], reserved);
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ...imported, ok: true, actions: sortActions((await readAll(store)).actions) });
       return;
     }
@@ -177,7 +177,7 @@ async function handle(ctx, store, dataDir, req, res) {
         return;
       }
       const created = await store.create(action);
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, action: created });
       return;
     }
@@ -190,7 +190,7 @@ async function handle(ctx, store, dataDir, req, res) {
         return;
       }
       const updated = await store.update(id, normalizeAction({ ...patch, name: patch.name ?? id }));
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, action: updated });
       return;
     }
@@ -202,7 +202,7 @@ async function handle(ctx, store, dataDir, req, res) {
         return;
       }
       await store.remove(id);
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true });
       return;
     }
@@ -215,14 +215,14 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (route === '/scope') {
       const entry = await store.setScope(text(body.id), body.scope);
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, scope: entry.scope });
       return;
     }
 
     if (route === '/mode') {
       const entry = await store.setMode(text(body.id), body.mode);
-      invalidateSkills();
+      notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, mode: entry.mode });
       return;
     }

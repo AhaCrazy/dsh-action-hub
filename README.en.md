@@ -1,11 +1,11 @@
-﻿# Action Hub
+# Action Hub
 
 **A standard Agent Skill library for DSH: one `SKILL.md` can be a model-invocable Skill or a user-only Command.**
 
-[涓枃](README.md) 路 [Changelog](CHANGELOG.md) 路 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+[中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.0.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-6.0.2-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -21,21 +21,21 @@
 
 ### Palette
 
-`Alt + A` (macOS `鈱?+ A`) or the composer button:
+`Alt + A` (macOS `⌥ + A`) or the composer button:
 
 - Search by name, description, tags, body;
 - Each row shows `[Command]` / `[Skill]` and its scope;
 - Command: inserts a reference chip without arguments, or the expanded body with arguments;
 - Skill: inserts `/skill-name`, loaded by DSH natively;
-- `Enter` / `Tab` inserts, `Ctrl/鈱?+ Enter` sends.
+- `Enter` / `Tab` inserts, `Ctrl/⌘ + Enter` sends.
 
 ### Library
 
-`Ctrl + Alt + A` (macOS `鈱?+ 鈱?+ A`) or the management page:
+`Ctrl + Alt + A` (macOS `⌘ + ⌥ + A`) or the management page:
 
 - Create/edit standard skills (`name` must be kebab-case);
 - Switch Command / Skill;
-- Set 鈥渁ll projects鈥?or selected projects;
+- Set “all projects” or selected projects;
 - Import folder/ZIP, export one or the whole library.
 
 ### Import any standard skill
@@ -94,4 +94,3 @@ The client is generated from `src/client/*.js` into `client.js`; Host entry is `
 - The native `/` menu searches ASCII names; use the Action palette for Chinese search;
 - Skill catalog changes append a full replacement directory; watch the cost notice;
 - No agent/preset-level scope in this version.
-

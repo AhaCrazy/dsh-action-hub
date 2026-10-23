@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.0.2 — 2026-10-23
+
+- **Refresh the Web `/` skill menu after mode/scope changes.** The DSH client
+  caches its skill catalog until an agent-preset event; the Host now emits the
+  same `commands/change` + `agent-preset/selected` notifications used by the
+  skills manager, so a skill switched on becomes visible without a reload.
+
 ## 6.0.1 — 2026-10-23
 
 - **Prune orphan entries from `state.json`.** Deleting a skill directory outside
