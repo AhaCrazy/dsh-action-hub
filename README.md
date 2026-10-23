@@ -7,7 +7,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.1.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-7.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -75,15 +75,15 @@ description: 一句话说明何时使用
 - 升级自 5.x 时，旧 `actions/` 会归档到 `backup-v5-test-*`，新库为空，不做兼容迁移；
 - 分享包只包含标准技能目录，不包含 `state.json`，因此模式/范围/分类不会随包分享。
 
-## 项目范围
+## 分组与项目范围
 
-- 范围只做全局 + 项目级；
-- 项目来源是 DSH 已登记工作区，不手输路径；
-- 面板会识别当前项目，并提供“仅当前项目”快捷选项；
-- 当前不可用的 Action 会在面板中标灰并拒绝插入；
-- 会话 cwd 在项目子目录时，按最近的已登记项目根匹配，不再误判为未知项目；
-- 范围在 provider 和 Command 注入点各校验一次；
-- 未知项目/scope 损坏时默认不可用（fail-closed）。
+- Action 可以属于多个分组（例如 Common、AgilityDog、漫剧）；
+- 项目在“项目范围”里勾选分组，并可单独追加个别 Action；
+- 未配置的新项目默认只使用 **Common** 分组；
+- 面板会识别当前项目，当前不可用的 Action 会标灰并拒绝插入；
+- 会话 cwd 在项目子目录时，按最近的已登记项目根匹配；
+- 范围判断由 provider、Command 注入点和面板共用；
+- 未知项目或损坏状态按默认 Common 处理，非 Common Action 不可用。
 
 ## 开发
 

@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.1.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-7.0.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -75,15 +75,15 @@ Imported skills start as **Command**. Switch to **Skill** in the editor before t
 - Upgrading from 5.x archives the old `actions/` directory to `backup-v5-test-*` and starts empty; no migration compatibility;
 - Shared packages contain only standard skill directories, never `state.json`, so mode/scope/category do not travel with the package.
 
-## Project scope
+## Groups and project scopes
 
-- Global + project-level only;
-- Projects come from DSH-registered workspaces, never hand-typed paths;
-- The palette detects the current project and offers a “current project only” shortcut;
-- Actions unavailable in the current project are dimmed and cannot be inserted;
+- An Action may belong to several groups (for example Common, AgilityDog, Drama);
+- A project selects groups and can add individual Actions;
+- A new or unconfigured project defaults to the **Common** group only;
+- The palette detects the current project and dims Actions unavailable there;
 - A session opened in a project sub-directory matches the nearest registered project root;
-- Scope is checked by the provider and by the Command injection point;
-- Unknown projects or corrupt scope fail closed.
+- The provider, Command injection, and palette share one availability check;
+- Unknown projects or corrupt state fall back to Common; non-Common Actions stay unavailable.
 
 ## Development
 

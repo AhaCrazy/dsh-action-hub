@@ -1,0 +1,39 @@
+/**
+ * dsh-action-hub — project-centric Action availability.
+ *
+ * A project selects groups and can add individual Actions. An Action is
+ * available when one of its groups is selected, or when it is explicitly
+ * listed. A project without a stored profile defaults to the Common group.
+ *
+ * @module dsh-action-hub/host/availability
+ */
+import { COMMON_GROUP_ID, defaultProjectProfile } from '../store.js';
+import { canonicalPath } from './scope.js';
+
+export function findProjectProfile(projects, projectRoot) {
+  if (!Array.isArray(projects) || typeof projectRoot !== 'string' || projectRoot === '') return null;
+  const key = canonicalPath(projectRoot);
+  if (key === '') return null;
+  return projects.find((project) => canonicalPath(project.path) === key) ?? null;
+}
+
+export function profileFor(projects, projectRoot) {
+  return findProjectProfile(projects, projectRoot) ?? defaultProjectProfile(typeof projectRoot === 'string' ? projectRoot : '');
+}
+
+export function selectedGroupIds(profile) {
+  const groups = Array.isArray(profile?.groups) ? profile.groups : [COMMON_GROUP_ID];
+  return new Set(groups);
+}
+
+export function actionAvailable(action, profile) {
+  if (action === null || typeof action !== 'object') return false;
+  if (action.builtin === true) return true;
+  const groups = selectedGroupIds(profile);
+  if (Array.isArray(profile?.actions) && profile.actions.includes(action.name)) return true;
+  return Array.isArray(action.groups) && action.groups.some((id) => groups.has(id));
+}
+
+export function availableActions(actions, profile) {
+  return actions.filter((action) => actionAvailable(action, profile));
+}

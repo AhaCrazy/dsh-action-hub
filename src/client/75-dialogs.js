@@ -8,7 +8,7 @@
         prompt: initial?.prompt ?? '',
         pinned: initial?.pinned === true,
         mode: initial?.mode === 'skill' ? 'skill' : 'command',
-        scope: initial?.scope !== null && typeof initial?.scope === 'object' ? initial.scope : { mode: 'all', projects: [] },
+        groups: Array.isArray(initial?.groups) ? initial.groups : ['common'],
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
@@ -48,7 +48,7 @@
             prompt: form.prompt,
             pinned: form.pinned,
             mode: form.mode,
-            scope: form.scope,
+            groups: form.groups,
           });
         } catch (failure) {
           setError(describeError(failure));
@@ -57,23 +57,12 @@
         }
       };
 
-      const currentProject = props.currentProject ?? null;
-      const keyOf = (value) => String(value ?? '').toLowerCase();
-      const registered = Array.isArray(props.projects) ? props.projects : [];
-      const scopeProjects = registered.map((project) => ({ ...project, stale: false }));
-      for (const entry of form.scope.mode === 'projects' ? form.scope.projects : []) {
-        if (!scopeProjects.some((project) => keyOf(project.path) === keyOf(entry.path))) {
-          scopeProjects.push({ label: entry.label, path: entry.path, stale: true });
-        }
-      }
-      const toggleProject = (project, checked) => {
-        setForm((previous) => {
-          const remaining = previous.scope.projects.filter((entry) => keyOf(entry.path) !== keyOf(project.path));
-          return {
-            ...previous,
-            scope: { mode: 'projects', projects: checked ? [...remaining, { label: project.label, path: project.path }] : remaining },
-          };
-        });
+      const groups = Array.isArray(props.groups) ? props.groups : [];
+      const toggleGroup = (id, checked) => {
+        setForm((previous) => ({
+          ...previous,
+          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
+        }));
       };
 
       return h(Modal, {
@@ -125,36 +114,16 @@
           h('option', { value: 'skill' }, t('editor.modeSkill'))),
         h('span', { className: 'ah-hint' }, form.mode === 'skill' ? t('editor.modeSkillHint') : t('editor.modeCommandHint'))),
       h('div', { className: 'ah-field' },
-        h('label', { className: 'ah-label' }, t('editor.scope')),
-        h('label', { className: 'ah-scope-option' },
+        h('label', { className: 'ah-label' }, t('editor.groups')),
+        h('div', { className: 'ah-scope-list' }, groups.map((group) => h('label', { key: group.id, className: 'ah-scope-option' },
           h('input', {
             type: 'checkbox',
-            checked: form.scope.mode !== 'projects',
-            onChange: (event) => setForm((previous) => ({ ...previous, scope: event.target.checked ? { mode: 'all', projects: [] } : { mode: 'projects', projects: [] } })),
+            checked: form.groups.includes(group.id),
+            onChange: (event) => toggleGroup(group.id, event.target.checked),
           }),
-          ` ${t('editor.scopeAll')}`),
-        currentProject === null ? null : h('button', {
-          type: 'button',
-          className: 'ah-chip',
-          onClick: () => setForm((previous) => ({
-            ...previous,
-            scope: { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] },
-          })),
-        }, t('editor.scopeCurrent', { name: currentProject.label })),
-        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, scopeProjects.map((project) => {
-          const checked = form.scope.projects.some((entry) => keyOf(entry.path) === keyOf(project.path));
-          return h('label', { key: project.path, className: project.stale ? 'ah-scope-option ah-scope-stale' : 'ah-scope-option' },
-            h('input', {
-              type: 'checkbox',
-              checked,
-              onChange: (event) => toggleProject(project, event.target.checked),
-            }),
-            ` ${project.label}`,
-            project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null,
-            currentProject !== null && keyOf(project.path) === keyOf(currentProject.path) ? h('span', { className: 'ah-badge ah-badge-accent' }, t('editor.scopeCurrentBadge')) : null);
-        })) : null,
-        form.scope.mode === 'projects' && form.scope.projects.length === 0 ? h('span', { className: 'ah-hint ah-hint-warn' }, t('editor.scopeEmpty')) : null,
-        h('span', { className: 'ah-hint' }, currentProject === null ? t('editor.scopeNoCurrent') : t('editor.scopeHint'))),
+          ` ${group.name}`,
+          group.builtin ? h('span', { className: 'ah-badge' }, t('editor.groupCommon')) : null))),
+        h('span', { className: 'ah-hint' }, t('editor.groupsHint'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),

@@ -2,7 +2,17 @@
 
     function createHub() {
       const listeners = new Set();
-      let snapshot = { status: 'idle', actions: [], projects: [], meta: {}, error: '' };
+      let snapshot = {
+        status: 'idle',
+        actions: [],
+        projects: [],
+        projectScopes: [],
+        groups: [],
+        currentProject: null,
+        currentProfile: null,
+        meta: {},
+        error: '',
+      };
       let inflight = null;
 
       const emit = () => {
@@ -18,7 +28,17 @@
         if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
         inflight = api('/state').then(
           (data) => {
-            set({ status: 'ready', actions: data.actions ?? [], projects: data.projects ?? [], meta: data.meta ?? {}, error: '' });
+            set({
+              status: 'ready',
+              actions: data.actions ?? [],
+              projects: data.projects ?? [],
+              projectScopes: data.projectScopes ?? [],
+              groups: data.groups ?? [],
+              currentProject: data.currentProject ?? null,
+              currentProfile: data.currentProfile ?? null,
+              meta: data.meta ?? {},
+              error: '',
+            });
             return snapshot;
           },
           (error) => {

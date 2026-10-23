@@ -1,6 +1,7 @@
 import { readSkillDir } from '../skill-doc.js';
-import { scopeAllows, resolveProjectRoot } from './scope.js';
+import { resolveProjectRoot } from './scope.js';
 import { listProjects } from './projects.js';
+import { actionAvailable, profileFor } from './availability.js';
 import { readAll } from './state.js';
 
 const PROVIDER = 'action-hub';
@@ -45,12 +46,13 @@ export function installSkillsProvider(ctx, store) {
     return {
       name: PROVIDER,
       async list(options = {}) {
-        const { actions } = await readAll(store);
+        const { actions, projects } = await readAll(store);
         const root = await resolveProjectRoot(options.cwd, await listProjects(ctx));
+        const profile = profileFor(projects, root);
         const candidates = [];
         for (const action of actions) {
           if (action.mode !== 'skill') continue;
-          if (!scopeAllows(action.scope, root)) continue;
+          if (!actionAvailable(action, profile)) continue;
           candidates.push({
             name: action.name,
             description: action.description.slice(0, 500),
@@ -69,10 +71,11 @@ export function installSkillsProvider(ctx, store) {
       },
       async get(target, options = {}) {
         if (target === null || typeof target !== 'object' || typeof target.name !== 'string') return undefined;
-        const { actions } = await readAll(store);
+        const { actions, projects } = await readAll(store);
         const root = await resolveProjectRoot(options.cwd, await listProjects(ctx));
+        const profile = profileFor(projects, root);
         const action = actions.find((entry) => entry.name === target.name && entry.mode === 'skill');
-        if (action === undefined || !scopeAllows(action.scope, root)) return undefined;
+        if (action === undefined || !actionAvailable(action, profile)) return undefined;
         const skill = await readSkillDir(action.dir);
         if (skill.error !== '' || skill.name !== target.name) return undefined;
         return {

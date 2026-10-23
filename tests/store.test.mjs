@@ -33,32 +33,33 @@ test('creates a standard SKILL.md and keeps plugin state outside it', async () =
   assert.equal(state.entries['code-review'].category, 'dev');
 });
 
-test('updates mode/scope/pin without rewriting the skill body', async () => {
+test('updates mode/groups/pin without rewriting the skill body', async () => {
   const dataDir = await tempData();
   const store = createStore({ dataDir });
   await store.create({ name: 'demo', description: 'Demo', prompt: 'Body text.', mode: 'command' });
   const before = await fs.readFile(path.join(dataDir, 'library', 'demo', 'SKILL.md'), 'utf8');
   await store.setMode('demo', 'skill');
-  await store.setScope('demo', normalizeScope({ mode: 'projects', projects: [{ label: 'p', path: dataDir }] }));
+  const group = await store.createGroup('AgilityDog');
+  await store.setActionGroups('demo', ['common', group.id]);
   const after = await fs.readFile(path.join(dataDir, 'library', 'demo', 'SKILL.md'), 'utf8');
   assert.equal(after, before);
   const action = (await store.read()).actions[0];
   assert.equal(action.mode, 'skill');
-  assert.equal(action.scope.mode, 'projects');
-  assert.equal(action.scope.projects[0].path, dataDir);
+  assert.deepEqual(action.groups, ['common', group.id]);
 });
 
 test('renames a skill directory and keeps the state key stable', async () => {
   const dataDir = await tempData();
   const store = createStore({ dataDir });
   await store.create({ name: 'old-name', description: 'Old', prompt: 'Old body.' });
-  await store.setScope('old-name', normalizeScope({ mode: 'projects', projects: [{ label: 'p', path: dataDir }] }));
+  const group = await store.createGroup('AgilityDog');
+  await store.setActionGroups('old-name', [group.id]);
   const updated = await store.update('old-name', { name: 'new-name', description: 'New', prompt: 'New body.' });
   assert.equal(updated.name, 'new-name');
   assert.equal(await fs.stat(path.join(dataDir, 'library', 'old-name')).catch(() => undefined), undefined);
   const action = (await store.read()).actions[0];
   assert.equal(action.name, 'new-name');
-  assert.equal(action.scope.mode, 'projects');
+  assert.deepEqual(action.groups, [group.id]);
 });
 
 test('touch records week/month usage', async () => {
@@ -87,6 +88,25 @@ test('normalizeScope drops invalid projects and defaults to all', () => {
   const scoped = normalizeScope({ mode: 'projects', projects: [{ path: 'C:/a' }, { path: '' }, null] });
   assert.equal(scoped.projects.length, 1);
   assert.equal(scoped.projects[0].label, 'a');
+});
+
+test('migrates legacy per-Action scopes into groups and project profiles', async () => {
+  const dataDir = await tempData();
+  await fs.mkdir(path.join(dataDir, 'library', 'legacy'), { recursive: true });
+  await fs.writeFile(path.join(dataDir, 'library', 'legacy', 'SKILL.md'), '---\nname: legacy\ndescription: Legacy\n---\n\nBody.\n');
+  await fs.writeFile(path.join(dataDir, 'state.json'), JSON.stringify({
+    format: 'dsh-action-hub/state@1',
+    entries: {
+      legacy: { mode: 'command', scope: { mode: 'projects', projects: [{ label: 'AgilityDog', path: 'C:/AgilityDog' }] } },
+    },
+  }));
+  const store = createStore({ dataDir });
+  const result = await store.read();
+  assert.equal(result.state.groups[0].id, 'common');
+  assert.deepEqual(result.actions[0].groups, []);
+  assert.deepEqual(result.state.projects[0].actions, ['legacy']);
+  assert.deepEqual(result.state.projects[0].groups, ['common']);
+  assert.equal((await store.readState()).format, 'dsh-action-hub/state@2');
 });
 
 test('drops state entries when a skill is deleted outside the plugin', async () => {

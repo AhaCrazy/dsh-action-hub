@@ -1,5 +1,18 @@
 # Changelog
 
+## 7.0.0 — 2026-10-23
+
+- **Project-centric availability through Action groups.** Actions can belong to
+  several groups; a project selects groups plus optional individual Actions.
+  Projects without a stored profile default to the Common group.
+- The library gains group management and a per-project availability dialog.
+  Action editing now assigns groups instead of a per-Action project allowlist.
+- `state.json` moves to format `dsh-action-hub/state@2`: `groups`,
+  `entries[].groups`, and `projects[]` profiles. Legacy per-Action scopes are
+  migrated automatically (global Actions move to Common; project selections
+  become explicit project entries).
+- Provider, command injection, and the palette share one availability check.
+
 ## 6.1.0 — 2026-10-23
 
 - **Action as the umbrella term** for Skill and Command in the docs.

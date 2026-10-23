@@ -26,7 +26,7 @@ function decorateBuiltin(action, entry) {
     mode: 'command',
     pinned: entry?.pinned === true,
     usage: entry?.usage ?? { count: 0, lastAt: 0 },
-    scope: { mode: 'all', projects: [] },
+    groups: ['common'],
     category: entry?.category ?? '内置',
   };
   Object.defineProperty(next, 'builtinDir', { value: action.dir, enumerable: false });
@@ -41,6 +41,8 @@ export async function readAll(store) {
     state,
     invalid: state.invalid ?? [],
     builtins,
+    groups: state.state.groups,
+    projects: state.state.projects,
     actions: sortActions([
       ...state.actions.filter((action) => !ids.has(action.id)),
       ...builtins.map((action) => decorateBuiltin(action, state.state.entries[action.id])),

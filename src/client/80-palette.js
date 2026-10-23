@@ -22,18 +22,9 @@
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
-        const selectedScopePath = selected?.scope?.mode === 'projects' && selected.scope.projects.length === 1 ? selected.scope.projects[0].path : '';
-        const scopePathKnown = selectedScopePath === ''
-          ? true
-          : (snapshot.projects ?? []).some((project) => project.path.toLowerCase() === String(selectedScopePath).toLowerCase())
-            || (currentProject !== null && String(currentProject.path).toLowerCase() === String(selectedScopePath).toLowerCase());
-        const scopeValue = (action) => {
-          if (action === null || action.scope?.mode !== 'projects') return 'all';
-          if (action.scope.projects.length !== 1) return '__custom';
-          const only = action.scope.projects[0]?.path ?? '';
-          if (currentProject !== null && only.toLowerCase() === String(currentProject.path).toLowerCase()) return '__current';
-          return only;
-        };
+        const groupNames = (selected?.groups ?? [])
+          .map((id) => (snapshot.groups ?? []).find((group) => group.id === id)?.name)
+          .filter((name) => typeof name === 'string' && name !== '');
 
         React.useEffect(() => {
           if (!state.open) return undefined;
@@ -310,7 +301,7 @@
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
             selected.available === false ? h('p', { className: 'ah-hint ah-hint-warn' }, t('palette.unavailableHint')) : null,
-            h('p', { className: 'ah-hint' }, `${t('editor.scope')}: ${selected.scope?.mode === 'projects' ? (selected.scope.projects.map((project) => project.label).join('、') || t('palette.scopeUnavailable')) : t('palette.scopeAll')}`),
+            h('p', { className: 'ah-hint' }, `${t('editor.groups')}: ${groupNames.length === 0 ? t('palette.noGroups') : groupNames.join('、')}`),
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
             selected !== null && selected.mode === 'skill'
               ? h('p', { className: 'ah-hint' }, t('palette.skillHint', { name: selected.name }))
@@ -333,38 +324,7 @@
                 onChange: (event) => setArgs(event.target.value),
               })),
             h('div', { className: 'ah-actions' },
-              selected === null ? null : h('select', {
-                className: 'ah-scope-select',
-                value: scopeValue(selected),
-                title: t('palette.scope'),
-                onChange: async (event) => {
-                  const value = event.target.value;
-                  if (value === '__custom') return;
-                  let scope;
-                  if (value === 'all') {
-                    scope = { mode: 'all', projects: [] };
-                  } else if (value === '__current' && currentProject !== null) {
-                    scope = { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] };
-                  } else {
-                    const project = (snapshot.projects ?? []).find((entry) => entry.path === value);
-                    scope = { mode: 'projects', projects: [{ label: project?.label ?? value, path: value }] };
-                  }
-                  try {
-                    await hub.call('/scope', { id: selected.id, scope });
-                    await hub.refresh(true);
-                    showToast(t('palette.scopeSaved'));
-                  } catch (failure) {
-                    showToast(describeError(failure), 'error');
-                  }
-                },
-              },
-              h('option', { value: 'all' }, t('palette.scopeAll')),
-              currentProject === null ? null : h('option', { value: '__current' }, t('palette.scopeCurrent', { name: currentProject.label })),
-              selectedScopePath !== '' && !scopePathKnown
-                ? h('option', { value: selectedScopePath }, selected.scope.projects[0]?.label ?? selectedScopePath)
-                : null,
-              (snapshot.projects ?? []).filter((project) => currentProject === null || project.path.toLowerCase() !== String(currentProject.path).toLowerCase()).map((project) => h('option', { key: project.path, value: project.path }, project.label)),
-              selected.scope?.mode === 'projects' && selected.scope.projects.length !== 1 ? h('option', { value: '__custom', disabled: true }, t('palette.scopeCustom')) : null),
+              h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('action.scopes')),
               h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
               h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
               h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.send, { size: 13 }), t('palette.send')))),

@@ -14,7 +14,8 @@ export { actionInvocationMessage, planActionRefs, referencedActions } from './ho
 import { actionResourceDir, getBuiltins, isBuiltinId, readAll } from './host/state.js';
 import { installSkillsProvider, notifySkillCatalog } from './host/skills-provider.js';
 import { listProjects, findCurrentProject } from './host/projects.js';
-import { resolveProjectRoot, scopeAllows } from './host/scope.js';
+import { resolveProjectRoot } from './host/scope.js';
+import { actionAvailable, profileFor } from './host/availability.js';
 import {
   applyFolderPlan,
   applyZipPlan,
@@ -65,17 +66,22 @@ async function handle(ctx, store, dataDir, req, res) {
 
   try {
     if (method === 'GET' && route === '/state') {
-      const { state, actions, invalid } = await readAll(store);
+      const view = await readAll(store);
+      const { state, actions, invalid } = view;
       const plan = planActionRefs(actions);
       const projects = await listProjects(ctx);
       const currentProject = await findCurrentProject(ctx, projects);
       const currentRoot = currentProject === null ? null : await resolveProjectRoot(currentProject.path, projects);
+      const currentProfile = profileFor(view.projects, currentRoot);
       sendJson(res, 200, {
         ok: true,
         version: state.version,
-        actions: sortActions(actions).map((action) => ({ ...action, available: scopeAllows(action.scope, currentRoot) })),
+        actions: sortActions(actions).map((action) => ({ ...action, available: actionAvailable(action, currentProfile) })),
         projects,
+        projectScopes: view.projects,
+        groups: state.state.groups,
         currentProject,
+        currentProfile,
         invalid,
         meta: {
           dataFile: store.filePath(),
@@ -218,10 +224,38 @@ async function handle(ctx, store, dataDir, req, res) {
       return;
     }
 
-    if (route === '/scope') {
-      const entry = await store.setScope(text(body.id), body.scope);
+    if (route === '/action/groups') {
+      const entry = await store.setActionGroups(text(body.id), body.groups);
       notifySkillCatalog(ctx);
-      sendJson(res, 200, { ok: true, scope: entry.scope });
+      sendJson(res, 200, { ok: true, groups: entry.groups });
+      return;
+    }
+
+    if (route === '/project-scope') {
+      const profile = await store.setProjectScope(text(body.path), body);
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, profile });
+      return;
+    }
+
+    if (route === '/groups/create') {
+      const group = await store.createGroup(text(body.name));
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, group });
+      return;
+    }
+
+    if (route === '/groups/rename') {
+      const group = await store.renameGroup(text(body.id), text(body.name));
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, group });
+      return;
+    }
+
+    if (route === '/groups/delete') {
+      const groups = await store.deleteGroup(text(body.id));
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, groups });
       return;
     }
 

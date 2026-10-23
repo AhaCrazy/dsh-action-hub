@@ -47,13 +47,15 @@ test('provider hides project-scoped entries outside the project', async () => {
   const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-provider-'));
   const other = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-other-'));
   const store = createStore({ dataDir });
+  const group = await store.createGroup('Other');
   await store.create({
     name: 'scoped-skill',
     description: 'scoped',
     prompt: 'body',
     mode: 'skill',
-    scope: { mode: 'projects', projects: [{ label: 'other', path: other }] },
+    groups: [group.id],
   });
+  await store.setProjectScope(other, { label: 'other', groups: [group.id], actions: [] });
   const { ctx, provider } = fakeContext();
   installSkillsProvider(ctx, store);
   assert.equal((await provider().list({ cwd: dataDir })).candidates.length, 0);
@@ -66,13 +68,15 @@ test('provider matches a registered project ancestor when the session cwd is nes
   const nested = path.join(project, 'src', 'app');
   await fs.mkdir(nested, { recursive: true });
   const store = createStore({ dataDir });
+  const group = await store.createGroup('Project');
   await store.create({
     name: 'ancestor-skill',
     description: 'ancestor',
     prompt: 'body',
     mode: 'skill',
-    scope: { mode: 'projects', projects: [{ label: 'project', path: project }] },
+    groups: [group.id],
   });
+  await store.setProjectScope(project, { label: 'project', groups: [group.id], actions: [] });
   const { ctx, provider } = fakeContext({ workspaces: [{ title: 'project', path: project }] });
   installSkillsProvider(ctx, store);
   assert.equal((await provider().list({ cwd: nested })).candidates.length, 1);

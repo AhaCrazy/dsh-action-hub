@@ -6,8 +6,9 @@
 import { readInvocationResources } from '../resources.js';
 import { planActionRefs, referencedActions, actionInvocationMessage } from './refs.js';
 import { actionResourceDir, readAll } from './state.js';
-import { resolveProjectRoot, scopeAllows } from './scope.js';
+import { resolveProjectRoot } from './scope.js';
 import { listProjects } from './projects.js';
+import { actionAvailable, profileFor } from './availability.js';
 
 function describe(error) {
   return error instanceof Error ? error.message : String(error);
@@ -34,8 +35,11 @@ export function installActionInvocations(ctx, store) {
     ));
     if (!hasMarker) return decision;
     let actions;
+    let projects;
     try {
-      actions = (await readAll(store)).actions;
+      const snapshot = await readAll(store);
+      actions = snapshot.actions;
+      projects = snapshot.projects;
     } catch (error) {
       ctx.logger?.warn?.(`dsh-action-hub: could not read skills for an invocation: ${describe(error)}`);
       return decision;
@@ -46,17 +50,18 @@ export function installActionInvocations(ctx, store) {
     if (markers.length === 0) return decision;
     const cwd = await workingCwd(ctx, agent, signal);
     const root = await resolveProjectRoot(cwd, await listProjects(ctx));
+    const profile = profileFor(projects, root);
     const injections = [];
     const notices = new Map();
     for (const marker of markers) {
       const action = byHandle.get(marker);
       if (action === undefined) continue;
       if (action.mode !== 'command') {
-        notices.set(marker, `「${action.name}」当前是 Skill 模式；请用 /${action.name} 调用，本次未注入正文。`);
+        notices.set(marker, `「${action.name}」当前是 Skill 模式；请从 Action 面板插入正文，本次未注入。`);
         continue;
       }
-      if (!scopeAllows(action.scope, root)) {
-        notices.set(marker, `「${action.name}」不属于当前项目，本次未注入正文。`);
+      if (!actionAvailable(action, profile)) {
+        notices.set(marker, `「${action.name}」不在当前项目的可用范围内，本次未注入正文。`);
         continue;
       }
       const context = await readInvocationResources(store.dataDir, action, actionResourceDir(action));

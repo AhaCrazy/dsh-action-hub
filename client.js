@@ -1,11 +1,11 @@
-﻿/**
- * dsh-action-hub 閳?Client half (Web UI).
+/**
+ * dsh-action-hub — Client half (Web UI).
  *
  * Product surfaces:
  *   - `conversation.input.left`: a compact "Actions" trigger in the composer tool row.
  *   - `conversation.input.overlay`: a session bridge that hands the palette the
  *     live composer facade (inputActions / input state) it needs to insert text.
- *   - `shell.overlay`: the Spotlight-style palette (Alt+A / 閳?A), rendered at
+ *   - `shell.overlay`: the Spotlight-style palette (Alt+A / ⌥+A), rendered at
  *     the frame level so it is never clipped by the composer card.
  *   - `main` + `sidebar.panellist`: the management library.
  *   - `settings.section`: preferences and data controls.
@@ -23,15 +23,10 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '6.1.0';
+    const VERSION = '7.0.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
-
-
-
-
-
 
     const CSS = `
       .ah-page { box-sizing: border-box; display: flex; flex-direction: column; gap: 16px; height: 100%; min-height: 0; padding: 24px 26px 26px; color: var(--dsw-alias-label-primary); }
@@ -220,6 +215,8 @@ window.__ModuleLoader__.load({
         'app.name': 'Actions',
         'action.new': '新建 Action',
         'action.import': '导入',
+        'action.groups': '分组',
+        'action.scopes': '项目范围',
         'action.export': '导出',
         'action.refresh': '刷新',
         'action.save': '保存',
@@ -303,6 +300,9 @@ window.__ModuleLoader__.load({
         'editor.modeSkill': 'Skill（模型可自行调用，每请求占目录）',
         'editor.modeCommandHint': '只在 Action 面板中由你主动调用。',
         'editor.modeSkillHint': '会注册给模型；确认成本后再启用。',
+        'editor.groups': 'Action 分组',
+        'editor.groupCommon': '默认',
+        'editor.groupsHint': '一个 Action 可以属于多个分组；项目通过分组获得可用性。',
         'editor.scope': '可用范围',
         'editor.scopeAll': '所有项目',
         'editor.scopeCurrent': '仅当前项目（{name}）',
@@ -375,6 +375,21 @@ window.__ModuleLoader__.load({
         'palette.unavailableHint': '这个 Action 不在当前项目的可用范围内；可切换范围或到管理页调整。',
         'palette.currentProject': '当前项目：{name}',
         'palette.noCurrentProject': '未识别当前项目',
+        'palette.noGroups': '未分组',
+        'groups.title': 'Action 分组',
+        'groups.hint': '分组是 Action 的集合；项目通过勾选分组获得其中所有 Action。',
+        'groups.namePlaceholder': '新分组名，如 Common、AgilityDog、漫剧',
+        'groups.create': '创建分组',
+        'groups.rename': '重命名',
+        'groups.renamePrompt': '新的分组名',
+        'groups.delete': '删除',
+        'groups.deleteConfirm': '删除分组“{name}”？Action 会保留，但项目不再通过该分组获得它们。',
+        'scope.title': '项目可用范围',
+        'scope.project': '项目',
+        'scope.groups': '可用分组',
+        'scope.extraActions': '单独追加的 Action',
+        'scope.searchActions': '搜索 Action',
+        'scope.viaGroup': '已由分组覆盖',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
         'palette.refInserted': '已插入引用',
         'palette.resourceCount': '{count} 个资源',
@@ -416,6 +431,8 @@ window.__ModuleLoader__.load({
         'app.name': 'Actions',
         'action.new': 'New Action',
         'action.import': 'Import',
+        'action.groups': 'Groups',
+        'action.scopes': 'Project scopes',
         'action.export': 'Export',
         'action.refresh': 'Refresh',
         'action.save': 'Save',
@@ -499,6 +516,9 @@ window.__ModuleLoader__.load({
         'editor.modeSkill': 'Skill (model-invocable; catalog cost)',
         'editor.modeCommandHint': 'Only invoked by you from the Action palette.',
         'editor.modeSkillHint': 'Registered for the model; enable after the cost confirmation.',
+        'editor.groups': 'Action groups',
+        'editor.groupCommon': 'Default',
+        'editor.groupsHint': 'An Action may belong to several groups; projects gain availability through groups.',
         'editor.scope': 'Availability',
         'editor.scopeAll': 'All projects',
         'editor.scopeCurrent': 'Current project only ({name})',
@@ -571,6 +591,21 @@ window.__ModuleLoader__.load({
         'palette.unavailableHint': 'This Action is outside the current project scope; change its availability or edit it in the library.',
         'palette.currentProject': 'Current project: {name}',
         'palette.noCurrentProject': 'Current project unknown',
+        'palette.noGroups': 'No group',
+        'groups.title': 'Action groups',
+        'groups.hint': 'A group is a set of Actions; selecting it grants every Action in it to a project.',
+        'groups.namePlaceholder': 'New group name, e.g. Common, AgilityDog, Drama',
+        'groups.create': 'Create group',
+        'groups.rename': 'Rename',
+        'groups.renamePrompt': 'New group name',
+        'groups.delete': 'Delete',
+        'groups.deleteConfirm': 'Delete group “{name}”? Actions stay, but projects no longer get them through this group.',
+        'scope.title': 'Project availability',
+        'scope.project': 'Project',
+        'scope.groups': 'Available groups',
+        'scope.extraActions': 'Additional individual Actions',
+        'scope.searchActions': 'Search Actions',
+        'scope.viaGroup': 'Covered by a group',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
         'palette.refInserted': 'Reference inserted',
         'palette.resourceCount': '{count} resource(s)',
@@ -949,7 +984,17 @@ window.__ModuleLoader__.load({
 
     function createHub() {
       const listeners = new Set();
-      let snapshot = { status: 'idle', actions: [], projects: [], meta: {}, error: '' };
+      let snapshot = {
+        status: 'idle',
+        actions: [],
+        projects: [],
+        projectScopes: [],
+        groups: [],
+        currentProject: null,
+        currentProfile: null,
+        meta: {},
+        error: '',
+      };
       let inflight = null;
 
       const emit = () => {
@@ -965,7 +1010,17 @@ window.__ModuleLoader__.load({
         if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
         inflight = api('/state').then(
           (data) => {
-            set({ status: 'ready', actions: data.actions ?? [], projects: data.projects ?? [], meta: data.meta ?? {}, error: '' });
+            set({
+              status: 'ready',
+              actions: data.actions ?? [],
+              projects: data.projects ?? [],
+              projectScopes: data.projectScopes ?? [],
+              groups: data.groups ?? [],
+              currentProject: data.currentProject ?? null,
+              currentProfile: data.currentProfile ?? null,
+              meta: data.meta ?? {},
+              error: '',
+            });
             return snapshot;
           },
           (error) => {
@@ -1703,7 +1758,7 @@ window.__ModuleLoader__.load({
         prompt: initial?.prompt ?? '',
         pinned: initial?.pinned === true,
         mode: initial?.mode === 'skill' ? 'skill' : 'command',
-        scope: initial?.scope !== null && typeof initial?.scope === 'object' ? initial.scope : { mode: 'all', projects: [] },
+        groups: Array.isArray(initial?.groups) ? initial.groups : ['common'],
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
@@ -1743,7 +1798,7 @@ window.__ModuleLoader__.load({
             prompt: form.prompt,
             pinned: form.pinned,
             mode: form.mode,
-            scope: form.scope,
+            groups: form.groups,
           });
         } catch (failure) {
           setError(describeError(failure));
@@ -1752,23 +1807,12 @@ window.__ModuleLoader__.load({
         }
       };
 
-      const currentProject = props.currentProject ?? null;
-      const keyOf = (value) => String(value ?? '').toLowerCase();
-      const registered = Array.isArray(props.projects) ? props.projects : [];
-      const scopeProjects = registered.map((project) => ({ ...project, stale: false }));
-      for (const entry of form.scope.mode === 'projects' ? form.scope.projects : []) {
-        if (!scopeProjects.some((project) => keyOf(project.path) === keyOf(entry.path))) {
-          scopeProjects.push({ label: entry.label, path: entry.path, stale: true });
-        }
-      }
-      const toggleProject = (project, checked) => {
-        setForm((previous) => {
-          const remaining = previous.scope.projects.filter((entry) => keyOf(entry.path) !== keyOf(project.path));
-          return {
-            ...previous,
-            scope: { mode: 'projects', projects: checked ? [...remaining, { label: project.label, path: project.path }] : remaining },
-          };
-        });
+      const groups = Array.isArray(props.groups) ? props.groups : [];
+      const toggleGroup = (id, checked) => {
+        setForm((previous) => ({
+          ...previous,
+          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
+        }));
       };
 
       return h(Modal, {
@@ -1820,36 +1864,16 @@ window.__ModuleLoader__.load({
           h('option', { value: 'skill' }, t('editor.modeSkill'))),
         h('span', { className: 'ah-hint' }, form.mode === 'skill' ? t('editor.modeSkillHint') : t('editor.modeCommandHint'))),
       h('div', { className: 'ah-field' },
-        h('label', { className: 'ah-label' }, t('editor.scope')),
-        h('label', { className: 'ah-scope-option' },
+        h('label', { className: 'ah-label' }, t('editor.groups')),
+        h('div', { className: 'ah-scope-list' }, groups.map((group) => h('label', { key: group.id, className: 'ah-scope-option' },
           h('input', {
             type: 'checkbox',
-            checked: form.scope.mode !== 'projects',
-            onChange: (event) => setForm((previous) => ({ ...previous, scope: event.target.checked ? { mode: 'all', projects: [] } : { mode: 'projects', projects: [] } })),
+            checked: form.groups.includes(group.id),
+            onChange: (event) => toggleGroup(group.id, event.target.checked),
           }),
-          ` ${t('editor.scopeAll')}`),
-        currentProject === null ? null : h('button', {
-          type: 'button',
-          className: 'ah-chip',
-          onClick: () => setForm((previous) => ({
-            ...previous,
-            scope: { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] },
-          })),
-        }, t('editor.scopeCurrent', { name: currentProject.label })),
-        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, scopeProjects.map((project) => {
-          const checked = form.scope.projects.some((entry) => keyOf(entry.path) === keyOf(project.path));
-          return h('label', { key: project.path, className: project.stale ? 'ah-scope-option ah-scope-stale' : 'ah-scope-option' },
-            h('input', {
-              type: 'checkbox',
-              checked,
-              onChange: (event) => toggleProject(project, event.target.checked),
-            }),
-            ` ${project.label}`,
-            project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null,
-            currentProject !== null && keyOf(project.path) === keyOf(currentProject.path) ? h('span', { className: 'ah-badge ah-badge-accent' }, t('editor.scopeCurrentBadge')) : null);
-        })) : null,
-        form.scope.mode === 'projects' && form.scope.projects.length === 0 ? h('span', { className: 'ah-hint ah-hint-warn' }, t('editor.scopeEmpty')) : null,
-        h('span', { className: 'ah-hint' }, currentProject === null ? t('editor.scopeNoCurrent') : t('editor.scopeHint'))),
+          ` ${group.name}`,
+          group.builtin ? h('span', { className: 'ah-badge' }, t('editor.groupCommon')) : null))),
+        h('span', { className: 'ah-hint' }, t('editor.groupsHint'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),
@@ -2141,6 +2165,8 @@ window.__ModuleLoader__.load({
         const [importing, setImporting] = React.useState(false);
         const [exporting, setExporting] = React.useState(false);
         const [categoryDialog, setCategoryDialog] = React.useState(false);
+        const [groupsOpen, setGroupsOpen] = React.useState(false);
+        const [scopeOpen, setScopeOpen] = React.useState(false);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
 
         const notify = React.useCallback((text, kind = 'ok') => setNotice({ text, kind }), []);
@@ -2248,6 +2274,8 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ah-head-actions' },
             h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('action.new')),
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
+            h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
+            h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
@@ -2304,10 +2332,32 @@ window.__ModuleLoader__.load({
             initial: editor,
             categories: categories.map(([name]) => name),
             projects: snapshot.projects ?? [],
-            currentProject: snapshot.currentProject ?? null,
+            groups: snapshot.groups ?? [],
             t,
             onSave: save,
             onClose: () => setEditor(undefined),
+          }));
+        }
+        if (groupsOpen) {
+          body.push(h(GroupDialog, {
+            key: 'groups',
+            groups: snapshot.groups ?? [],
+            t,
+            onChanged: () => hub.refresh(true),
+            onClose: () => setGroupsOpen(false),
+          }));
+        }
+        if (scopeOpen) {
+          body.push(h(ProjectScopeDialog, {
+            key: 'scope',
+            projects: snapshot.projects ?? [],
+            projectScopes: snapshot.projectScopes ?? [],
+            groups: snapshot.groups ?? [],
+            actions,
+            currentProject: snapshot.currentProject ?? null,
+            t,
+            onChanged: () => hub.refresh(true),
+            onClose: () => setScopeOpen(false),
           }));
         }
         if (detail !== null) {
@@ -2327,6 +2377,10 @@ window.__ModuleLoader__.load({
             detail.category ? h('span', { className: 'ah-badge ah-badge-accent' }, detail.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
             detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
             detail.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
+            (detail.groups ?? []).map((id) => {
+              const group = (snapshot.groups ?? []).find((entry) => entry.id === id);
+              return group === undefined ? null : h('span', { key: id, className: 'ah-badge' }, group.name);
+            }),
             (detail.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
             (detail.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: detail.resources.length })) : null,
             h('span', { className: 'ah-count' }, detail.usage?.count > 0 ? t('lib.used', { count: detail.usage.count }) : t('lib.updated', { time: relativeTime(detail.updatedAt) }))),
@@ -2387,6 +2441,172 @@ window.__ModuleLoader__.load({
       };
     }
 
+    // -------------------------------------------------------- groups & scopes
+
+    function GroupDialog(props) {
+      const { t } = props;
+      const groups = Array.isArray(props.groups) ? props.groups : [];
+      const [name, setName] = React.useState('');
+      const [error, setError] = React.useState('');
+      const [busy, setBusy] = React.useState(false);
+
+      const refresh = async () => {
+        await props.onChanged?.();
+      };
+      const run = async (task) => {
+        setBusy(true);
+        setError('');
+        try {
+          await task();
+          await refresh();
+        } catch (failure) {
+          setError(describeError(failure));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      return h(Modal, {
+        title: t('groups.title'),
+        t,
+        onClose: props.onClose,
+        footer: h(Button, { onClick: props.onClose }, t('action.close')),
+      },
+      h('p', { className: 'ah-hint' }, t('groups.hint')),
+      h('div', { className: 'ah-settings-row' },
+        h('div', { className: 'ah-settings-row-main' },
+          h('input', {
+            className: 'ah-input',
+            value: name,
+            placeholder: t('groups.namePlaceholder'),
+            onChange: (event) => setName(event.target.value),
+            onKeyDown: (event) => {
+              if (event.key !== 'Enter' || name.trim() === '') return;
+              event.preventDefault();
+              void run(async () => {
+                await api('/groups/create', { name: name.trim() });
+                setName('');
+              });
+            },
+          })),
+        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void run(async () => { await api('/groups/create', { name: name.trim() }); setName(''); }) }, t('groups.create'))),
+      h('div', { className: 'ah-scope-list' },
+        groups.map((group) => h('div', { key: group.id, className: 'ah-settings-row' },
+          h('div', { className: 'ah-settings-row-main' },
+            h('span', { className: 'ah-settings-row-title' }, group.name),
+            group.builtin ? h('span', { className: 'ah-badge' }, t('editor.groupCommon')) : null),
+          group.builtin ? null : h(Button, { ghost: true, small: true, onClick: () => {
+            const next = window.prompt(t('groups.renamePrompt'), group.name);
+            if (next === null || next.trim() === '' || next.trim() === group.name) return;
+            void run(() => api('/groups/rename', { id: group.id, name: next.trim() }));
+          } }, t('groups.rename')),
+          group.builtin ? null : h(Button, { ghost: true, small: true, danger: true, onClick: () => {
+            if (window.confirm(t('groups.deleteConfirm', { name: group.name }))) void run(() => api('/groups/delete', { id: group.id }));
+          } }, t('groups.delete'))))),
+      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+    }
+
+    function ProjectScopeDialog(props) {
+      const { t } = props;
+      const projects = Array.isArray(props.projects) ? props.projects : [];
+      const scopes = Array.isArray(props.projectScopes) ? props.projectScopes : [];
+      const groups = Array.isArray(props.groups) ? props.groups : [];
+      const actions = Array.isArray(props.actions) ? props.actions : [];
+      const currentProject = props.currentProject ?? null;
+      const initialPath = currentProject?.path ?? scopes[0]?.path ?? projects[0]?.path ?? '';
+      const [projectPath, setProjectPath] = React.useState(initialPath);
+      const [profile, setProfile] = React.useState(() => {
+        const found = scopes.find((entry) => String(entry.path).toLowerCase() === String(initialPath).toLowerCase());
+        return found ?? { path: initialPath, label: '', groups: ['common'], actions: [] };
+      });
+      const [query, setQuery] = React.useState('');
+      const [error, setError] = React.useState('');
+      const [busy, setBusy] = React.useState(false);
+
+      const selectProject = (path) => {
+        setProjectPath(path);
+        const found = scopes.find((entry) => String(entry.path).toLowerCase() === String(path).toLowerCase());
+        setProfile(found ?? { path, label: '', groups: ['common'], actions: [] });
+      };
+
+      const toggleGroup = (id, checked) => {
+        setProfile((previous) => ({
+          ...previous,
+          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
+        }));
+      };
+      const toggleAction = (name, checked) => {
+        setProfile((previous) => ({
+          ...previous,
+          actions: checked ? [...new Set([...previous.actions, name])] : previous.actions.filter((entry) => entry !== name),
+        }));
+      };
+      const covered = (action) => profile.groups.some((id) => (action.groups ?? []).includes(id));
+      const projectOptions = [...projects];
+      for (const scope of scopes) {
+        if (!projectOptions.some((project) => String(project.path).toLowerCase() === String(scope.path).toLowerCase())) {
+          projectOptions.push({ label: scope.label || scope.path, path: scope.path, stale: true });
+        }
+      }
+      const filtered = query.trim() === ''
+        ? actions
+        : actions.filter((action) => `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
+
+      const save = async () => {
+        setBusy(true);
+        setError('');
+        try {
+          await api('/project-scope', {
+            path: projectPath,
+            label: projectOptions.find((project) => project.path === projectPath)?.label ?? '',
+            groups: profile.groups,
+            actions: profile.actions,
+          });
+          await props.onChanged?.();
+          props.onClose?.();
+        } catch (failure) {
+          setError(describeError(failure));
+        } finally {
+          setBusy(false);
+        }
+      };
+
+      return h(Modal, {
+        title: t('scope.title'),
+        t,
+        onClose: props.onClose,
+        footer: h(React.Fragment, null,
+          h(Button, { onClick: props.onClose }, t('action.cancel')),
+          h(Button, { primary: true, disabled: busy || projectPath === '', onClick: save }, t('action.save'))),
+      },
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('scope.project')),
+        h('select', { className: 'ah-input', value: projectPath, onChange: (event) => selectProject(event.target.value) },
+          projectOptions.map((project) => h('option', { key: project.path, value: project.path }, `${project.label}${project.stale ? ` (${t('editor.scopeStale')})` : ''}`)))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('scope.groups')),
+        h('div', { className: 'ah-scope-list' }, groups.map((group) => h('label', { key: group.id, className: 'ah-scope-option' },
+          h('input', {
+            type: 'checkbox',
+            checked: profile.groups.includes(group.id),
+            onChange: (event) => toggleGroup(group.id, event.target.checked),
+          }),
+          ` ${group.name}`)))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('scope.extraActions')),
+        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery }),
+        h('div', { className: 'ah-scope-list' }, filtered.map((action) => h('label', { key: action.id, className: 'ah-scope-option' },
+          h('input', {
+            type: 'checkbox',
+            checked: profile.actions.includes(action.name),
+            disabled: covered(action),
+            onChange: (event) => toggleAction(action.name, event.target.checked),
+          }),
+          ` ${action.name}`,
+          covered(action) ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null)))),
+      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+    }
+
     // --------------------------------------------------------------- palette
 
     function createPaletteView(hub, palette, prefsRef, shortcutStore) {
@@ -2411,18 +2631,9 @@ window.__ModuleLoader__.load({
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
-        const selectedScopePath = selected?.scope?.mode === 'projects' && selected.scope.projects.length === 1 ? selected.scope.projects[0].path : '';
-        const scopePathKnown = selectedScopePath === ''
-          ? true
-          : (snapshot.projects ?? []).some((project) => project.path.toLowerCase() === String(selectedScopePath).toLowerCase())
-            || (currentProject !== null && String(currentProject.path).toLowerCase() === String(selectedScopePath).toLowerCase());
-        const scopeValue = (action) => {
-          if (action === null || action.scope?.mode !== 'projects') return 'all';
-          if (action.scope.projects.length !== 1) return '__custom';
-          const only = action.scope.projects[0]?.path ?? '';
-          if (currentProject !== null && only.toLowerCase() === String(currentProject.path).toLowerCase()) return '__current';
-          return only;
-        };
+        const groupNames = (selected?.groups ?? [])
+          .map((id) => (snapshot.groups ?? []).find((group) => group.id === id)?.name)
+          .filter((name) => typeof name === 'string' && name !== '');
 
         React.useEffect(() => {
           if (!state.open) return undefined;
@@ -2699,7 +2910,7 @@ window.__ModuleLoader__.load({
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
             selected.available === false ? h('p', { className: 'ah-hint ah-hint-warn' }, t('palette.unavailableHint')) : null,
-            h('p', { className: 'ah-hint' }, `${t('editor.scope')}: ${selected.scope?.mode === 'projects' ? (selected.scope.projects.map((project) => project.label).join('、') || t('palette.scopeUnavailable')) : t('palette.scopeAll')}`),
+            h('p', { className: 'ah-hint' }, `${t('editor.groups')}: ${groupNames.length === 0 ? t('palette.noGroups') : groupNames.join('、')}`),
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
             selected !== null && selected.mode === 'skill'
               ? h('p', { className: 'ah-hint' }, t('palette.skillHint', { name: selected.name }))
@@ -2722,38 +2933,7 @@ window.__ModuleLoader__.load({
                 onChange: (event) => setArgs(event.target.value),
               })),
             h('div', { className: 'ah-actions' },
-              selected === null ? null : h('select', {
-                className: 'ah-scope-select',
-                value: scopeValue(selected),
-                title: t('palette.scope'),
-                onChange: async (event) => {
-                  const value = event.target.value;
-                  if (value === '__custom') return;
-                  let scope;
-                  if (value === 'all') {
-                    scope = { mode: 'all', projects: [] };
-                  } else if (value === '__current' && currentProject !== null) {
-                    scope = { mode: 'projects', projects: [{ label: currentProject.label, path: currentProject.path }] };
-                  } else {
-                    const project = (snapshot.projects ?? []).find((entry) => entry.path === value);
-                    scope = { mode: 'projects', projects: [{ label: project?.label ?? value, path: value }] };
-                  }
-                  try {
-                    await hub.call('/scope', { id: selected.id, scope });
-                    await hub.refresh(true);
-                    showToast(t('palette.scopeSaved'));
-                  } catch (failure) {
-                    showToast(describeError(failure), 'error');
-                  }
-                },
-              },
-              h('option', { value: 'all' }, t('palette.scopeAll')),
-              currentProject === null ? null : h('option', { value: '__current' }, t('palette.scopeCurrent', { name: currentProject.label })),
-              selectedScopePath !== '' && !scopePathKnown
-                ? h('option', { value: selectedScopePath }, selected.scope.projects[0]?.label ?? selectedScopePath)
-                : null,
-              (snapshot.projects ?? []).filter((project) => currentProject === null || project.path.toLowerCase() !== String(currentProject.path).toLowerCase()).map((project) => h('option', { key: project.path, value: project.path }, project.label)),
-              selected.scope?.mode === 'projects' && selected.scope.projects.length !== 1 ? h('option', { value: '__custom', disabled: true }, t('palette.scopeCustom')) : null),
+              h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('action.scopes')),
               h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
               h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
               h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.send, { size: 13 }), t('palette.send')))),

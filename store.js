@@ -8,7 +8,7 @@
  *
  * @module dsh-action-hub/store
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,7 +23,9 @@ import {
 } from './skill-doc.js';
 import { listResources } from './resources.js';
 
-export const STORE_VERSION = 3;
+export const STORE_VERSION = 4;
+export const STATE_FORMAT = 'dsh-action-hub/state@2';
+export const COMMON_GROUP_ID = 'common';
 export const STATE_FILE = 'state.json';
 export const LIBRARY_DIR = 'library';
 export const MAX_PROMPT = MAX_BODY;
@@ -107,6 +109,67 @@ export function normalizeScope(scope) {
   return { mode, projects };
 }
 
+export function defaultGroups() {
+  return [{ id: COMMON_GROUP_ID, name: 'Common', builtin: true }];
+}
+
+export function normalizeGroupName(value) {
+  return typeof value === 'string' ? value.trim().slice(0, 40) : '';
+}
+
+function normalizeGroupIds(value) {
+  const out = [];
+  const seen = new Set();
+  for (const item of Array.isArray(value) ? value : []) {
+    if (typeof item !== 'string') continue;
+    const id = item.trim().toLowerCase();
+    if (id === '' || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+export function normalizeGroups(raw) {
+  const out = [];
+  const seen = new Set();
+  for (const item of Array.isArray(raw) ? raw : []) {
+    if (item === null || typeof item !== 'object') continue;
+    const name = normalizeGroupName(item.name);
+    const id = typeof item.id === 'string' ? item.id.trim().toLowerCase() : '';
+    if (name === '' || id === '' || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name, builtin: id === COMMON_GROUP_ID });
+  }
+  if (!seen.has(COMMON_GROUP_ID)) out.unshift({ id: COMMON_GROUP_ID, name: 'Common', builtin: true });
+  return out;
+}
+
+export function defaultProjectProfile(path = '', label = '') {
+  return { path, label, groups: [COMMON_GROUP_ID], actions: [] };
+}
+
+export function normalizeProjectProfiles(raw, groups = defaultGroups()) {
+  const validGroups = new Set(groups.map((group) => group.id));
+  const out = [];
+  const seen = new Set();
+  for (const item of Array.isArray(raw) ? raw : []) {
+    if (item === null || typeof item !== 'object' || typeof item.path !== 'string') continue;
+    const projectPath = item.path.trim().replace(/[\\/]+$/u, '');
+    if (projectPath === '') continue;
+    const key = process.platform === 'win32' ? projectPath.toLowerCase() : projectPath;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      path: projectPath,
+      label: typeof item.label === 'string' && item.label.trim() !== '' ? item.label.trim() : path.basename(projectPath) || projectPath,
+      groups: normalizeGroupIds(item.groups).filter((id) => validGroups.has(id)),
+      actions: [...new Set((Array.isArray(item.actions) ? item.actions : []).filter((name) => typeof name === 'string' && name.trim() !== '').map((name) => name.trim()))],
+    });
+  }
+  return out;
+}
+
 export function normalizeMode(mode) {
   return mode === 'skill' ? 'skill' : 'command';
 }
@@ -122,7 +185,7 @@ export function normalizeAction(input = {}) {
     argsHint: typeof input.argsHint === 'string' ? input.argsHint.trim().slice(0, 120) : '',
     pinned: input.pinned === true,
     mode: normalizeMode(input.mode),
-    scope: normalizeScope(input.scope),
+    groups: Array.isArray(input.groups) ? normalizeGroupIds(input.groups) : [COMMON_GROUP_ID],
   };
 }
 
@@ -168,17 +231,60 @@ function libraryPath(dataDir, name) {
 }
 
 function emptyState() {
-  return { format: 'dsh-action-hub/state@1', entries: {} };
+  return { format: STATE_FORMAT, groups: defaultGroups(), entries: {}, projects: [] };
+}
+
+function normalizeEntryRecord(raw, projectsByName) {
+  if (raw === null || typeof raw !== 'object') return { entry: undefined, legacyProjects: [] };
+  const { scope, ...rest } = raw;
+  let groups;
+  if (Array.isArray(rest.groups)) {
+    groups = normalizeGroupIds(rest.groups);
+  } else if (scope?.mode === 'projects') {
+    groups = [];
+  } else {
+    groups = [COMMON_GROUP_ID];
+  }
+  const legacyProjects = scope?.mode === 'projects' && Array.isArray(scope.projects)
+    ? scope.projects.filter((entry) => entry !== null && typeof entry === 'object' && typeof entry.path === 'string')
+    : [];
+  return { entry: { ...rest, groups }, legacyProjects };
+}
+
+function normalizeState(parsed) {
+  const groups = normalizeGroups(parsed.groups);
+  const entries = {};
+  const migrated = new Map();
+  const sourceEntries = parsed.entries !== null && typeof parsed.entries === 'object' ? parsed.entries : {};
+  for (const [name, raw] of Object.entries(sourceEntries)) {
+    const { entry, legacyProjects } = normalizeEntryRecord(raw);
+    if (entry === undefined) continue;
+    entries[name] = entry;
+    for (const project of legacyProjects) {
+      const key = process.platform === 'win32' ? project.path.toLowerCase() : project.path;
+      if (!migrated.has(key)) migrated.set(key, { path: project.path, label: project.label, groups: [COMMON_GROUP_ID], actions: [] });
+      migrated.get(key).actions.push(name);
+    }
+  }
+  const profiles = normalizeProjectProfiles(
+    Array.isArray(parsed.projects) ? parsed.projects : [...migrated.values()],
+    groups,
+  );
+  const changed = parsed.format !== STATE_FORMAT
+    || !Array.isArray(parsed.groups)
+    || !Array.isArray(parsed.projects)
+    || Object.values(sourceEntries).some((entry) => entry !== null && typeof entry === 'object' && 'scope' in entry);
+  return { state: { format: STATE_FORMAT, groups, entries, projects: profiles }, changed };
 }
 
 async function readStateFile(dataDir) {
   try {
     const raw = await fs.readFile(statePath(dataDir), 'utf8');
     const parsed = JSON.parse(raw);
-    if (parsed === null || typeof parsed !== 'object' || typeof parsed.entries !== 'object' || parsed.entries === null) return emptyState();
-    return { format: 'dsh-action-hub/state@1', entries: parsed.entries };
+    if (parsed === null || typeof parsed !== 'object') return { state: emptyState(), changed: false };
+    return normalizeState(parsed);
   } catch {
-    return emptyState();
+    return { state: emptyState(), changed: false };
   }
 }
 
@@ -216,7 +322,7 @@ function defaultEntry() {
     argsHint: '',
     pinned: false,
     usage: { count: 0, lastAt: 0 },
-    scope: defaultScope(),
+    groups: [COMMON_GROUP_ID],
     createdAt: 0,
     updatedAt: 0,
   };
@@ -226,7 +332,7 @@ function mergeEntry(state, name) {
   const raw = state.entries[name];
   const entry = { ...defaultEntry(), ...(raw !== null && typeof raw === 'object' ? raw : {}) };
   entry.mode = normalizeMode(entry.mode);
-  entry.scope = normalizeScope(entry.scope);
+  entry.groups = normalizeGroupIds(entry.groups);
   entry.tags = Array.isArray(entry.tags) ? entry.tags.filter((tag) => typeof tag === 'string') : [];
   entry.pinned = entry.pinned === true;
   entry.usage = entry.usage !== null && typeof entry.usage === 'object' ? entry.usage : { count: 0, lastAt: 0 };
@@ -246,7 +352,7 @@ function toAction(skill, entry, resources = []) {
     pinned: entry.pinned,
     usage: entry.usage,
     mode: entry.mode,
-    scope: entry.scope,
+    groups: entry.groups,
     resources,
     frontmatter: skill.frontmatter,
     builtin: false,
@@ -269,7 +375,9 @@ export function createStore(options = {}) {
 
   async function readState() {
     await ensureDataDir(dataDir);
-    return readStateFile(dataDir);
+    const { state, changed } = await readStateFile(dataDir);
+    if (changed) await writeStateFile(dataDir, state);
+    return state;
   }
 
   async function readLibrary() {
@@ -357,7 +465,7 @@ export function createStore(options = {}) {
           tags: action.tags,
           argsHint: action.argsHint,
           pinned: action.pinned,
-          scope: action.scope,
+          groups: action.groups,
           createdAt: now,
           updatedAt: now,
         };
@@ -396,7 +504,7 @@ export function createStore(options = {}) {
           tags: next.tags,
           argsHint: next.argsHint,
           pinned: next.pinned,
-          scope: next.scope,
+          groups: next.groups,
           updatedAt: Date.now(),
         };
         await writeStateFile(dataDir, state);
@@ -422,14 +530,90 @@ export function createStore(options = {}) {
         return state.entries[name];
       });
     },
-    async setScope(id, scope) {
+    async setActionGroups(id, groups) {
       return serialize(async () => {
         const name = assertSkillName(id);
         const state = await readState();
+        const valid = new Set(state.groups.map((group) => group.id));
         const entry = mergeEntry(state, name);
-        state.entries[name] = { ...entry, scope: normalizeScope(scope), updatedAt: Date.now() };
+        state.entries[name] = {
+          ...entry,
+          groups: normalizeGroupIds(groups).filter((groupId) => valid.has(groupId)),
+          updatedAt: Date.now(),
+        };
         await writeStateFile(dataDir, state);
         return state.entries[name];
+      });
+    },
+    async setProjectScope(projectPath, profile = {}) {
+      return serialize(async () => {
+        const raw = typeof projectPath === 'string' ? projectPath.trim().replace(/[\\/]+$/u, '') : '';
+        if (raw === '') throw new Error('项目路径不能为空');
+        const state = await readState();
+        const groups = normalizeGroups(state.groups);
+        const valid = new Set(groups.map((group) => group.id));
+        const key = process.platform === 'win32' ? raw.toLowerCase() : raw;
+        const existing = state.projects.find((project) => (process.platform === 'win32' ? project.path.toLowerCase() : project.path) === key);
+        const entry = {
+          path: raw,
+          label: typeof profile.label === 'string' && profile.label.trim() !== '' ? profile.label.trim() : (existing?.label ?? path.basename(raw)) || raw,
+          groups: normalizeGroupIds(profile.groups).filter((id) => valid.has(id)),
+          actions: [...new Set((Array.isArray(profile.actions) ? profile.actions : []).filter((name) => typeof name === 'string' && name.trim() !== '').map((name) => name.trim()))],
+        };
+        state.projects = state.projects.filter((project) => project !== existing);
+        state.projects.push(entry);
+        state.groups = groups;
+        await writeStateFile(dataDir, state);
+        return entry;
+      });
+    },
+    async createGroup(name) {
+      return serialize(async () => {
+        const display = normalizeGroupName(name);
+        if (display === '') throw new Error('分组名不能为空');
+        const state = await readState();
+        state.groups = normalizeGroups(state.groups);
+        if (state.groups.some((group) => group.name.toLowerCase() === display.toLowerCase())) throw new Error('分组已存在');
+        let id = display.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/gu, '-').replace(/^-+|-+$/gu, '');
+        if (id === '' || state.groups.some((group) => group.id === id)) id = `g-${randomUUID().slice(0, 8)}`;
+        const group = { id, name: display, builtin: false };
+        state.groups.push(group);
+        await writeStateFile(dataDir, state);
+        return group;
+      });
+    },
+    async renameGroup(id, name) {
+      return serialize(async () => {
+        const display = normalizeGroupName(name);
+        if (display === '') throw new Error('分组名不能为空');
+        const state = await readState();
+        state.groups = normalizeGroups(state.groups);
+        const group = state.groups.find((entry) => entry.id === id);
+        if (group === undefined) throw new Error('分组不存在');
+        if (state.groups.some((entry) => entry.id !== id && entry.name.toLowerCase() === display.toLowerCase())) throw new Error('分组已存在');
+        group.name = display;
+        await writeStateFile(dataDir, state);
+        return group;
+      });
+    },
+    async deleteGroup(id) {
+      return serialize(async () => {
+        if (id === COMMON_GROUP_ID) throw new Error('Common 分组不能删除');
+        const state = await readState();
+        state.groups = normalizeGroups(state.groups);
+        if (!state.groups.some((group) => group.id === id)) throw new Error('分组不存在');
+        state.groups = state.groups.filter((group) => group.id !== id);
+        for (const [name, entry] of Object.entries(state.entries)) {
+          if (Array.isArray(entry.groups) && entry.groups.includes(id)) {
+            state.entries[name] = { ...mergeEntry(state, name), groups: entry.groups.filter((groupId) => groupId !== id), updatedAt: Date.now() };
+          }
+        }
+        state.projects = state.projects.map((project) => ({
+          ...project,
+          groups: project.groups.filter((groupId) => groupId !== id),
+        }));
+        await writeStateFile(dataDir, state);
+        return state.groups;
       });
     },
     async setMode(id, mode) {
