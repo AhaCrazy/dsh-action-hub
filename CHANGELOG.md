@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.6.0 — 2026-10-23
+
+- Merged the group editor and project availability editor into one dialog with
+  bookmark-style tabs. Both panels stay mounted while switching tabs, so
+  unsaved drafts are preserved; closing asks once for the combined dirty count.
+- Each toolbar entry opens the merged dialog on its matching tab, and panel
+  saves no longer close the dialog.
+
 ## 7.5.0 — 2026-10-23
 
 - Redesigned the project availability dialog as a two-pane editor: project list

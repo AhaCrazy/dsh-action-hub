@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.5.0';
+    const VERSION = '7.6.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -106,6 +106,13 @@ window.__ModuleLoader__.load({
       .ah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
       .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
       .ah-modal-wide { width: min(900px, 96vw); max-height: min(90vh, 920px); }
+      .ah-config-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--dsw-alias-border-l1); margin: -4px 0 2px; }
+      .ah-config-tab { appearance: none; border: 1px solid transparent; border-bottom: 0; border-radius: 9px 9px 0 0; background: transparent; color: var(--dsw-alias-label-secondary); padding: 8px 16px; font: inherit; font-size: 12.5px; cursor: pointer; position: relative; top: 1px; }
+      .ah-config-tab:hover { color: var(--dsw-alias-label-primary); }
+      .ah-config-tab[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); font-weight: 650; }
+      .ah-config-pane[hidden] { display: none; }
+      .ah-config-body { display: flex; flex-direction: column; gap: 10px; }
+      .ah-config-foot { margin: 8px -20px -16px; position: sticky; bottom: -1px; z-index: 3; background: var(--dsw-alias-bg-overlay); }
       .ah-group-create { display: flex; align-items: center; gap: 8px; }
       .ah-group-create .ah-input { flex: 1 1 auto; }
       .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
@@ -438,6 +445,7 @@ window.__ModuleLoader__.load({
         'palette.noCurrentProject': '未识别当前项目',
         'palette.noGroups': '未分组',
         'groups.title': 'Action 分组',
+        'config.title': 'Action 配置',
         'groups.hint': '分组是 Action 的集合；项目通过勾选分组获得其中所有 Action。',
         'groups.namePlaceholder': '新分组名，如 Common、AgilityDog、漫剧',
         'groups.create': '创建分组',
@@ -682,6 +690,7 @@ window.__ModuleLoader__.load({
         'palette.noCurrentProject': 'Current project unknown',
         'palette.noGroups': 'No group',
         'groups.title': 'Action groups',
+        'config.title': 'Action configuration',
         'groups.hint': 'A group is a set of Actions; selecting it grants every Action in it to a project.',
         'groups.namePlaceholder': 'New group name, e.g. Common, AgilityDog, Drama',
         'groups.create': 'Create group',
@@ -2282,8 +2291,8 @@ window.__ModuleLoader__.load({
         const [importing, setImporting] = React.useState(false);
         const [exporting, setExporting] = React.useState(false);
         const [categoryDialog, setCategoryDialog] = React.useState(false);
-        const [groupsOpen, setGroupsOpen] = React.useState(false);
-        const [scopeOpen, setScopeOpen] = React.useState(false);
+        const [configOpen, setConfigOpen] = React.useState(false);
+        const [configTab, setConfigTab] = React.useState('groups');
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
 
         const notify = React.useCallback((text, kind = 'ok') => setNotice({ text, kind }), []);
@@ -2391,8 +2400,8 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ah-head-actions' },
             h(Button, { primary: true, onClick: () => setEditor(null) }, h(Icons.plus, { size: 14 }), t('action.new')),
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
-            h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
-            h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
+            h(Button, { onClick: () => { setConfigTab('groups'); setConfigOpen(true); } }, h(Icons.sliders, { size: 13 }), t('action.groups')),
+            h(Button, { onClick: () => { setConfigTab('scope'); setConfigOpen(true); } }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
@@ -2455,19 +2464,10 @@ window.__ModuleLoader__.load({
             onClose: () => setEditor(undefined),
           }));
         }
-        if (groupsOpen) {
-          body.push(h(GroupDialog, {
-            key: 'groups',
-            groups: snapshot.groups ?? [],
-            actions,
-            t,
-            onChanged: () => hub.refresh(true),
-            onClose: () => setGroupsOpen(false),
-          }));
-        }
-        if (scopeOpen) {
-          body.push(h(ProjectScopeDialog, {
-            key: 'scope',
+        if (configOpen) {
+          body.push(h(ConfigDialog, {
+            key: 'config',
+            initialTab: configTab,
             projects: snapshot.projects ?? [],
             projectScopes: snapshot.projectScopes ?? [],
             groups: snapshot.groups ?? [],
@@ -2475,7 +2475,7 @@ window.__ModuleLoader__.load({
             currentProject: snapshot.currentProject ?? null,
             t,
             onChanged: () => hub.refresh(true),
-            onClose: () => setScopeOpen(false),
+            onClose: () => setConfigOpen(false),
           }));
         }
         if (detail !== null) {
@@ -2638,6 +2638,9 @@ window.__ModuleLoader__.load({
         const includesRemoved = beforeIncludes.filter((entry) => !afterIncludes.includes(entry)).length;
         return sum + added + removed + includesAdded + includesRemoved;
       }, 0);
+      React.useEffect(() => {
+        props.onDirtyChange?.(dirtyCount);
+      }, [dirtyCount, props.onDirtyChange]);
       const filtered = actions.filter((action) => {
         if (filter === 'selected' && !activeDirectSet.has(action.name)) return false;
         if (filter === 'unselected' && activeDirectSet.has(action.name)) return false;
@@ -2662,7 +2665,7 @@ window.__ModuleLoader__.load({
         }
       };
       const close = () => {
-        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        if (!props.embedded && dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
         props.onClose?.();
       };
       const toggle = (action) => {
@@ -2699,7 +2702,7 @@ window.__ModuleLoader__.load({
             if (includesChanged) await api('/groups/includes', { id: group.id, includes: draftIncludes(group) });
           }
           await refresh();
-          props.onClose?.();
+          if (!props.embedded) props.onClose?.();
         } catch (failure) {
           setError(describeError(failure));
         } finally {
@@ -2891,17 +2894,11 @@ window.__ModuleLoader__.load({
         onClick: () => { setMenu(null); void removeGroup(menuGroup); },
       }, t('groups.delete')));
 
-      return h(Modal, {
-        title: t('groups.title'),
-        t,
-        wide: true,
-        onClose: close,
-        footer: h(React.Fragment, null,
-          h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
-          h(Button, { onClick: close }, t('action.cancel')),
-          h(Button, { primary: true, disabled: busy || dirtyCount === 0, onClick: save }, t('groups.save'))),
-      },
-      h('div', { className: 'ah-group-create' },
+      const footer = h(React.Fragment, null,
+        h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
+        h(Button, { onClick: close }, t('action.cancel')),
+        h(Button, { primary: true, disabled: busy || dirtyCount === 0, onClick: save }, t('groups.save')));
+      const createRow = h('div', { className: 'ah-group-create' },
         h('input', {
           className: 'ah-input',
           value: name,
@@ -2913,10 +2910,25 @@ window.__ModuleLoader__.load({
             void createGroup();
           },
         }),
-        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create'))),
+        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create')));
+      const errorView = error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error);
+
+      if (props.embedded) {
+        return h(React.Fragment, null,
+          h('div', { className: 'ah-config-body' }, createRow, layout, contextMenu, errorView),
+          h('div', { className: 'ah-modal-foot ah-config-foot' }, footer));
+      }
+      return h(Modal, {
+        title: t('groups.title'),
+        t,
+        wide: true,
+        onClose: close,
+        footer,
+      },
+      createRow,
       layout,
       contextMenu,
-      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+      errorView);
     }
 
     function ProjectScopeDialog(props) {
@@ -2978,6 +2990,9 @@ window.__ModuleLoader__.load({
         const actionsRemoved = before.actions.filter((entry) => !after.actions.includes(entry)).length;
         return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved;
       }, 0);
+      React.useEffect(() => {
+        props.onDirtyChange?.(dirtyCount);
+      }, [dirtyCount, props.onDirtyChange]);
       const expandGroups = (selected) => {
         const byId = new Map(groups.map((group) => [group.id, group]));
         const seen = new Set();
@@ -3024,7 +3039,7 @@ window.__ModuleLoader__.load({
         }));
       };
       const close = () => {
-        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        if (!props.embedded && dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
         props.onClose?.();
       };
       const save = async () => {
@@ -3041,7 +3056,7 @@ window.__ModuleLoader__.load({
             });
           }
           await props.onChanged?.();
-          props.onClose?.();
+          if (!props.embedded) props.onClose?.();
         } catch (failure) {
           setError(describeError(failure));
         } finally {
@@ -3123,18 +3138,60 @@ window.__ModuleLoader__.load({
           projectRows.length === 0 ? h('div', { className: 'ah-group-empty' }, t('scope.noProjects')) : projectRows),
         h('section', { className: 'ah-group-detail' }, detail));
 
+      const footer = h(React.Fragment, null,
+        h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
+        h(Button, { onClick: close }, t('action.cancel')),
+        h(Button, { primary: true, disabled: busy || projectPath === '' || dirtyCount === 0, onClick: save }, t('groups.save')));
+      const errorView = error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error);
+
+      if (props.embedded) {
+        return h(React.Fragment, null,
+          h('div', { className: 'ah-config-body' }, layout, errorView),
+          h('div', { className: 'ah-modal-foot ah-config-foot' }, footer));
+      }
       return h(Modal, {
         title: t('scope.title'),
         t,
         wide: true,
         onClose: close,
-        footer: h(React.Fragment, null,
-          h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
-          h(Button, { onClick: close }, t('action.cancel')),
-          h(Button, { primary: true, disabled: busy || projectPath === '' || dirtyCount === 0, onClick: save }, t('groups.save'))),
+        footer,
       },
       layout,
-      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+      errorView);
+    }
+
+    function ConfigDialog(props) {
+      const { t } = props;
+      const [tab, setTab] = React.useState(props.initialTab === 'scope' ? 'scope' : 'groups');
+      const [dirty, setDirty] = React.useState({ groups: 0, scope: 0 });
+      const setDirtyFor = (key) => (count) => {
+        setDirty((previous) => (previous[key] === count ? previous : { ...previous, [key]: count }));
+      };
+      const dirtyCount = dirty.groups + dirty.scope;
+      const close = () => {
+        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        props.onClose?.();
+      };
+      const tabButton = (id, label) => h('button', {
+        type: 'button',
+        role: 'tab',
+        className: 'ah-config-tab',
+        'aria-selected': tab === id,
+        'data-active': tab === id,
+        onClick: () => setTab(id),
+      }, label);
+
+      return h(Modal, {
+        title: t('config.title'),
+        t,
+        wide: true,
+        onClose: close,
+      },
+      h('div', { className: 'ah-config-tabs', role: 'tablist' }, tabButton('groups', t('groups.title')), tabButton('scope', t('scope.title'))),
+      h('div', { className: 'ah-config-pane', hidden: tab !== 'groups' },
+        h(GroupDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('groups') })),
+      h('div', { className: 'ah-config-pane', hidden: tab !== 'scope' },
+        h(ProjectScopeDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('scope') })));
     }
 
     // --------------------------------------------------------------- palette

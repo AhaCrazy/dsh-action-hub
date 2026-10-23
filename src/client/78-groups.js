@@ -77,6 +77,9 @@
         const includesRemoved = beforeIncludes.filter((entry) => !afterIncludes.includes(entry)).length;
         return sum + added + removed + includesAdded + includesRemoved;
       }, 0);
+      React.useEffect(() => {
+        props.onDirtyChange?.(dirtyCount);
+      }, [dirtyCount, props.onDirtyChange]);
       const filtered = actions.filter((action) => {
         if (filter === 'selected' && !activeDirectSet.has(action.name)) return false;
         if (filter === 'unselected' && activeDirectSet.has(action.name)) return false;
@@ -101,7 +104,7 @@
         }
       };
       const close = () => {
-        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        if (!props.embedded && dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
         props.onClose?.();
       };
       const toggle = (action) => {
@@ -138,7 +141,7 @@
             if (includesChanged) await api('/groups/includes', { id: group.id, includes: draftIncludes(group) });
           }
           await refresh();
-          props.onClose?.();
+          if (!props.embedded) props.onClose?.();
         } catch (failure) {
           setError(describeError(failure));
         } finally {
@@ -330,17 +333,11 @@
         onClick: () => { setMenu(null); void removeGroup(menuGroup); },
       }, t('groups.delete')));
 
-      return h(Modal, {
-        title: t('groups.title'),
-        t,
-        wide: true,
-        onClose: close,
-        footer: h(React.Fragment, null,
-          h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
-          h(Button, { onClick: close }, t('action.cancel')),
-          h(Button, { primary: true, disabled: busy || dirtyCount === 0, onClick: save }, t('groups.save'))),
-      },
-      h('div', { className: 'ah-group-create' },
+      const footer = h(React.Fragment, null,
+        h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
+        h(Button, { onClick: close }, t('action.cancel')),
+        h(Button, { primary: true, disabled: busy || dirtyCount === 0, onClick: save }, t('groups.save')));
+      const createRow = h('div', { className: 'ah-group-create' },
         h('input', {
           className: 'ah-input',
           value: name,
@@ -352,10 +349,25 @@
             void createGroup();
           },
         }),
-        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create'))),
+        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create')));
+      const errorView = error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error);
+
+      if (props.embedded) {
+        return h(React.Fragment, null,
+          h('div', { className: 'ah-config-body' }, createRow, layout, contextMenu, errorView),
+          h('div', { className: 'ah-modal-foot ah-config-foot' }, footer));
+      }
+      return h(Modal, {
+        title: t('groups.title'),
+        t,
+        wide: true,
+        onClose: close,
+        footer,
+      },
+      createRow,
       layout,
       contextMenu,
-      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+      errorView);
     }
 
     function ProjectScopeDialog(props) {
@@ -417,6 +429,9 @@
         const actionsRemoved = before.actions.filter((entry) => !after.actions.includes(entry)).length;
         return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved;
       }, 0);
+      React.useEffect(() => {
+        props.onDirtyChange?.(dirtyCount);
+      }, [dirtyCount, props.onDirtyChange]);
       const expandGroups = (selected) => {
         const byId = new Map(groups.map((group) => [group.id, group]));
         const seen = new Set();
@@ -463,7 +478,7 @@
         }));
       };
       const close = () => {
-        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        if (!props.embedded && dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
         props.onClose?.();
       };
       const save = async () => {
@@ -480,7 +495,7 @@
             });
           }
           await props.onChanged?.();
-          props.onClose?.();
+          if (!props.embedded) props.onClose?.();
         } catch (failure) {
           setError(describeError(failure));
         } finally {
@@ -562,16 +577,58 @@
           projectRows.length === 0 ? h('div', { className: 'ah-group-empty' }, t('scope.noProjects')) : projectRows),
         h('section', { className: 'ah-group-detail' }, detail));
 
+      const footer = h(React.Fragment, null,
+        h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
+        h(Button, { onClick: close }, t('action.cancel')),
+        h(Button, { primary: true, disabled: busy || projectPath === '' || dirtyCount === 0, onClick: save }, t('groups.save')));
+      const errorView = error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error);
+
+      if (props.embedded) {
+        return h(React.Fragment, null,
+          h('div', { className: 'ah-config-body' }, layout, errorView),
+          h('div', { className: 'ah-modal-foot ah-config-foot' }, footer));
+      }
       return h(Modal, {
         title: t('scope.title'),
         t,
         wide: true,
         onClose: close,
-        footer: h(React.Fragment, null,
-          h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
-          h(Button, { onClick: close }, t('action.cancel')),
-          h(Button, { primary: true, disabled: busy || projectPath === '' || dirtyCount === 0, onClick: save }, t('groups.save'))),
+        footer,
       },
       layout,
-      error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
+      errorView);
+    }
+
+    function ConfigDialog(props) {
+      const { t } = props;
+      const [tab, setTab] = React.useState(props.initialTab === 'scope' ? 'scope' : 'groups');
+      const [dirty, setDirty] = React.useState({ groups: 0, scope: 0 });
+      const setDirtyFor = (key) => (count) => {
+        setDirty((previous) => (previous[key] === count ? previous : { ...previous, [key]: count }));
+      };
+      const dirtyCount = dirty.groups + dirty.scope;
+      const close = () => {
+        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        props.onClose?.();
+      };
+      const tabButton = (id, label) => h('button', {
+        type: 'button',
+        role: 'tab',
+        className: 'ah-config-tab',
+        'aria-selected': tab === id,
+        'data-active': tab === id,
+        onClick: () => setTab(id),
+      }, label);
+
+      return h(Modal, {
+        title: t('config.title'),
+        t,
+        wide: true,
+        onClose: close,
+      },
+      h('div', { className: 'ah-config-tabs', role: 'tablist' }, tabButton('groups', t('groups.title')), tabButton('scope', t('scope.title'))),
+      h('div', { className: 'ah-config-pane', hidden: tab !== 'groups' },
+        h(GroupDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('groups') })),
+      h('div', { className: 'ah-config-pane', hidden: tab !== 'scope' },
+        h(ProjectScopeDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('scope') })));
     }

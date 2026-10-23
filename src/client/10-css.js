@@ -76,6 +76,13 @@
       .ah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
       .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
       .ah-modal-wide { width: min(900px, 96vw); max-height: min(90vh, 920px); }
+      .ah-config-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--dsw-alias-border-l1); margin: -4px 0 2px; }
+      .ah-config-tab { appearance: none; border: 1px solid transparent; border-bottom: 0; border-radius: 9px 9px 0 0; background: transparent; color: var(--dsw-alias-label-secondary); padding: 8px 16px; font: inherit; font-size: 12.5px; cursor: pointer; position: relative; top: 1px; }
+      .ah-config-tab:hover { color: var(--dsw-alias-label-primary); }
+      .ah-config-tab[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); font-weight: 650; }
+      .ah-config-pane[hidden] { display: none; }
+      .ah-config-body { display: flex; flex-direction: column; gap: 10px; }
+      .ah-config-foot { margin: 8px -20px -16px; position: sticky; bottom: -1px; z-index: 3; background: var(--dsw-alias-bg-overlay); }
       .ah-group-create { display: flex; align-items: center; gap: 8px; }
       .ah-group-create .ah-input { flex: 1 1 auto; }
       .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
