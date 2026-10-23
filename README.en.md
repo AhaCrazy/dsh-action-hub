@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-7.3.5-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-7.4.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -79,7 +79,7 @@ Imported skills start as **Command**. Switch to **Skill** in the editor before t
 
 - An Action may belong to several groups (for example Common, AgilityDog, Drama);
 - The group dialog can tick the Actions in that group directly, without editing each Action;
-- Groups can include other groups (for example Art includes Figma) and inherit all their Actions; cycles are blocked;
+- Groups can include other groups (for example Art includes Figma) and inherit all their Actions; cycles resolve to one merged set;
 - A project selects groups and can add individual Actions;
 - A new or unconfigured project defaults to the **Common** group only;
 - The palette detects the current project and dims Actions unavailable there;

@@ -226,17 +226,17 @@
         h('p', { className: 'ah-hint' }, t('groups.includesHint')),
         h('div', { className: 'ah-group-include-list' }, childGroups.map((child) => {
           const checked = activeIncludes.includes(child.id);
-          const blocked = !checked && reachesGroup(child.id, active.id);
-          return h('label', { key: child.id, className: 'ah-group-include', 'data-checked': checked, 'data-blocked': blocked },
+          const cycle = !checked && reachesGroup(child.id, active.id);
+          return h('label', { key: child.id, className: 'ah-group-include', 'data-checked': checked, 'data-cycle': cycle },
             h('input', {
               type: 'checkbox',
               checked,
-              disabled: blocked || busy,
+              disabled: busy,
               onChange: (event) => toggleInclude(child, event.target.checked),
             }),
             h('span', { className: 'ah-group-include-name' }, child.name),
             h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
-            blocked ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
+            cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
         })));
       const inheritedActions = active === null
         ? []

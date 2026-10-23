@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.4.0 — 2026-10-23
+
+- Group cycles are now allowed instead of rejected. A cycle is treated as one
+  shared Action pool: every group in the cycle resolves to the union of the
+  connected groups' Actions. The group editor shows a non-blocking cycle hint,
+  and all recursive traversals use visited sets so there is no infinite loop.
+- Removed the Host-side cycle rejection and the read-time cycle-edge pruning.
+
 ## 7.3.5 — 2026-10-23
 
 - Fix the group editor reporting a just-unchecked directly assigned Action as

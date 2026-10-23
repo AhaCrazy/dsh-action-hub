@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.3.5';
+    const VERSION = '7.4.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -158,7 +158,7 @@ window.__ModuleLoader__.load({
       .ah-group-include-list { display: flex; flex-wrap: wrap; gap: 5px; padding-bottom: 8px; }
       .ah-group-include { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; padding: 4px 8px; cursor: pointer; font-size: 11.5px; }
       .ah-group-include[data-checked="true"] { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
-      .ah-group-include[data-blocked="true"] { opacity: .45; cursor: not-allowed; }
+      .ah-group-include[data-cycle="true"] { border-style: dashed; }
       .ah-group-include-name { font-weight: 600; }
       .ah-group-inherited { padding: 8px 12px 10px; border-top: 1px solid var(--dsw-alias-border-l1); }
       .ah-group-inherited-list { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -458,8 +458,8 @@ window.__ModuleLoader__.load({
         'groups.filterUnselected': '未选',
         'groups.noMatch': '没有匹配的 Action',
         'groups.includesTitle': '包含其他分组',
-        'groups.includesHint': '勾选后，该分组会继承子分组的全部 Action；已阻止会形成环的引用。',
-        'groups.cycleHint': '会形成环',
+        'groups.includesHint': '勾选后，该分组会继承子分组的全部 Action；环引用会合并为同一个可用集合。',
+        'groups.cycleHint': '会形成环，按合集生效',
         'groups.inheritedTitle': '通过子分组继承的 Action',
         'groups.inheritedBadge': '继承',
         'scope.title': '项目可用范围',
@@ -694,8 +694,8 @@ window.__ModuleLoader__.load({
         'groups.filterUnselected': 'Unselected',
         'groups.noMatch': 'No matching Actions',
         'groups.includesTitle': 'Includes groups',
-        'groups.includesHint': 'Selected groups contribute all their Actions to this group; references that would create a cycle are blocked.',
-        'groups.cycleHint': 'Creates a cycle',
+        'groups.includesHint': 'Selected groups contribute all their Actions to this group; cycles merge into one shared set.',
+        'groups.cycleHint': 'Forms a cycle; merged set applies',
         'groups.inheritedTitle': 'Actions inherited from child groups',
         'groups.inheritedBadge': 'Inherited',
         'scope.title': 'Project availability',
@@ -2768,17 +2768,17 @@ window.__ModuleLoader__.load({
         h('p', { className: 'ah-hint' }, t('groups.includesHint')),
         h('div', { className: 'ah-group-include-list' }, childGroups.map((child) => {
           const checked = activeIncludes.includes(child.id);
-          const blocked = !checked && reachesGroup(child.id, active.id);
-          return h('label', { key: child.id, className: 'ah-group-include', 'data-checked': checked, 'data-blocked': blocked },
+          const cycle = !checked && reachesGroup(child.id, active.id);
+          return h('label', { key: child.id, className: 'ah-group-include', 'data-checked': checked, 'data-cycle': cycle },
             h('input', {
               type: 'checkbox',
               checked,
-              disabled: blocked || busy,
+              disabled: busy,
               onChange: (event) => toggleInclude(child, event.target.checked),
             }),
             h('span', { className: 'ah-group-include-name' }, child.name),
             h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
-            blocked ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
+            cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
         })));
       const inheritedActions = active === null
         ? []

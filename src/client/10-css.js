@@ -128,7 +128,7 @@
       .ah-group-include-list { display: flex; flex-wrap: wrap; gap: 5px; padding-bottom: 8px; }
       .ah-group-include { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; padding: 4px 8px; cursor: pointer; font-size: 11.5px; }
       .ah-group-include[data-checked="true"] { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
-      .ah-group-include[data-blocked="true"] { opacity: .45; cursor: not-allowed; }
+      .ah-group-include[data-cycle="true"] { border-style: dashed; }
       .ah-group-include-name { font-weight: 600; }
       .ah-group-inherited { padding: 8px 12px 10px; border-top: 1px solid var(--dsw-alias-border-l1); }
       .ah-group-inherited-list { display: flex; flex-wrap: wrap; gap: 4px; }

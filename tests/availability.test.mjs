@@ -36,6 +36,17 @@ test('nested groups contribute their Actions through the selected parent', () =>
   assert.equal(actionAvailable(nested[0], { groups: ['common'], actions: [] }, groups), false);
 });
 
+test('cycles contribute the union of the connected groups', () => {
+  const groups = [
+    { id: 'art', includes: ['figma'] },
+    { id: 'figma', includes: ['art'] },
+  ];
+  const cyclic = [{ name: 'figma-1', groups: ['figma'] }, { name: 'art-1', groups: ['art'] }];
+  assert.equal(actionAvailable(cyclic[0], { groups: ['art'], actions: [] }, groups), true);
+  assert.equal(actionAvailable(cyclic[0], { groups: ['figma'], actions: [] }, groups), true);
+  assert.equal(actionAvailable(cyclic[1], { groups: ['figma'], actions: [] }, groups), true);
+});
+
 test('unknown projects use the Common default and built-ins stay available', () => {
   const profile = profileFor([], null);
   assert.deepEqual(profile.groups, ['common']);

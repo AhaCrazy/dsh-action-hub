@@ -130,23 +130,6 @@ function normalizeGroupIds(value) {
   return out;
 }
 
-function canReachGroup(groups, start, target) {
-  const stack = [start];
-  const seen = new Set();
-  while (stack.length > 0) {
-    const current = stack.pop();
-    if (current === target) return true;
-    if (seen.has(current)) continue;
-    seen.add(current);
-    const group = groups.find((entry) => entry.id === current);
-    for (const child of group?.includes ?? []) {
-      if (child === target) return true;
-      if (!seen.has(child)) stack.push(child);
-    }
-  }
-  return false;
-}
-
 export function normalizeGroups(raw) {
   const out = [];
   const seen = new Set();
@@ -161,7 +144,9 @@ export function normalizeGroups(raw) {
   if (!seen.has(COMMON_GROUP_ID)) out.unshift({ id: COMMON_GROUP_ID, name: 'Common', builtin: true, includes: [] });
   const ids = new Set(out.map((group) => group.id));
   for (const group of out) {
-    group.includes = group.includes.filter((child) => child !== group.id && ids.has(child) && !canReachGroup(out, child, group.id));
+    // Cycles are allowed: they describe one shared pool of Actions. Every
+    // traversal uses a visited set, so the graph never recurses forever.
+    group.includes = group.includes.filter((child) => child !== group.id && ids.has(child));
   }
   return out;
 }
@@ -600,14 +585,7 @@ export function createStore(options = {}) {
         const group = state.groups.find((entry) => entry.id === id);
         if (group === undefined) throw new Error('分组不存在');
         const ids = new Set(state.groups.map((entry) => entry.id));
-        const includes = normalizeGroupIds(includeIds).filter((child) => child !== id && ids.has(child));
-        const proposed = new Map(state.groups.map((entry) => [entry.id, entry.id === id ? includes : entry.includes]));
-        for (const child of includes) {
-          if (canReachGroup(state.groups.map((entry) => ({ ...entry, includes: proposed.get(entry.id) ?? [] })), child, id)) {
-            throw new Error('分组引用不能形成环');
-          }
-        }
-        group.includes = includes;
+        group.includes = normalizeGroupIds(includeIds).filter((child) => child !== id && ids.has(child));
         await writeStateFile(dataDir, state);
         return group;
       });
