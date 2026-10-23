@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.4.1 — 2026-10-23
+
+- Group Action rows now show only the Skill/Command badge on the right. Group
+  badges were removed; hovering an Action inherited from another group shows a
+  tooltip naming the groups that directly contain it.
+
 ## 7.4.0 — 2026-10-23
 
 - Group cycles are now allowed instead of rejected. A cycle is treated as one

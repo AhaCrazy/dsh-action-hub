@@ -266,10 +266,12 @@
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
             const inheritedOnly = inheritedNames.has(action.name) && !activeDirectSet.has(action.name);
+            const directGroups = (action.groups ?? []).map(groupLabel).filter((name) => name !== '').join('、');
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
               'data-checked': activeDirectSet.has(action.name),
+              title: inheritedOnly ? t('groups.inheritedFrom', { groups: directGroups }) : undefined,
             },
             h('input', {
               type: 'checkbox',
@@ -280,9 +282,7 @@
             h('span', { className: 'ah-group-action-main' },
               h('span', { className: 'ah-group-action-name' }, action.name),
               h('span', { className: 'ah-group-action-desc' }, action.description || '')),
-            h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')),
-            inheritedOnly ? h('span', { className: 'ah-badge' }, t('groups.inheritedBadge')) : null,
-            (action.groups ?? []).filter((id) => id !== active.id).map((id) => h('span', { key: id, className: 'ah-badge' }, groupLabel(id))));
+            h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')));
           }));
       const detail = active === null
         ? h('div', { className: 'ah-group-empty' }, t('groups.empty'))

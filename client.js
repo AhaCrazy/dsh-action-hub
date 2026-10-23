@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.4.0';
+    const VERSION = '7.4.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -462,6 +462,7 @@ window.__ModuleLoader__.load({
         'groups.cycleHint': '会形成环，按合集生效',
         'groups.inheritedTitle': '通过子分组继承的 Action',
         'groups.inheritedBadge': '继承',
+        'groups.inheritedFrom': '包含该 Action 的分组：{groups}',
         'scope.title': '项目可用范围',
         'scope.project': '项目',
         'scope.groups': '可用分组',
@@ -698,6 +699,7 @@ window.__ModuleLoader__.load({
         'groups.cycleHint': 'Forms a cycle; merged set applies',
         'groups.inheritedTitle': 'Actions inherited from child groups',
         'groups.inheritedBadge': 'Inherited',
+        'groups.inheritedFrom': 'Contained by: {groups}',
         'scope.title': 'Project availability',
         'scope.project': 'Project',
         'scope.groups': 'Available groups',
@@ -2808,10 +2810,12 @@ window.__ModuleLoader__.load({
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
             const inheritedOnly = inheritedNames.has(action.name) && !activeDirectSet.has(action.name);
+            const directGroups = (action.groups ?? []).map(groupLabel).filter((name) => name !== '').join('、');
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
               'data-checked': activeDirectSet.has(action.name),
+              title: inheritedOnly ? t('groups.inheritedFrom', { groups: directGroups }) : undefined,
             },
             h('input', {
               type: 'checkbox',
@@ -2822,9 +2826,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'ah-group-action-main' },
               h('span', { className: 'ah-group-action-name' }, action.name),
               h('span', { className: 'ah-group-action-desc' }, action.description || '')),
-            h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')),
-            inheritedOnly ? h('span', { className: 'ah-badge' }, t('groups.inheritedBadge')) : null,
-            (action.groups ?? []).filter((id) => id !== active.id).map((id) => h('span', { key: id, className: 'ah-badge' }, groupLabel(id))));
+            h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')));
           }));
       const detail = active === null
         ? h('div', { className: 'ah-group-empty' }, t('groups.empty'))
