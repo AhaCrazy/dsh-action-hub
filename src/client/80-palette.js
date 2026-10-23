@@ -12,12 +12,17 @@
         const insertRef = React.useRef(null);
         const [selectedId, setSelectedId] = React.useState(null);
         const [args, setArgs] = React.useState('');
+        const [sortBy, setSortBy] = React.useState('recent');
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
+        const available = React.useMemo(
+          () => actions.filter((action) => action.available !== false),
+          [actions],
+        );
         const visible = React.useMemo(
-          () => visibleActions(actions, { query: state.query }),
-          [actions, state.query],
+          () => visibleActions(available, { query: state.query, sortBy }),
+          [available, state.query, sortBy],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
@@ -219,13 +224,28 @@
           }
         };
 
+        const sortOptions = [
+          ['recent', t('lib.sortRecent')],
+          ['name', t('lib.sortName')],
+          ['total', t('lib.sortTotal')],
+        ];
+
         const header = h('div', { className: 'ah-palette-search' },
           h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
+          h('select', {
+            className: 'ah-palette-sort',
+            value: sortBy,
+            'aria-label': t('lib.sortLabel'),
+            onChange: (event) => setSortBy(event.target.value),
+          }, sortOptions.map(([value, label]) => h('option', { key: value, value }, label))),
           h(Kbd, null, 'Esc'));
 
+        const emptyText = actions.length === 0
+          ? t('palette.empty')
+          : available.length === 0 ? t('palette.noAvailable') : t('palette.noMatch');
         const results = h('div', { className: 'ah-results', ref: listRef, role: 'listbox', 'aria-label': t('palette.title') },
           visible.length === 0
-            ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), actions.length === 0 ? t('palette.empty') : t('palette.noMatch'))
+            ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), emptyText)
             : visible.map((action) => h('button', {
               key: action.id,
               type: 'button',
@@ -249,7 +269,7 @@
         const preview = selected === null
           ? h('div', { className: 'ah-preview' },
             h('div', { className: 'ah-preview-empty' },
-              h('div', { className: 'ah-empty-title' }, actions.length === 0 ? t('palette.empty') : t('palette.noMatch')),
+              h('div', { className: 'ah-empty-title' }, emptyText),
               h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('palette.emptyCopy') : ''),
               actions.length === 0
                 ? h('div', { className: 'ah-empty-actions' },

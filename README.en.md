@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.1.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.2.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles

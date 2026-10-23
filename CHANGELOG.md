@@ -1,5 +1,12 @@
 # Changelog
 
+## 8.2.0 — 2026-10-23
+
+- The Action palette now hides Actions that are unavailable in the current
+  project, instead of listing them as disabled.
+- Added a palette sort mode (recently used / name / total uses) for the
+  remaining available Actions.
+
 ## 8.1.0 — 2026-10-23
 
 - Replaced the separate export dialog with an inline export mode on the main

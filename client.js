@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.1.0';
+    const VERSION = '8.2.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -227,6 +227,7 @@ window.__ModuleLoader__.load({
       .ah-palette { width: min(940px, calc(100vw - 32px)); max-height: min(76vh, 720px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
       .ah-palette-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
       .ah-palette-search .ah-search { flex: 1 1 auto; }
+      .ah-palette-sort { appearance: none; height: 34px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; cursor: pointer; flex: 0 0 auto; }
       .ah-palette-search input { height: 38px; font-size: 14px; border-radius: 10px; }
       .ah-palette-cats { display: flex; align-items: center; gap: 6px; padding: 0 16px 10px; overflow-x: auto; }
       .ah-palette-cats::-webkit-scrollbar { height: 0; }
@@ -433,6 +434,7 @@ window.__ModuleLoader__.load({
         'palette.empty': '还没有 Action',
         'palette.emptyCopy': '新建一条，或从管理页导入，之后在这里一搜即用。',
         'palette.noMatch': '没有匹配的 Action',
+        'palette.noAvailable': '当前项目没有可用的 Action',
         'palette.args': '参数（可选，替换 {{args}}）',
         'palette.insert': '插入',
         'palette.send': '发送',
@@ -688,6 +690,7 @@ window.__ModuleLoader__.load({
         'palette.empty': 'No Actions yet',
         'palette.emptyCopy': 'Create one, or import from the library, and it is one search away from now on.',
         'palette.noMatch': 'No matching Action',
+        'palette.noAvailable': 'No Actions are available for this project',
         'palette.args': 'Arguments (optional; replaces {{args}})',
         'palette.insert': 'Insert',
         'palette.send': 'Send',
@@ -3310,12 +3313,17 @@ window.__ModuleLoader__.load({
         const insertRef = React.useRef(null);
         const [selectedId, setSelectedId] = React.useState(null);
         const [args, setArgs] = React.useState('');
+        const [sortBy, setSortBy] = React.useState('recent');
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
+        const available = React.useMemo(
+          () => actions.filter((action) => action.available !== false),
+          [actions],
+        );
         const visible = React.useMemo(
-          () => visibleActions(actions, { query: state.query }),
-          [actions, state.query],
+          () => visibleActions(available, { query: state.query, sortBy }),
+          [available, state.query, sortBy],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
@@ -3517,13 +3525,28 @@ window.__ModuleLoader__.load({
           }
         };
 
+        const sortOptions = [
+          ['recent', t('lib.sortRecent')],
+          ['name', t('lib.sortName')],
+          ['total', t('lib.sortTotal')],
+        ];
+
         const header = h('div', { className: 'ah-palette-search' },
           h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
+          h('select', {
+            className: 'ah-palette-sort',
+            value: sortBy,
+            'aria-label': t('lib.sortLabel'),
+            onChange: (event) => setSortBy(event.target.value),
+          }, sortOptions.map(([value, label]) => h('option', { key: value, value }, label))),
           h(Kbd, null, 'Esc'));
 
+        const emptyText = actions.length === 0
+          ? t('palette.empty')
+          : available.length === 0 ? t('palette.noAvailable') : t('palette.noMatch');
         const results = h('div', { className: 'ah-results', ref: listRef, role: 'listbox', 'aria-label': t('palette.title') },
           visible.length === 0
-            ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), actions.length === 0 ? t('palette.empty') : t('palette.noMatch'))
+            ? h('div', { className: 'ah-preview-empty' }, h(Icons.shelf, { size: 24 }), emptyText)
             : visible.map((action) => h('button', {
               key: action.id,
               type: 'button',
@@ -3547,7 +3570,7 @@ window.__ModuleLoader__.load({
         const preview = selected === null
           ? h('div', { className: 'ah-preview' },
             h('div', { className: 'ah-preview-empty' },
-              h('div', { className: 'ah-empty-title' }, actions.length === 0 ? t('palette.empty') : t('palette.noMatch')),
+              h('div', { className: 'ah-empty-title' }, emptyText),
               h('div', { className: 'ah-empty-copy' }, actions.length === 0 ? t('palette.emptyCopy') : ''),
               actions.length === 0
                 ? h('div', { className: 'ah-empty-actions' },

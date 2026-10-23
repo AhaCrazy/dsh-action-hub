@@ -197,6 +197,7 @@
       .ah-palette { width: min(940px, calc(100vw - 32px)); max-height: min(76vh, 720px); display: flex; flex-direction: column; background: var(--dsw-alias-bg-overlay); border: 1px solid var(--dsw-alias-border-l2); border-radius: 15px; box-shadow: 0 30px 80px rgba(0, 0, 0, .5); overflow: hidden; }
       .ah-palette-search { display: flex; align-items: center; gap: 10px; padding: 14px 16px 10px; }
       .ah-palette-search .ah-search { flex: 1 1 auto; }
+      .ah-palette-sort { appearance: none; height: 34px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12px; cursor: pointer; flex: 0 0 auto; }
       .ah-palette-search input { height: 38px; font-size: 14px; border-radius: 10px; }
       .ah-palette-cats { display: flex; align-items: center; gap: 6px; padding: 0 16px 10px; overflow-x: auto; }
       .ah-palette-cats::-webkit-scrollbar { height: 0; }
