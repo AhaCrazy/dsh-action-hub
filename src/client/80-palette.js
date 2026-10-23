@@ -45,6 +45,7 @@
                 const selection = window.getSelection();
                 const previous = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
                 composer.focus({ preventScroll: true });
+                if (hint !== null && hint.cursor === 'keep') return;
                 const place = (range) => {
                   selection?.removeAllRanges();
                   selection?.addRange(range);
@@ -138,9 +139,13 @@
           const commandDraft = /^\/(?!ah-[0-9a-f]{10}(?![0-9a-f]))/u.test(draft.trimStart());
           const hasCommand = bridge.input?.claim !== undefined || commandDraft;
           const handle = snapshot.meta?.handles?.[action.id];
-          const referenceMode = args.trim() === '' && typeof handle === 'string' && handle !== '';
+          const isSkill = action.mode === 'skill';
+          const referenceMode = !isSkill && args.trim() === '' && typeof handle === 'string' && handle !== '';
           const referenceText = referenceMode ? `/${handle}` : '';
-          const text = referenceMode ? referenceText : expandPrompt(action.prompt, { args });
+          const skillText = isSkill
+            ? `/${action.name}${args.trim() === '' ? '' : ` ${args.trim()}`} `
+            : '';
+          const text = referenceMode ? referenceText : isSkill ? skillText : expandPrompt(action.prompt, { args });
           let placed = false;
           let atCaret = false;
           let referenced = false;
@@ -155,7 +160,7 @@
               }
             }
             if (!placed && span && typeof inputActions.insertText === 'function') {
-              const result = inputActions.insertText(referenceMode ? `${referenceText} ` : text, span);
+              const result = inputActions.insertText(isSkill ? skillText : referenceMode ? `${referenceText} ` : text, span);
               placed = result !== false;
               atCaret = placed;
               referenced = placed && referenceMode;
@@ -165,7 +170,7 @@
           }
           if (!placed) {
             try {
-              inputActions.setDraft(composeDraft(draft, referenceMode ? `${referenceText} ` : text));
+              inputActions.setDraft(composeDraft(draft, isSkill ? skillText : referenceMode ? `${referenceText} ` : text));
               placed = true;
               referenced = referenceMode;
             } catch {
@@ -192,7 +197,7 @@
           if (referenced) showToast(t('palette.refInserted'));
           else showToast(atCaret ? t('palette.insertedAtCaret') : t('palette.inserted'));
           if (prefs.closeAfterInsert) {
-            insertRef.current = referenced ? { label: action.name } : null;
+            insertRef.current = isSkill ? { cursor: 'keep' } : referenced ? { label: action.name } : null;
             setTimeout(() => palette.close(), 220);
           }
         };
@@ -281,13 +286,16 @@
               } }, h(Icons.star, { size: 14, filled: selected.pinned === true }))),
             h('div', { className: 'ah-preview-meta' },
               selected.category ? h('span', { className: 'ah-badge ah-badge-accent' }, selected.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
-              selected.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+              selected.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
               (selected.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
               (selected.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: selected.resources.length })) : null,
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
-            selected !== null && snapshot.meta?.referencing && typeof snapshot.meta?.handles?.[selected.id] === 'string'
+            selected !== null && selected.mode === 'skill'
+              ? h('p', { className: 'ah-hint' }, t('palette.skillHint', { name: selected.name }))
+              : null,
+            selected !== null && selected.mode !== 'skill' && snapshot.meta?.referencing && typeof snapshot.meta?.handles?.[selected.id] === 'string'
               ? h('p', { className: 'ah-hint' }, args.trim() === ''
                 ? t('palette.refHint', { name: selected.name })
                 : t('palette.refArgsHint'))
@@ -305,6 +313,28 @@
                 onChange: (event) => setArgs(event.target.value),
               })),
             h('div', { className: 'ah-actions' },
+              selected === null ? null : h('select', {
+                className: 'ah-scope-select',
+                value: selected.scope?.mode === 'projects' && selected.scope.projects.length === 1 ? selected.scope.projects[0].path : selected.scope?.mode === 'projects' ? '__custom' : 'all',
+                title: t('palette.scope'),
+                onChange: async (event) => {
+                  const value = event.target.value;
+                  if (value === '__custom') return;
+                  const scope = value === 'all'
+                    ? { mode: 'all', projects: [] }
+                    : { mode: 'projects', projects: [{ label: (snapshot.projects ?? []).find((project) => project.path === value)?.label ?? value, path: value }] };
+                  try {
+                    await hub.call('/scope', { id: selected.id, scope });
+                    await hub.refresh(true);
+                    showToast(t('palette.scopeSaved'));
+                  } catch (failure) {
+                    showToast(describeError(failure), 'error');
+                  }
+                },
+              },
+              h('option', { value: 'all' }, t('palette.scopeAll')),
+              (snapshot.projects ?? []).map((project) => h('option', { key: project.path, value: project.path }, project.label)),
+              selected.scope?.mode === 'projects' && selected.scope.projects.length !== 1 ? h('option', { value: '__custom', disabled: true }, t('palette.scopeCustom')) : null),
               h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
               h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
               h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null }, h(Icons.send, { size: 13 }), t('palette.send')))),

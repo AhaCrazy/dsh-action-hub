@@ -7,6 +7,8 @@
         description: initial?.description ?? '',
         prompt: initial?.prompt ?? '',
         pinned: initial?.pinned === true,
+        mode: initial?.mode === 'skill' ? 'skill' : 'command',
+        scope: initial?.scope !== null && typeof initial?.scope === 'object' ? initial.scope : { mode: 'all', projects: [] },
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
@@ -45,6 +47,8 @@
             description: form.description.trim(),
             prompt: form.prompt,
             pinned: form.pinned,
+            mode: form.mode,
+            scope: form.scope,
           });
         } catch (failure) {
           setError(describeError(failure));
@@ -95,6 +99,37 @@
           ? (initial?.id === undefined ? null : h('span', { className: 'ah-hint' }, t('editor.resourcesEmpty')))
           : h('div', { className: 'ah-resource-list' }, renderResourceTree(resources, t, loadPreview)),
         preview === null ? null : h('pre', { className: 'ah-resource-preview' }, typeof preview.text === 'string' ? preview.text : t('editor.resourceEmptyText'))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('editor.mode')),
+        h('select', { className: 'ah-input', value: form.mode, onChange: patch('mode') },
+          h('option', { value: 'command' }, t('editor.modeCommand')),
+          h('option', { value: 'skill' }, t('editor.modeSkill'))),
+        h('span', { className: 'ah-hint' }, form.mode === 'skill' ? t('editor.modeSkillHint') : t('editor.modeCommandHint'))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('editor.scope')),
+        h('label', { className: 'ah-scope-option' },
+          h('input', {
+            type: 'checkbox',
+            checked: form.scope.mode !== 'projects',
+            onChange: (event) => setForm((previous) => ({ ...previous, scope: event.target.checked ? { mode: 'all', projects: [] } : { mode: 'projects', projects: [] } })),
+          }),
+          ` ${t('editor.scopeAll')}`),
+        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, (props.projects ?? []).map((project) => {
+          const checked = form.scope.projects.some((entry) => entry.path === project.path);
+          return h('label', { key: project.path, className: 'ah-scope-option' },
+            h('input', {
+              type: 'checkbox',
+              checked,
+              onChange: (event) => setForm((previous) => {
+                const projects = event.target.checked
+                  ? [...previous.scope.projects, { label: project.label, path: project.path }]
+                  : previous.scope.projects.filter((entry) => entry.path !== project.path);
+                return { ...previous, scope: { mode: 'projects', projects } };
+              }),
+            }),
+            ` ${project.label}`);
+        })) : null,
+        h('span', { className: 'ah-hint' }, t('editor.scopeHint'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),

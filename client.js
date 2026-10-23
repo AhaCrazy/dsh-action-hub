@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '5.3.5';
+    const VERSION = '6.0.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -207,7 +207,7 @@ window.__ModuleLoader__.load({
     const TEXT = {
       zh: {
         'app.title': 'Action Hub',
-        'app.subtitle': '把常用的提示词和流程存成 Action。它们不占上下文、不会被 Agent 自动调用，只在需要时由你从面板里取用。',
+        'app.subtitle': '标准 Skill 库：同一份 SKILL.md 可以只由你作为 Command 调用，也可以切换为模型可调用的 Skill。',
         'app.name': 'Actions',
         'action.new': '新建 Action',
         'action.import': '导入',
@@ -227,7 +227,7 @@ window.__ModuleLoader__.load({
         'lib.categories': '分类',
         'lib.manageCategories': '管理分类',
         'lib.search': '搜索名称、描述、分类、标签或正文…',
-        'lib.count': '{count} 个 Action',
+        'lib.count': '{count} 个条目',
         'lib.countFiltered': '{count} / {total}',
         'lib.sortRecent': '最近使用',
         'lib.sortName': '名称',
@@ -261,6 +261,7 @@ window.__ModuleLoader__.load({
         'lib.used': '用过 {count} 次',
         'lib.builtin': '内置',
         'lib.skill': 'Skill',
+        'lib.command': 'Command',
         'lib.useInChat': '在任意会话输入框左侧的 Actions 按钮中调用',
         'editor.createTitle': '新建 Action',
         'editor.editTitle': '编辑 Action',
@@ -288,6 +289,14 @@ window.__ModuleLoader__.load({
         'editor.promptPlaceholder': '把要发给 Agent 的提示词写在这里…',
         'editor.promptHint': '支持多段 Markdown；{{args}} 是参数，{{date}} 是当天日期。',
         'editor.pinned': '置顶',
+        'editor.mode': '调用方式',
+        'editor.modeCommand': 'Command（只有你能调用，不占上下文）',
+        'editor.modeSkill': 'Skill（模型可自行调用，每请求占目录）',
+        'editor.modeCommandHint': '只在 Action 面板中由你主动调用。',
+        'editor.modeSkillHint': '会注册给模型；确认成本后再启用。',
+        'editor.scope': '可用范围',
+        'editor.scopeAll': '所有项目',
+        'editor.scopeHint': '取消“所有项目”后，只勾选的项目能调用；未知项目默认不可用。',
         'editor.required': '请填写名称与正文。',
         'delete.title': '删除这个 Action？',
         'delete.copy': '「{name}」会从收藏夹永久移除。',
@@ -341,6 +350,11 @@ window.__ModuleLoader__.load({
         'palette.hintSend': '发送',
         'palette.hintTab': '切换分组',
         'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
+        'palette.skillHint': '将插入技能调用 /{name}，由模型加载技能正文',
+        'palette.scope': '可用范围',
+        'palette.scopeAll': '所有项目',
+        'palette.scopeCustom': '多个项目',
+        'palette.scopeSaved': '范围已更新',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
         'palette.refInserted': '已插入引用',
         'palette.resourceCount': '{count} 个资源',
@@ -378,7 +392,7 @@ window.__ModuleLoader__.load({
       },
       en: {
         'app.title': 'Action Hub',
-        'app.subtitle': 'Keep reusable prompts and flows as Actions. They never enter context and are never triggered by the agent — you take one from the palette when you need it.',
+        'app.subtitle': 'A standard Skill library: one SKILL.md can stay a user-only Command or be switched into a model-invocable Skill.',
         'app.name': 'Actions',
         'action.new': 'New Action',
         'action.import': 'Import',
@@ -398,7 +412,7 @@ window.__ModuleLoader__.load({
         'lib.categories': 'Categories',
         'lib.manageCategories': 'Manage categories',
         'lib.search': 'Search name, description, category, tag, or body…',
-        'lib.count': '{count} Actions',
+        'lib.count': '{count} entries',
         'lib.countFiltered': '{count} / {total}',
         'lib.sortRecent': 'Recently used',
         'lib.sortName': 'Name',
@@ -432,6 +446,7 @@ window.__ModuleLoader__.load({
         'lib.used': 'Used {count}×',
         'lib.builtin': 'Built-in',
         'lib.skill': 'Skill',
+        'lib.command': 'Command',
         'lib.useInChat': 'Call it from the Actions button left of any composer',
         'editor.createTitle': 'New Action',
         'editor.editTitle': 'Edit Action',
@@ -459,6 +474,14 @@ window.__ModuleLoader__.load({
         'editor.promptPlaceholder': 'Write the prompt you send to the agent…',
         'editor.promptHint': 'Markdown is fine; {{args}} is the argument slot, {{date}} is today.',
         'editor.pinned': 'Pin to top',
+        'editor.mode': 'Invocation',
+        'editor.modeCommand': 'Command (you only; zero context)',
+        'editor.modeSkill': 'Skill (model-invocable; catalog cost)',
+        'editor.modeCommandHint': 'Only invoked by you from the Action palette.',
+        'editor.modeSkillHint': 'Registered for the model; enable after the cost confirmation.',
+        'editor.scope': 'Availability',
+        'editor.scopeAll': 'All projects',
+        'editor.scopeHint': 'Uncheck to limit to selected projects; unknown projects never match.',
         'editor.required': 'A name and a body are required.',
         'delete.title': 'Delete this Action?',
         'delete.copy': '“{name}” leaves the shelf permanently.',
@@ -512,6 +535,11 @@ window.__ModuleLoader__.load({
         'palette.hintSend': 'send',
         'palette.hintTab': 'switch group',
         'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
+        'palette.skillHint': 'Inserts /{name}; the model loads the skill body',
+        'palette.scope': 'Availability',
+        'palette.scopeAll': 'All projects',
+        'palette.scopeCustom': 'Multiple projects',
+        'palette.scopeSaved': 'Availability updated',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
         'palette.refInserted': 'Reference inserted',
         'palette.resourceCount': '{count} resource(s)',
@@ -890,7 +918,7 @@ window.__ModuleLoader__.load({
 
     function createHub() {
       const listeners = new Set();
-      let snapshot = { status: 'idle', actions: [], meta: {}, error: '' };
+      let snapshot = { status: 'idle', actions: [], projects: [], meta: {}, error: '' };
       let inflight = null;
 
       const emit = () => {
@@ -906,7 +934,7 @@ window.__ModuleLoader__.load({
         if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
         inflight = api('/state').then(
           (data) => {
-            set({ status: 'ready', actions: data.actions ?? [], meta: data.meta ?? {}, error: '' });
+            set({ status: 'ready', actions: data.actions ?? [], projects: data.projects ?? [], meta: data.meta ?? {}, error: '' });
             return snapshot;
           },
           (error) => {
@@ -921,7 +949,7 @@ window.__ModuleLoader__.load({
 
       async function call(route, body) {
         const data = await api(route, body);
-        if (Array.isArray(data.actions)) set({ ...snapshot, status: 'ready', actions: data.actions, error: '' });
+        if (Array.isArray(data.actions)) set({ ...snapshot, status: 'ready', actions: data.actions, projects: data.projects ?? snapshot.projects, error: '' });
         else void refresh(true).catch(() => {});
         return data;
       }
@@ -1596,7 +1624,7 @@ window.__ModuleLoader__.load({
           h('span', { className: 'ah-name' }, action.name),
           action.builtin === true && action.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
           action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
-          action.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+          action.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
           (action.tags ?? []).slice(0, 3).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`))),
         action.description ? h('p', { className: 'ah-desc' }, action.description) : null),
       h('div', { className: 'ah-row-actions' },
@@ -1643,6 +1671,8 @@ window.__ModuleLoader__.load({
         description: initial?.description ?? '',
         prompt: initial?.prompt ?? '',
         pinned: initial?.pinned === true,
+        mode: initial?.mode === 'skill' ? 'skill' : 'command',
+        scope: initial?.scope !== null && typeof initial?.scope === 'object' ? initial.scope : { mode: 'all', projects: [] },
       }));
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
@@ -1681,6 +1711,8 @@ window.__ModuleLoader__.load({
             description: form.description.trim(),
             prompt: form.prompt,
             pinned: form.pinned,
+            mode: form.mode,
+            scope: form.scope,
           });
         } catch (failure) {
           setError(describeError(failure));
@@ -1731,6 +1763,37 @@ window.__ModuleLoader__.load({
           ? (initial?.id === undefined ? null : h('span', { className: 'ah-hint' }, t('editor.resourcesEmpty')))
           : h('div', { className: 'ah-resource-list' }, renderResourceTree(resources, t, loadPreview)),
         preview === null ? null : h('pre', { className: 'ah-resource-preview' }, typeof preview.text === 'string' ? preview.text : t('editor.resourceEmptyText'))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('editor.mode')),
+        h('select', { className: 'ah-input', value: form.mode, onChange: patch('mode') },
+          h('option', { value: 'command' }, t('editor.modeCommand')),
+          h('option', { value: 'skill' }, t('editor.modeSkill'))),
+        h('span', { className: 'ah-hint' }, form.mode === 'skill' ? t('editor.modeSkillHint') : t('editor.modeCommandHint'))),
+      h('div', { className: 'ah-field' },
+        h('label', { className: 'ah-label' }, t('editor.scope')),
+        h('label', { className: 'ah-scope-option' },
+          h('input', {
+            type: 'checkbox',
+            checked: form.scope.mode !== 'projects',
+            onChange: (event) => setForm((previous) => ({ ...previous, scope: event.target.checked ? { mode: 'all', projects: [] } : { mode: 'projects', projects: [] } })),
+          }),
+          ` ${t('editor.scopeAll')}`),
+        form.scope.mode === 'projects' ? h('div', { className: 'ah-scope-list' }, (props.projects ?? []).map((project) => {
+          const checked = form.scope.projects.some((entry) => entry.path === project.path);
+          return h('label', { key: project.path, className: 'ah-scope-option' },
+            h('input', {
+              type: 'checkbox',
+              checked,
+              onChange: (event) => setForm((previous) => {
+                const projects = event.target.checked
+                  ? [...previous.scope.projects, { label: project.label, path: project.path }]
+                  : previous.scope.projects.filter((entry) => entry.path !== project.path);
+                return { ...previous, scope: { mode: 'projects', projects } };
+              }),
+            }),
+            ` ${project.label}`);
+        })) : null,
+        h('span', { className: 'ah-hint' }, t('editor.scopeHint'))),
       h('div', { className: 'ah-settings-row' },
         h('div', { className: 'ah-settings-row-main' },
           h('span', { className: 'ah-settings-row-title' }, t('editor.pinned'))),
@@ -2184,6 +2247,7 @@ window.__ModuleLoader__.load({
             key: 'editor',
             initial: editor,
             categories: categories.map(([name]) => name),
+            projects: snapshot.projects ?? [],
             t,
             onSave: save,
             onClose: () => setEditor(undefined),
@@ -2205,7 +2269,7 @@ window.__ModuleLoader__.load({
             detail.builtin === true && detail.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
             detail.category ? h('span', { className: 'ah-badge ah-badge-accent' }, detail.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
             detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
-            detail.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+            detail.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
             (detail.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
             (detail.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: detail.resources.length })) : null,
             h('span', { className: 'ah-count' }, detail.usage?.count > 0 ? t('lib.used', { count: detail.usage.count }) : t('lib.updated', { time: relativeTime(detail.updatedAt) }))),
@@ -2313,6 +2377,7 @@ window.__ModuleLoader__.load({
                 const selection = window.getSelection();
                 const previous = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
                 composer.focus({ preventScroll: true });
+                if (hint !== null && hint.cursor === 'keep') return;
                 const place = (range) => {
                   selection?.removeAllRanges();
                   selection?.addRange(range);
@@ -2406,9 +2471,13 @@ window.__ModuleLoader__.load({
           const commandDraft = /^\/(?!ah-[0-9a-f]{10}(?![0-9a-f]))/u.test(draft.trimStart());
           const hasCommand = bridge.input?.claim !== undefined || commandDraft;
           const handle = snapshot.meta?.handles?.[action.id];
-          const referenceMode = args.trim() === '' && typeof handle === 'string' && handle !== '';
+          const isSkill = action.mode === 'skill';
+          const referenceMode = !isSkill && args.trim() === '' && typeof handle === 'string' && handle !== '';
           const referenceText = referenceMode ? `/${handle}` : '';
-          const text = referenceMode ? referenceText : expandPrompt(action.prompt, { args });
+          const skillText = isSkill
+            ? `/${action.name}${args.trim() === '' ? '' : ` ${args.trim()}`} `
+            : '';
+          const text = referenceMode ? referenceText : isSkill ? skillText : expandPrompt(action.prompt, { args });
           let placed = false;
           let atCaret = false;
           let referenced = false;
@@ -2423,7 +2492,7 @@ window.__ModuleLoader__.load({
               }
             }
             if (!placed && span && typeof inputActions.insertText === 'function') {
-              const result = inputActions.insertText(referenceMode ? `${referenceText} ` : text, span);
+              const result = inputActions.insertText(isSkill ? skillText : referenceMode ? `${referenceText} ` : text, span);
               placed = result !== false;
               atCaret = placed;
               referenced = placed && referenceMode;
@@ -2433,7 +2502,7 @@ window.__ModuleLoader__.load({
           }
           if (!placed) {
             try {
-              inputActions.setDraft(composeDraft(draft, referenceMode ? `${referenceText} ` : text));
+              inputActions.setDraft(composeDraft(draft, isSkill ? skillText : referenceMode ? `${referenceText} ` : text));
               placed = true;
               referenced = referenceMode;
             } catch {
@@ -2460,7 +2529,7 @@ window.__ModuleLoader__.load({
           if (referenced) showToast(t('palette.refInserted'));
           else showToast(atCaret ? t('palette.insertedAtCaret') : t('palette.inserted'));
           if (prefs.closeAfterInsert) {
-            insertRef.current = referenced ? { label: action.name } : null;
+            insertRef.current = isSkill ? { cursor: 'keep' } : referenced ? { label: action.name } : null;
             setTimeout(() => palette.close(), 220);
           }
         };
@@ -2549,13 +2618,16 @@ window.__ModuleLoader__.load({
               } }, h(Icons.star, { size: 14, filled: selected.pinned === true }))),
             h('div', { className: 'ah-preview-meta' },
               selected.category ? h('span', { className: 'ah-badge ah-badge-accent' }, selected.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
-              selected.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
+              selected.mode === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : h('span', { className: 'ah-badge' }, t('lib.command')),
               (selected.tags ?? []).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`)),
               (selected.resources ?? []).length > 0 ? h('span', { className: 'ah-badge' }, t('palette.resourceCount', { count: selected.resources.length })) : null,
               selected.usage?.count > 0 ? h('span', { className: 'ah-count' }, t('palette.usage', { count: selected.usage.count })) : null),
             selected.description ? h('p', { className: 'ah-preview-desc' }, selected.description) : null,
             selected.argsHint ? h('p', { className: 'ah-hint' }, `${t('editor.args')}: ${selected.argsHint}`) : null,
-            selected !== null && snapshot.meta?.referencing && typeof snapshot.meta?.handles?.[selected.id] === 'string'
+            selected !== null && selected.mode === 'skill'
+              ? h('p', { className: 'ah-hint' }, t('palette.skillHint', { name: selected.name }))
+              : null,
+            selected !== null && selected.mode !== 'skill' && snapshot.meta?.referencing && typeof snapshot.meta?.handles?.[selected.id] === 'string'
               ? h('p', { className: 'ah-hint' }, args.trim() === ''
                 ? t('palette.refHint', { name: selected.name })
                 : t('palette.refArgsHint'))
@@ -2573,6 +2645,28 @@ window.__ModuleLoader__.load({
                 onChange: (event) => setArgs(event.target.value),
               })),
             h('div', { className: 'ah-actions' },
+              selected === null ? null : h('select', {
+                className: 'ah-scope-select',
+                value: selected.scope?.mode === 'projects' && selected.scope.projects.length === 1 ? selected.scope.projects[0].path : selected.scope?.mode === 'projects' ? '__custom' : 'all',
+                title: t('palette.scope'),
+                onChange: async (event) => {
+                  const value = event.target.value;
+                  if (value === '__custom') return;
+                  const scope = value === 'all'
+                    ? { mode: 'all', projects: [] }
+                    : { mode: 'projects', projects: [{ label: (snapshot.projects ?? []).find((project) => project.path === value)?.label ?? value, path: value }] };
+                  try {
+                    await hub.call('/scope', { id: selected.id, scope });
+                    await hub.refresh(true);
+                    showToast(t('palette.scopeSaved'));
+                  } catch (failure) {
+                    showToast(describeError(failure), 'error');
+                  }
+                },
+              },
+              h('option', { value: 'all' }, t('palette.scopeAll')),
+              (snapshot.projects ?? []).map((project) => h('option', { key: project.path, value: project.path }, project.label)),
+              selected.scope?.mode === 'projects' && selected.scope.projects.length !== 1 ? h('option', { value: '__custom', disabled: true }, t('palette.scopeCustom')) : null),
               h(Button, { ghost: true, small: true, onClick: () => { palette.close(); props.ctx.get('layout')?.selectPanel?.(PANEL_ID); } }, t('palette.manage')),
               h(Button, { small: true, primary: true, onClick: () => { if (selected) doInsert(selected, 'insert'); }, disabled: !canWrite || selected === null }, h(Icons.arrow, { size: 13 }), t('palette.insert')),
               h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null }, h(Icons.send, { size: 13 }), t('palette.send')))),

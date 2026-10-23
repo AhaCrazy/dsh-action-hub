@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { internals } from '../index.js';
 
-const { originAllowed, exportable, planActionRefs, referencedActions, actionInvocationMessage } = internals;
+const { originAllowed, planActionRefs, referencedActions, actionInvocationMessage } = internals;
 
 function fakeCtx(origin) {
   return { webServer: { getOrigin: () => origin } };
@@ -30,28 +30,6 @@ test('originAllowed falls back to the Host header without a live origin', () => 
   assert.equal(originAllowed(broken, { headers: { origin: 'http://localhost:1', host: 'localhost:1' } }), true);
   assert.equal(originAllowed(broken, { headers: { origin: 'http://localhost:2', host: 'localhost:1' } }), false);
   assert.equal(originAllowed(broken, { headers: { origin: 'not a url' } }), false);
-});
-
-test('exportable drops per-machine usage counters but keeps content', () => {
-  const exported = exportable({
-    id: 'a-1',
-    name: 'A',
-    description: 'd',
-    category: 'c',
-    tags: ['t'],
-    prompt: 'p',
-    argsHint: 'h',
-    createdAt: 1,
-    updatedAt: 2,
-    usage: { count: 9, lastAt: 10 },
-    source: { kind: 'skill', name: 's' },
-    extra: 'dropped',
-  });
-  assert.deepEqual(Object.keys(exported).sort(), [
-    'argsHint', 'category', 'createdAt', 'description', 'id', 'name', 'pinned', 'prompt', 'source', 'tags', 'updatedAt',
-  ]);
-  assert.equal(exported.usage, undefined);
-  assert.equal(exported.extra, undefined);
 });
 
 test('planActionRefs mints stable, unique, opaque handles', () => {

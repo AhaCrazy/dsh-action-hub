@@ -1,25 +1,19 @@
 /**
  * dsh-action-hub — Host half.
  *
- * Owns the durable Action collection and the small same-origin HTTP surface the
- * Web UI calls. Deliberately registers NO agent tool and adds no prompt text:
- * an Action reaches a conversation only when the user picks it, so a large
- * collection never costs context tokens and the model cannot invoke one.
- *
- * The bundle is linked into the profile from the workspace, so this module
- * imports node builtins and its own files only; a bare `@deepseek-ai/*` specifier
- * would not resolve from a linked package.
+ * Standard `SKILL.md` directories are the only artifact. Plugin-only state
+ * (mode, scope, category, pin, usage) lives in `state.json` outside them.
  *
  * @module dsh-action-hub
  */
-import os from 'node:os';
 import path from 'node:path';
 
-import { updateBuiltinState } from './builtin-state.js';
 import { installActionInvocations } from './host/invoke.js';
 import { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
 export { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
-import { actionResourceDir, cleanupLegacyBuiltins, getBuiltins, isBuiltinId, readAll } from './host/state.js';
+import { actionResourceDir, getBuiltins, isBuiltinId, readAll } from './host/state.js';
+import { installSkillsProvider, invalidateSkills } from './host/skills-provider.js';
+import { listProjects } from './host/projects.js';
 import {
   applyFolderPlan,
   applyZipPlan,
@@ -27,47 +21,30 @@ import {
   previewFolder,
   previewZipBuffer,
 } from './bundle.js';
-import {
-  exportResourceFiles,
-  readResourcePreviews,
-  removeActionDir,
-  resourceDir,
-  writeResourceEntries,
-} from './resources.js';
+import { exportResourceFiles, readResourcePreviews } from './resources.js';
 import {
   MAX_PROMPT,
   createStore,
   defaultDataDir,
   expandPrompt,
-  mergeActions,
   normalizeAction,
   sortActions,
   validateAction,
 } from './store.js';
 
 export const name = 'action-hub';
-
-/** The Web UI is the product, so the HTTP carrier is a hard dependency. */
 export const inject = ['webServer'];
 
 const ROUTE = '/api/dsh-action-hub';
 const MAX_BODY = 40 * 1024 * 1024;
 
-/**
- * Register the store route.
- *
- * @param {import('@deepseek-ai/cordis').Context} ctx - plugin Host context.
- * @param {{ dataDir?: string, seed?: boolean }} [config] - the row's config.
- */
 export function apply(ctx, config = {}) {
   const dataDir = typeof config.dataDir === 'string' && config.dataDir.trim() !== ''
     ? config.dataDir.trim()
     : defaultDataDir();
-  const store = createStore({ dataDir, seed: config.seed !== false });
-  void cleanupLegacyBuiltins(store, dataDir).catch((error) => {
-    ctx.logger?.warn?.(`dsh-action-hub: could not clean up legacy built-in Actions: ${describe(error)}`);
-  });
-  ctx.effect(() => installActionInvocations(ctx, store, dataDir), 'action-hub: action invocations');
+  const store = createStore({ dataDir });
+  ctx.effect(() => installActionInvocations(ctx, store), 'action-hub: command invocations');
+  installSkillsProvider(ctx, store);
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
@@ -76,36 +53,29 @@ export function apply(ctx, config = {}) {
   }), 'action-hub: API route');
 }
 
-/**
- * Dispatch one request. Every branch answers JSON `{ ok }`.
- *
- * @param {object} ctx
- * @param {ReturnType<typeof createStore>} store
- * @param {string} dataDir
- * @param {import('node:http').IncomingMessage} req
- * @param {import('node:http').ServerResponse} res
- * @returns {Promise<void>}
- */
 async function handle(ctx, store, dataDir, req, res) {
-  try {
-    if (!originAllowed(ctx, req)) {
-      sendJson(res, 403, { ok: false, error: '拒绝跨站请求' });
-      return;
-    }
-    const url = new URL(req.url ?? '/', 'http://localhost');
-    const route = url.pathname.slice(ROUTE.length).replace(/\/+$/, '') || '/';
-    const method = req.method ?? 'GET';
+  if (!originAllowed(ctx, req)) {
+    sendJson(res, 403, { ok: false, error: '跨站请求被拒绝' });
+    return;
+  }
+  const url = new URL(req.url ?? '/', 'http://localhost');
+  const route = url.pathname.slice(ROUTE.length).replace(/\/+$/, '') || '/';
+  const method = req.method ?? 'GET';
 
+  try {
     if (method === 'GET' && route === '/state') {
-      const { state, actions } = await readAll(store, dataDir);
+      const { state, actions, invalid } = await readAll(store);
       const plan = planActionRefs(actions);
       sendJson(res, 200, {
         ok: true,
         version: state.version,
-        actions,
+        actions: sortActions(actions),
+        projects: await listProjects(ctx),
+        invalid,
         meta: {
           dataFile: store.filePath(),
           dataFileDisplay: displayPath(store.filePath()),
+          libraryDisplay: displayPath(store.libraryDir()),
           referencing: true,
           handles: Object.fromEntries(plan.handles),
         },
@@ -115,42 +85,39 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (method === 'GET' && route === '/resources') {
       const id = url.searchParams.get('id') ?? '';
-      const { actions } = await readAll(store, dataDir);
+      const { actions } = await readAll(store);
       const action = actions.find((entry) => entry.id === id);
       if (action === undefined) {
-        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
+        sendJson(res, 404, { ok: false, error: '技能不存在' });
         return;
       }
-      const files = await readResourcePreviews(actionResourceDir(action, dataDir), action.resources);
+      const files = await readResourcePreviews(actionResourceDir(action), action.resources);
       sendJson(res, 200, { ok: true, files });
       return;
     }
 
     if (method === 'GET' && route === '/bundle/zip') {
-      try {
-        const requested = url.searchParams.getAll('id');
-        const grouped = (url.searchParams.get('ids') ?? '').split(',').map((value) => value.trim()).filter(Boolean);
-        const selection = [...requested, ...grouped];
-        const data = await exportZipBuffer(store, dataDir, selection.length > 0 ? selection : undefined);
-        sendBytes(res, 200, data.buffer, 'application/zip', data.filename);
-      } catch (error) {
-        sendJson(res, 404, { ok: false, error: describe(error) });
-      }
+      const requested = url.searchParams.getAll('id');
+      const grouped = (url.searchParams.get('ids') ?? '').split(',').map((value) => value.trim()).filter(Boolean);
+      const selection = [...requested, ...grouped];
+      const data = await exportZipBuffer(store, dataDir, selection.length > 0 ? selection : undefined);
+      sendBytes(res, 200, data.buffer, 'application/zip', data.filename);
       return;
     }
 
     if (method === 'GET' && route === '/export') {
-      const state = await store.read();
-      const actions = await Promise.all(sortActions(state.actions).map(async (action) => ({
-        ...exportable(action),
-        resources: await exportResourceFiles(resourceDir(dataDir, action.id), action.resources),
-      })));
+      const { actions } = await readAll(store);
       sendJson(res, 200, {
         ok: true,
         exportedAt: new Date().toISOString(),
         plugin: 'dsh-action-hub',
-        version: state.version,
-        actions,
+        format: 'dsh-action-hub/standard-skills@1',
+        actions: sortActions(actions).map((action) => ({
+          name: action.name,
+          description: action.description,
+          body: action.prompt,
+          resources: action.resources,
+        })),
       });
       return;
     }
@@ -167,48 +134,34 @@ async function handle(ctx, store, dataDir, req, res) {
     }
 
     if (route === '/bundle/preview-folder') {
-      try {
-        const preview = await previewFolder(store, dataDir, text(body.path));
-        sendJson(res, 200, { ok: true, ...preview });
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-      }
+      const preview = await previewFolder(store, dataDir, text(body.path));
+      sendJson(res, 200, { ok: true, kind: 'folder', path: text(body.path), ...preview });
       return;
     }
 
     if (route === '/bundle/import-folder') {
-      try {
-        const imported = await applyFolderPlan(store, dataDir, text(body.path), Array.isArray(body.decisions) ? body.decisions : [], (await getBuiltins()).map((action) => action.id));
-        const state = await store.read();
-        sendJson(res, 200, { ...imported, ok: true, actions: (await readAll(store, dataDir)).actions });
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-      }
+      const reserved = (await getBuiltins()).map((action) => action.name);
+      const imported = await applyFolderPlan(store, dataDir, text(body.path), Array.isArray(body.decisions) ? body.decisions : [], reserved);
+      invalidateSkills();
+      sendJson(res, 200, { ...imported, ok: true, actions: sortActions((await readAll(store)).actions) });
       return;
     }
 
     if (route === '/bundle/preview-zip') {
-      try {
-        const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
-        if (buffer.length === 0) throw new Error('ZIP 内容为空');
-        const preview = await previewZipBuffer(store, dataDir, buffer);
-        sendJson(res, 200, { ok: true, ...preview });
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-      }
+      const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
+      if (buffer.length === 0) throw new Error('ZIP 内容为空');
+      const preview = await previewZipBuffer(store, dataDir, buffer);
+      sendJson(res, 200, { ok: true, kind: 'zip', contentBase64: body.contentBase64, ...preview });
       return;
     }
 
     if (route === '/bundle/import-zip') {
-      try {
-        const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
-        if (buffer.length === 0) throw new Error('ZIP 内容为空');
-        const imported = await applyZipPlan(store, dataDir, buffer, Array.isArray(body.decisions) ? body.decisions : [], (await getBuiltins()).map((action) => action.id));
-        const state = await store.read();
-        sendJson(res, 200, { ...imported, ok: true, actions: (await readAll(store, dataDir)).actions });
-      } catch (error) {
-        sendJson(res, 400, { ok: false, error: describe(error) });
-      }
+      const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
+      if (buffer.length === 0) throw new Error('ZIP 内容为空');
+      const reserved = (await getBuiltins()).map((action) => action.name);
+      const imported = await applyZipPlan(store, dataDir, buffer, Array.isArray(body.decisions) ? body.decisions : [], reserved);
+      invalidateSkills();
+      sendJson(res, 200, { ...imported, ok: true, actions: sortActions((await readAll(store)).actions) });
       return;
     }
 
@@ -219,334 +172,145 @@ async function handle(ctx, store, dataDir, req, res) {
         sendJson(res, 400, { ok: false, error: invalid.message, code: invalid.code });
         return;
       }
-      if (await isBuiltinId(action.id)) {
-        sendJson(res, 403, { ok: false, error: '内置 Action 不能被覆盖' });
+      if (await isBuiltinId(action.name)) {
+        sendJson(res, 403, { ok: false, error: '内置技能不能被覆盖' });
         return;
       }
-      await store.mutate((draft) => {
-        if (draft.actions.some((entry) => entry.id === action.id)) {
-          action.id = `${action.id}-${Math.random().toString(16).slice(2, 6)}`;
-        }
-        draft.actions = [...draft.actions, action];
-      });
-      sendJson(res, 200, { ok: true, action, actions: (await readAll(store, dataDir)).actions });
+      const created = await store.create(action);
+      invalidateSkills();
+      sendJson(res, 200, { ok: true, action: created });
       return;
     }
 
     if (route === '/update') {
       const id = text(body.id);
-      const patch = body.patch !== null && typeof body.patch === 'object' ? body.patch : body.action;
-      if (id === '' || patch === null || typeof patch !== 'object') {
-        sendJson(res, 400, { ok: false, error: '缺少 id 或 patch' });
-        return;
-      }
+      const patch = body.patch !== null && typeof body.patch === 'object' ? body.patch : body.action ?? {};
       if (await isBuiltinId(id)) {
-        const keys = Object.keys(patch);
-        if (keys.some((key) => key !== 'pinned')) {
-          sendJson(res, 403, { ok: false, error: '内置 Action 只允许修改置顶状态' });
-          return;
-        }
-        if (typeof patch.pinned !== 'boolean') {
-          sendJson(res, 400, { ok: false, error: 'pinned 必须是布尔值' });
-          return;
-        }
-        await updateBuiltinState(dataDir, (state) => ({
-          ...state,
-          pinned: { ...state.pinned, [id]: patch.pinned },
-        }));
-        const { actions } = await readAll(store, dataDir);
-        sendJson(res, 200, { ok: true, action: actions.find((entry) => entry.id === id), actions });
+        sendJson(res, 403, { ok: false, error: '内置技能只读，复制后才能修改' });
         return;
       }
-      const { result } = await store.mutate((draft) => {
-        const index = draft.actions.findIndex((entry) => entry.id === id);
-        if (index < 0) return { missing: true };
-        const previous = draft.actions[index];
-        const next = normalizeAction({ ...previous, ...patch }, { id, previous });
-        const invalid = validateAction(next);
-        if (!invalid.ok) return { invalid };
-        draft.actions = draft.actions.map((entry, at) => (at === index ? next : entry));
-        return { action: next };
-      });
-      if (result?.missing) {
-        sendJson(res, 404, { ok: false, error: 'Action 不存在' });
-        return;
-      }
-      if (result?.invalid) {
-        sendJson(res, 400, { ok: false, error: result.invalid.message, code: result.invalid.code });
-        return;
-      }
-      sendJson(res, 200, { ok: true, action: result.action, actions: (await readAll(store, dataDir)).actions });
+      const updated = await store.update(id, normalizeAction({ ...patch, name: patch.name ?? id }));
+      invalidateSkills();
+      sendJson(res, 200, { ok: true, action: updated });
       return;
     }
 
     if (route === '/delete') {
       const id = text(body.id);
       if (await isBuiltinId(id)) {
-        sendJson(res, 403, { ok: false, error: '内置 Action 由插件管理，不能删除' });
+        sendJson(res, 403, { ok: false, error: '内置技能只读，不能删除' });
         return;
       }
-      const { result } = await store.mutate((draft) => {
-        const before = draft.actions.length;
-        draft.actions = draft.actions.filter((entry) => entry.id !== id);
-        return { removed: before - draft.actions.length };
-      });
-      if (result.removed > 0) await removeActionDir(dataDir, id);
-      sendJson(res, 200, { ok: true, removed: result.removed, actions: (await readAll(store, dataDir)).actions });
+      await store.remove(id);
+      invalidateSkills();
+      sendJson(res, 200, { ok: true });
       return;
     }
 
     if (route === '/touch') {
-      const id = text(body.id);
-      if (await isBuiltinId(id)) {
-        await updateBuiltinState(dataDir, (state) => ({
-          ...state,
-          usage: { ...state.usage, [id]: bumpUsage(state.usage[id]) },
-        }));
-        sendJson(res, 200, { ok: true, missing: false });
-        return;
-      }
-      const { result } = await store.mutate((draft) => {
-        const index = draft.actions.findIndex((entry) => entry.id === id);
-        if (index < 0) return { missing: true };
-        const previous = draft.actions[index];
-        const next = {
-          ...previous,
-          usage: bumpUsage(previous.usage),
-        };
-        draft.actions = draft.actions.map((entry, at) => (at === index ? next : entry));
-        return { action: next };
-      });
-      sendJson(res, 200, { ok: true, missing: Boolean(result?.missing) });
+      await store.touch(text(body.id));
+      sendJson(res, 200, { ok: true });
       return;
     }
 
-    if (route === '/import') {
-      const raw = body.actions ?? body.action ?? body.import ?? body;
-      const list = Array.isArray(raw)
-        ? raw
-        : raw !== null && typeof raw === 'object' && Array.isArray(raw.actions) ? raw.actions : null;
-      if (list === null) {
-        sendJson(res, 400, { ok: false, error: '导入内容必须包含 actions 数组' });
-        return;
-      }
-      const mode = body.mode === 'replace' ? 'replace' : 'merge';
-      const reserved = new Set((await getBuiltins()).map((action) => action.id));
-      const accepted = list.filter((entry) => {
-        if (entry === null || typeof entry !== 'object') return false;
-        try {
-          return !reserved.has(normalizeAction(entry).id);
-        } catch {
-          return false;
-        }
-      });
-      const written = new Map();
-      for (const entry of accepted) {
-        if (!Array.isArray(entry.resources)) continue;
-        const normalized = normalizeAction(entry);
-        written.set(normalized.id, await writeResourceEntries(resourceDir(dataDir, normalized.id), entry.resources));
-      }
-      const { result } = await store.mutate((draft) => {
-        const merged = mergeActions(draft.actions, accepted, mode);
-        draft.actions = merged.actions;
-        return merged;
-      });
-      if (written.size > 0) {
-        await store.mutate((draft) => {
-          draft.actions = draft.actions.map((entry) => (written.has(entry.id)
-            ? { ...entry, resources: written.get(entry.id) }
-            : entry));
-        });
-      }
-      sendJson(res, 200, {
-        ok: true,
-        mode,
-        added: result.added,
-        updated: result.updated,
-        actions: (await readAll(store, dataDir)).actions,
-      });
+    if (route === '/scope') {
+      const entry = await store.setScope(text(body.id), body.scope);
+      invalidateSkills();
+      sendJson(res, 200, { ok: true, scope: entry.scope });
       return;
     }
 
-    if (route === '/import-skill') {
-      sendJson(res, 410, { ok: false, error: '按名称导入 Skill 已移除；请用默认的「Action 导入助手」或导入 Action 包。' });
+    if (route === '/mode') {
+      const entry = await store.setMode(text(body.id), body.mode);
+      invalidateSkills();
+      sendJson(res, 200, { ok: true, mode: entry.mode });
       return;
     }
 
     if (route === '/category/rename') {
-      const from = text(body.from);
-      const to = text(body.to).slice(0, 40);
-      const { state, result } = await store.mutate((draft) => {
-        let changed = 0;
-        draft.actions = draft.actions.map((entry) => {
-          if ((entry.category || '') !== from) return entry;
-          changed += 1;
-          return { ...entry, category: to, updatedAt: Date.now() };
-        });
-        return { changed };
-      });
-      sendJson(res, 200, { ok: true, changed: result.changed, actions: (await readAll(store, dataDir)).actions });
+      const changed = await store.renameCategory(text(body.from), text(body.to));
+      sendJson(res, 200, { ok: true, changed });
       return;
     }
 
     if (route === '/category/delete') {
-      const target = text(body.name);
-      const { state, result } = await store.mutate((draft) => {
-        let changed = 0;
-        draft.actions = draft.actions.map((entry) => {
-          if ((entry.category || '') !== target) return entry;
-          changed += 1;
-          return { ...entry, category: '', updatedAt: Date.now() };
-        });
-        return { changed };
-      });
-      sendJson(res, 200, { ok: true, changed: result.changed, actions: (await readAll(store, dataDir)).actions });
+      const changed = await store.deleteCategory(text(body.name));
+      sendJson(res, 200, { ok: true, changed });
       return;
     }
 
-    sendJson(res, 404, { ok: false, error: `未知操作：${route}` });
+    sendJson(res, 404, { ok: false, error: `未知接口：${route}` });
   } catch (error) {
-    if (!res.headersSent) sendJson(res, 500, { ok: false, error: describe(error) });
+    sendJson(res, 400, { ok: false, error: describe(error) });
   }
 }
 
-/**
- * Reject a cross-site request while accepting the same-origin page (and a
- * programmatic local call that sends no Origin at all).
- *
- * @param {object} ctx
- * @param {import('node:http').IncomingMessage} req
- * @returns {boolean}
- */
+function text(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function displayPath(file) {
+  const home = process.env.USERPROFILE || process.env.HOME || '';
+  return home !== '' && file.startsWith(home) ? `~${file.slice(home.length)}` : file;
+}
+
 function originAllowed(ctx, req) {
   const origin = req.headers.origin;
   if (typeof origin !== 'string' || origin === '') return true;
+  let expected;
   try {
-    const self = ctx.webServer.getOrigin();
-    if (typeof self === 'string' && self !== '') {
-      return origin.replace(/\/+$/, '') === self.replace(/\/+$/, '');
-    }
+    expected = ctx.webServer.getOrigin();
   } catch {
-    /* fall through to the Host-header comparison */
+    expected = undefined;
+  }
+  if (typeof expected === 'string' && expected !== '') {
+    try {
+      return new URL(origin).origin === new URL(expected).origin;
+    } catch {
+      return false;
+    }
   }
   const host = req.headers.host;
   try {
-    return host !== undefined && new URL(origin).host === host;
+    return typeof host === 'string' && new URL(origin).host === host;
   } catch {
     return false;
   }
 }
 
-/**
- * Shorten a path under the user's home directory for display, so a settings
- * page (and its screenshots) does not have to expose the account name.
- *
- * @param {string} filePath
- * @returns {string}
- */
-function displayPath(filePath) {
-  try {
-    const home = os.homedir();
-    if (typeof filePath === 'string' && home !== '' && filePath.startsWith(home)) {
-      return `~${filePath.slice(home.length)}`;
-    }
-  } catch {
-    /* keep the absolute path when the home directory is unavailable */
-  }
-  return filePath;
-}
-
-/**
- * The exported shape of one Action: identity and content, without per-machine
- * usage counters that would churn a shared file.
- *
- * @param {object} action
- * @returns {object}
- */
-function exportable(action) {
-  return {
-    id: action.id,
-    name: action.name,
-    description: action.description,
-    category: action.category,
-    tags: action.tags,
-    prompt: action.prompt,
-    argsHint: action.argsHint,
-    pinned: action.pinned === true,
-    createdAt: action.createdAt,
-    updatedAt: action.updatedAt,
-    ...(action.source ? { source: action.source } : {}),
-  };
-}
-
-/**
- * @param {unknown} value
- * @returns {string}
- */
-function text(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-/**
- * Read and parse a JSON request body with a hard size cap.
- *
- * @param {import('node:http').IncomingMessage} req
- * @returns {Promise<unknown | undefined>}
- */
 async function readJsonBody(req) {
+  const length = Number(req.headers['content-length'] ?? '0');
+  if (Number.isFinite(length) && length > MAX_BODY) throw new Error('请求体过大');
   const chunks = [];
-  let size = 0;
+  let total = 0;
   for await (const chunk of req) {
-    size += chunk.length;
-    if (size > MAX_BODY) throw new Error(`请求体超过 ${Math.round(MAX_BODY / 1024 / 1024)} MB`);
+    total += chunk.length;
+    if (total > MAX_BODY) throw new Error('请求体过大');
     chunks.push(chunk);
   }
   if (chunks.length === 0) return undefined;
-  const textBody = Buffer.concat(chunks).toString('utf8').trim();
-  if (textBody === '') return undefined;
   try {
-    return JSON.parse(textBody);
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     return undefined;
   }
 }
 
-/**
- * @param {import('node:http').ServerResponse} res
- * @param {number} status
- * @param {unknown} value
- */
-function sendJson(res, status, value) {
-  const body = JSON.stringify(value);
-  res.statusCode = status;
-  res.setHeader('content-type', 'application/json; charset=utf-8');
-  res.setHeader('cache-control', 'no-store');
-  res.setHeader('content-length', Buffer.byteLength(body));
+function sendJson(res, status, payload) {
+  const body = JSON.stringify(payload);
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'content-length': Buffer.byteLength(body) });
   res.end(body);
 }
 
-/**
- * Send a binary download.
- *
- * @param {import('node:http').ServerResponse} res
- * @param {number} status
- * @param {Buffer} body
- * @param {string} mediaType
- * @param {string} filename
- */
-function sendBytes(res, status, body, mediaType, filename) {
-  res.statusCode = status;
-  res.setHeader('content-type', mediaType);
-  res.setHeader('cache-control', 'no-store');
-  res.setHeader('content-disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
-  res.setHeader('content-length', body.length);
-  res.end(body);
+function sendBytes(res, status, buffer, contentType, filename) {
+  res.writeHead(status, {
+    'content-type': contentType,
+    'content-length': buffer.length,
+    'content-disposition': `attachment; filename="${filename.replace(/["\\]/gu, '')}"`,
+  });
+  res.end(buffer);
 }
 
-/**
- * @param {unknown} error
- * @returns {string}
- */
 function describe(error) {
   return error instanceof Error ? error.message : String(error);
 }
@@ -555,7 +319,6 @@ function describe(error) {
 export const internals = {
   ROUTE,
   originAllowed,
-  exportable,
   expandPrompt,
   MAX_PROMPT,
   planActionRefs,

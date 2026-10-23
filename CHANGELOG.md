@@ -1,5 +1,21 @@
 # Changelog
 
+## 6.0.0 — 2026-10-23
+
+- **Standard-first redesign.** Each entry is now a standard Agent Skill directory
+  (`SKILL.md` + resources). `action.json` is gone; plugin-only state lives in
+  `state.json` outside the skill directory.
+- **Same file, two local modes.** Command (default, zero context, palette only)
+  and Skill (explicitly enabled, DSH provider) switch locally without editing or
+  copying the file.
+- **Any standard SKILL.md can be imported** as-is from a folder or ZIP, with a
+  real YAML parser; imports default to Command and can be enabled as Skill with a
+  cost notice.
+- **Project scopes** are local, fail-closed, and checked both in the provider and
+  at the Command injection point.
+- **Clean v6 start**: old test-era `actions/` data is archived to
+  `backup-v5-test-*`; no v5 migration compatibility is kept.
+
 ## 5.3.5 — 2026-10-22
 
 - **Removed the `/action` slash command.** The palette already covers search,

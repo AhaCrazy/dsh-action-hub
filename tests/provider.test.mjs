@@ -1,0 +1,56 @@
+﻿import assert from 'node:assert/strict';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+import { createStore } from '../store.js';
+import { installSkillsProvider } from '../host/skills-provider.js';
+
+function fakeContext() {
+  let provider;
+  const skills = {
+    registerProvider(make) {
+      provider = make({ invalidate() {} });
+      return () => {};
+    },
+  };
+  const ctx = {
+    skills,
+    get: (name) => (name === 'skills' ? skills : undefined),
+    inject: (deps, cb) => cb({ skills, effect: (fn) => fn() }),
+    effect: (fn) => fn(),
+    logger: { warn() {} },
+  };
+  return { ctx, provider: () => provider };
+}
+
+test('provider exposes only Skill-mode entries', async () => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-provider-'));
+  const store = createStore({ dataDir });
+  await store.create({ name: 'visible-skill', description: 'visible', prompt: 'body', mode: 'skill' });
+  await store.create({ name: 'hidden-command', description: 'hidden', prompt: 'body', mode: 'command' });
+  const { ctx, provider } = fakeContext();
+  installSkillsProvider(ctx, store);
+  const listed = await provider().list({ cwd: dataDir });
+  assert.deepEqual(listed.candidates.map((entry) => entry.name), ['visible-skill']);
+  assert.equal((await provider().get({ name: 'visible-skill' }, { cwd: dataDir })).content, 'body');
+  assert.equal(await provider().get({ name: 'hidden-command' }, { cwd: dataDir }), undefined);
+});
+
+test('provider hides project-scoped entries outside the project', async () => {
+  const dataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-provider-'));
+  const other = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-other-'));
+  const store = createStore({ dataDir });
+  await store.create({
+    name: 'scoped-skill',
+    description: 'scoped',
+    prompt: 'body',
+    mode: 'skill',
+    scope: { mode: 'projects', projects: [{ label: 'other', path: other }] },
+  });
+  const { ctx, provider } = fakeContext();
+  installSkillsProvider(ctx, store);
+  assert.equal((await provider().list({ cwd: dataDir })).candidates.length, 0);
+  assert.equal((await provider().list({ cwd: other })).candidates.length, 1);
+});

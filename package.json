@@ -1,15 +1,17 @@
 {
   "name": "dsh-action-hub",
-  "version": "5.3.5",
+  "version": "6.0.0",
   "private": true,
   "type": "module",
-  "description": "DeepSeek Harness plugin: a Spotlight-style Action shelf for prompts and local resource bundles, with a built-in import helper, selection-aware ZIP/folder export, and zero context cost.",
+  "description": "DeepSeek Harness plugin: a library of standard Agent Skill directories that can run as model-visible Skills or user-only Commands, with project scopes, search, and zero context for Commands.",
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
     "action",
     "actions",
+    "skill",
+    "skills",
     "prompt",
     "snippet",
     "palette",
@@ -28,14 +30,14 @@
   "icon": "./icon.svg",
   "meta": {
     "title": "Action Hub",
-    "description": "Spotlight 式 Action 收藏夹：提示词 + 资源文件，按需调用不占上下文。"
+    "description": "Standard Agent Skill library for DSH: one SKILL.md can be a user-only Command or a model-invocable Skill."
   },
   "scripts": {
     "build": "node scripts/build-client.mjs",
     "dev": "node scripts/watch-client.mjs",
     "pretest": "npm run build",
     "prepack": "npm run build",
-    "test": "node tests/store.test.mjs && node tests/resources.test.mjs && node tests/bundle.test.mjs && node tests/builtins.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
+    "test": "node tests/store.test.mjs && node tests/resources.test.mjs && node tests/bundle.test.mjs && node tests/builtins.test.mjs && node tests/provider.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
   },
   "exports": {
     ".": "./index.js",
@@ -52,7 +54,7 @@
     "bundle.js",
     "zip.js",
     "builtins.js",
-    "builtin-state.js",
+    "skill-doc.js",
     "builtin-actions/**",
     "host/**",
     "client.js",
@@ -79,5 +81,8 @@
         "@deepseek-ai/dsh-client-ui-conversation"
       ]
     }
+  },
+  "dependencies": {
+    "yaml": "^2.9.1"
   }
 }
