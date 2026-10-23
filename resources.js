@@ -329,8 +329,7 @@ export async function readResourcePreviews(dir, meta) {
  * @param {{ id: string, resources?: Array<{ name: string, bytes: number }> }} action
  * @returns {Promise<{ basePath: string, files: Array<{ name: string, bytes: number, text?: string, path: string }> }>}
  */
-export async function readInvocationResources(dataDir, action) {
-  const dir = resourceDir(dataDir, action.id);
+export async function readInvocationResources(dataDir, action, dir = resourceDir(dataDir, action.id)) {
   const files = [];
   let inlineBudget = INLINE_TOTAL_LIMIT;
   for (const entry of normalizeResourceMeta(action.resources)) {

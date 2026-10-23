@@ -5,7 +5,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DSH 插件](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-5.1.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-5.3.5-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub 命令面板](assets/screenshots/01-palette.png)
@@ -21,7 +21,7 @@ Action Hub 把「收藏」和「调用」分开：
 
 - **零上下文占用**：不注册 Agent Tool，不向 system prompt 写入任何内容。收藏夹再大，每轮请求都是 0 token。
 - **只由你触发**：`Alt + A`（macOS 为 `⌥ + A`）或输入框工具行的按钮打开面板；选中后以引用插入（对话里只显示 Action 名），按 Enter 才发送。
-- **可整理、可分享**：分类、标签、置顶、全文搜索、单条或按选择导出 ZIP/文件夹、整库导入导出。
+- **可整理、可分享**：分类、标签、置顶、全文搜索、单条或按选择导出 ZIP、整库导入导出。
 
 ## 界面
 
@@ -45,13 +45,12 @@ Action Hub 把「收藏」和「调用」分开：
 | 快捷键可改 | 在 **设置 → 通用设置 → 快捷键** 中修改；默认 `Alt + A`（Web 注册器不接受单修饰键，未绑定时由插件直接响应，绑定后交给 DSH） |
 | 光标处插入 | 使用宿主 `inputActions.insertText()`，作为一次可撤销编辑插入光标处，不覆盖已有草稿 |
 | 置顶 | 星标常用 Action，面板与列表都排在最前 |
-| 管理库 | 分类导航与计数、全文搜索（名称/描述/分类/标签/正文）、按最近使用/名称/创建时间排序 |
+| 管理库 | 分类导航与计数、全文搜索（名称/描述/分类/标签/正文）、按最近使用 / 名称 / 创建时间 / 本周使用 / 本月使用 / 总使用次数排序 |
 | 参数占位符 | `{{args}}` / `$ARGUMENTS` 由面板参数替换，`{{date}}` 替换为当天日期 |
 | 资源文件 | 每条 Action 可附带代码、模板、说明等本地文件；调用时小文本内联，大文件给出本地路径按需读取 |
 | 默认导入助手 | 内置一条「Action 导入助手」Action：把指定 Skill 目录或一段文本整理成可导入的 Action 包 |
 | 导入 / 导出 | 导入单条/整库的文件夹或 ZIP；导出单条、按勾选导出或整库 ZIP |
-| 分享 | 单条 Action 或整库导出为 ZIP / 文件夹；对方导入 ZIP、文件夹或 JSON 即可；每条 Action 都是一个自包含目录 |
-| 快捷命令 | `/action <名称> [参数]` 直接运行；不带参数时列出全部 Action |
+| 分享 | 单条 Action 或整库导出为 ZIP；对方导入 ZIP 或文件夹即可；每条 Action 都是一个自包含目录 |
 
 ## 安装
 
@@ -118,26 +117,26 @@ DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 �
 - Action 详情里可以**导出 ZIP**（单条 Action）。
 - 管理库顶部的「导出」会打开选择列表：勾选要一起导出的 Action（默认全选），再下载所选 ZIP；只备份时直接备份 `actions/` 即可。
 - 导入 → 「Action 包」：选择文件夹（单个 Action 或整个库）或 `.zip`，先看预览再执行；可以逐项选择跳过/新建/更新。重复内容按内容指纹识别，不会因重复导入同一 ZIP 而增加副本。
-- 旧版整库 JSON 仍可导入（导入 → 粘贴 JSON / 选择 JSON 文件）。
+- 内置 Action（如「Action 导入助手」）以标准 Action 目录放在插件包的 `builtin-actions/` 下（`action.json` + 可选 `files/`），不写入用户数据目录，随插件升级自动更新。管理页中不能编辑、删除或单独导出，默认排在用户 Action 后面，但可以手动置顶。
 
 ## 设计
 
-- **Host 半**（`index.js` + `store.js` + `resources.js` + `bundle.js`）：每条 Action 一个目录（`actions/<id>/action.json` + `files/`），逐条原子写入；同源 `/api/dsh-action-hub` 路由；`/action` 人类命令。命令通过 `sessionController.prompt(..., mode: 'queue')` 提交一条 `source.kind = 'user'` 的真实用户消息。
+- **Host 半**（`index.js` + `host/` + `store.js` + `resources.js` + `bundle.js`）：每条 Action 一个目录（`actions/<id>/action.json` + `files/`），逐条原子写入；同源 `/api/dsh-action-hub` 路由；面板引用通过 `agent/pre-step` 展开成真实用户消息。
 - **引用机制**：输入框里显示 Action 名 chip，draft 的序列化文本仍是不透明的 `/ah-…` 标记；参考源 codec 负责把 chip 写回标记。Host 在 `agent/pre-step` 把 direct user message 中的标记展开成一条 `<action_content>` 注入消息交给模型。**不注册任何运行时 Skill**，所以技能目录、`/` 菜单、上下文面板的技能列表里都不会出现 Action；durable log 保留标记，对话里因此也只显示 Action 名。若 Action 带资源文件，同一注入消息里会附带 `<action_resources>`：小文本内联，其余给路径。
 - **Client 半**（`client.js`）：注册 `conversation.input.left` 工具行按钮、`conversation.input.overlay` 会话桥、`shell.overlay` 命令面板、`main` 管理库、侧边栏图标与 `settings.section` 设置页。
 - **明确不做**：不注册 `ctx.tools`，不调用 `ctx.systemPrompt.section()`；Action 只在用户明确引用时通过 `agent/pre-step` 注入一条上下文消息，收藏夹大小与每轮上下文无关。
 
 ## 数据与隐私
 
-- 数据保存在 `~/.dsh/dsh-action-hub/actions/<id>/`（`$DSH_HOME` 下）：`action.json` 是元数据/正文，`files/` 是资源文件；写入采用临时文件 + 原子重命名。旧版 `actions.json` 会在首次启动时迁移，旧文件改名为 `.migrated-*` 保留；旧的 `~/.dsh/action-hub` 目录也会在首次启动时自动改名为 `dsh-action-hub`。
+- 数据保存在 `~/.dsh/dsh-action-hub/actions/<id>/`（`$DSH_HOME` 下）：`action.json` 是元数据/正文，`files/` 是资源文件；写入采用临时文件 + 原子重命名。内置 Action 的置顶和使用次数单独存放在 `~/.dsh/dsh-action-hub/builtin-state.json`，不会进入 `actions/`。旧版 `actions.json` 会在首次启动时迁移，旧文件改名为 `.migrated-*` 保留；旧的 `~/.dsh/action-hub` 目录也会在首次启动时自动改名为 `dsh-action-hub`。
 - 设置页显示 `~/.dsh/...` 而不是带用户名的绝对路径。
 - 插件只与本机 DSH Host 通信（同源 `/api/dsh-action-hub`），不发起任何外部网络请求。
-- ZIP/文件夹/JSON 导出都包含正文、分类、标签、置顶状态与资源文件；不包含使用次数等本机统计。分享前请检查正文和资源文件是否含内部信息。
+- ZIP 导出包含正文、分类、标签、置顶状态与资源文件；不包含使用次数等本机统计。分享前请检查正文和资源文件是否含内部信息。
 
 ## 兼容性
 
 - 面向 DSH 桌面版 / Web UI `0.2.x`（插件 API 仍处于预览期）。
-- 管理库与面板需要 Host 的 `webServer` 服务；`/action` 命令额外需要 `commands` 与 `sessionController`，缺失时安全降级。
+- 管理库与面板需要 Host 的 `webServer` 服务；缺少时安全降级。
 - 更新插件文件后刷新页面即可加载新的 `client.js`；Host 改动需要重新加载 bundle。
 
 ## 开发
@@ -146,20 +145,33 @@ DSH → 插件 → 添加插件 → 填入本目录的绝对路径 → 安装 �
 node --check index.js
 node --check client.js
 node --check store.js
-npm test
+npm test          # 先自动 build client.js，再跑测试
+npm run dev       # 监听 src/client/，改完自动重建 client.js
 ```
 
+`client.js` 是构建产物，不要直接编辑；Web 端源码在 `src/client/`，按编号分片（loader / CSS / i18n / helpers / stores / shortcuts / reference source / UI / page / dialogs / palette / session / settings / apply）。
+
 - `tests/store.test.mjs`：数据模型、占位符、置顶排序、导入合并、原子持久化。
+- `tests/builtins.test.mjs`：内置 Action 加载、打包目录、内置置顶/使用次数状态、使用周期。
 - `tests/client.test.mjs`：捕获 `window.__ModuleLoader__` 注册、纯函数与语言字典完整性，并断言不注册 tool / prompt。
-- `tests/host.test.mjs`：同源校验、导出裁剪、`/action` 参数解析。
+- `tests/host.test.mjs`：同源校验、导出裁剪、Action 引用句柄与注入。
 
 ```text
 dsh-action-hub/
 ├── package.json           # bundle 清单 + dsh.bundle / dsh.client
 ├── cordis.patch.yml       # Loader 行（可配 seed / dataDir）
-├── index.js               # Host：路由 + /action 命令
-├── store.js               # 收藏库、数据模型、导入合并
-├── client.js              # Web：命令面板 / 管理库 / 设置 / 工具行按钮
+├── index.js               # Host：插件入口 + HTTP 路由
+├── host/
+│   ├── state.js           # 用户 Action + 内置 Action 合并、资源路径、清理
+│   ├── refs.js            # /ah-… 引用句柄、模型注入消息、命令解析
+│   └── invoke.js          # agent/pre-step 注入
+├── store.js               # 收藏库、数据模型、导入合并、使用次数周期
+├── builtins.js            # 插件包内只读内置 Action 加载器
+├── builtin-state.js       # 内置 Action 的置顶/使用次数本地状态
+├── builtin-actions/       # 内置 Action（标准 action.json + files/）
+├── src/client/            # Web 源码分片（构建为 client.js）
+├── scripts/               # build-client / watch-client
+├── client.js              # 构建产物：命令面板 / 管理库 / 设置 / 工具行按钮
 ├── locale/{zh,en}.json    # 插件管理器展示名
 ├── assets/screenshots/    # 商店截图
 ├── screenshots.json       # 商店截图清单

@@ -114,14 +114,26 @@ test('composeReferenceDraft inserts a chip at the caret and keeps offsets', () =
   const appended = composeReferenceDraft({
     draft: 'typed /ah-aaaaaaaaaa ',
     span: { start: 99, end: 99 },
-    occurrences: [{ source: 'file', ref: '@a', offset: 6, length: 14, label: 'a.ts', clipboardText: '/ah-aaaaaaaaaa', appearance: 'file' }],
+    occurrences: [{ source: 'action', ref: '/ah-aaaaaaaaaa', offset: 6, length: 14, label: 'a', clipboardText: '/ah-aaaaaaaaaa' }],
     marker: '/ah-0123456789',
     label: '代码审查',
   });
-  assert.equal(appended.text, 'typed /ah-aaaaaaaaaa /ah-0123456789');
+  assert.equal(appended.text, 'typed /ah-aaaaaaaaaa /ah-0123456789 ');
   assert.equal(appended.references.length, 2);
-  assert.equal(appended.references[1].offset, appended.text.length - 14);
+  assert.equal(appended.references[1].offset, 21);
   assert.equal(appended.references[0].occurrenceId, undefined);
+
+  const secondChip = composeReferenceDraft({
+    draft: 'AB /ah-aaaaaaaaaa CD',
+    span: { start: 4, end: 4 },
+    occurrences: [{ source: 'action', ref: '/ah-aaaaaaaaaa', offset: 3, length: 14, label: 'a', clipboardText: '/ah-aaaaaaaaaa' }],
+    marker: '/ah-0123456789',
+    label: '代码审查',
+  });
+  assert.equal(secondChip.text, 'AB /ah-aaaaaaaaaa /ah-0123456789 CD');
+  assert.equal(secondChip.references[0].offset, 3);
+  assert.equal(secondChip.references[1].offset, 18);
+  assert.equal(secondChip.references[1].label, '代码审查');
 });
 
 test('searchScore prefers names, requires every token, and rejects misses', () => {
@@ -201,7 +213,7 @@ test('Action reference source never blocks other slash sources', () => {
 test('palette returns focus to the composer after closing', () => {
   assert.match(source, /data-composer-card=\"true\"/);
   assert.match(source, /composer\.focus/);
-  assert.match(source, /selectNodeContents\(composer\)/);
+  assert.match(source, /setStartAfter/);
 });
 
 test('every locale key exists in both dictionaries', () => {

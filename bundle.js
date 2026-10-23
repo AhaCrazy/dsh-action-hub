@@ -42,63 +42,11 @@ async function walkFiles(root, prefix = '', out = []) {
   return out;
 }
 
-async function readDocument(dir) {
-  const document = JSON.parse(await fs.readFile(path.join(dir, 'action.json'), 'utf8'));
-  const raw = document !== null && typeof document === 'object' && document.action !== null && typeof document.action === 'object'
-    ? document.action
-    : document;
-  return normalizeAction(raw);
-}
-
 function uniqueId(known, action) {
   if (!known.has(action.id)) return action.id;
   let candidate = mintId(action.name);
   while (known.has(candidate)) candidate = mintId(action.name);
   return candidate;
-}
-
-/**
- * Export one Action directory under a user-selected target folder.
- *
- * @param {{ read: Function }} store
- * @param {string} dataDir
- * @param {string} id
- * @param {string} targetRoot
- * @returns {Promise<{ path: string, id: string }>}
- */
-export async function exportActionFolder(store, dataDir, id, targetRoot) {
-  const state = await store.read();
-  const action = state.actions.find((entry) => entry.id === id);
-  if (action === undefined) throw new Error('Action 不存在');
-  const root = path.resolve(String(targetRoot));
-  const info = await fs.stat(root).catch(() => undefined);
-  if (info === undefined || !info.isDirectory()) throw new Error('目标目录不存在');
-  const dest = path.join(root, safeActionFolderName(action.id));
-  if (await fs.access(dest).then(() => true).catch(() => false)) throw new Error('目标目录里已经有同名 Action');
-  await fs.cp(actionDir(dataDir, action.id), dest, { recursive: true });
-  return { path: dest, id: action.id };
-}
-
-/**
- * Export every Action to a new timestamped subfolder.
- *
- * @param {{ read: Function }} store
- * @param {string} dataDir
- * @param {string} targetRoot
- * @returns {Promise<{ path: string, count: number }>}
- */
-export async function exportAllFolder(store, dataDir, targetRoot) {
-  const state = await store.read();
-  const root = path.resolve(String(targetRoot));
-  const info = await fs.stat(root).catch(() => undefined);
-  if (info === undefined || !info.isDirectory()) throw new Error('目标目录不存在');
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const dest = path.join(root, `action-hub-export-${stamp}`);
-  await fs.mkdir(dest, { recursive: false });
-  for (const action of state.actions) {
-    await fs.cp(actionDir(dataDir, action.id), path.join(dest, safeActionFolderName(action.id)), { recursive: true });
-  }
-  return { path: dest, count: state.actions.length };
 }
 
 /**
@@ -135,34 +83,6 @@ export async function exportZipBuffer(store, dataDir, selection = undefined) {
     count: selected.length,
     filename,
   };
-}
-
-/**
- * Import one or more Action directories from a folder.
- *
- * @param {{ read: Function }} store
- * @param {string} dataDir
- * @param {string} source
- * @returns {Promise<object>}
- */
-export async function importFolder(store, dataDir, source) {
-  const preview = await previewFolder(store, dataDir, source);
-  const decisions = preview.items.map((item) => ({ key: item.key, mode: item.defaultMode, fingerprint: item.fingerprint }));
-  return applyFolderPlan(store, dataDir, source, decisions);
-}
-
-/**
- * Import Action directories from a ZIP buffer.
- *
- * @param {{ read: Function, mutate: Function }} store
- * @param {string} dataDir
- * @param {Buffer} buffer
- * @returns {Promise<object>}
- */
-export async function importZipBuffer(store, dataDir, buffer) {
-  const preview = await previewZipBuffer(store, dataDir, buffer);
-  const decisions = preview.items.map((item) => ({ key: item.key, mode: item.defaultMode, fingerprint: item.fingerprint }));
-  return applyZipPlan(store, dataDir, buffer, decisions);
 }
 
 /**
@@ -205,13 +125,13 @@ export async function previewZipBuffer(store, dataDir, buffer) {
  * @param {Array<{ key: string, mode: string, fingerprint?: string }>} decisions
  * @returns {Promise<object>}
  */
-export async function applyFolderPlan(store, dataDir, source, decisions) {
+export async function applyFolderPlan(store, dataDir, source, decisions, reservedIds = []) {
   const root = path.resolve(String(source));
   const info = await fs.stat(root).catch(() => undefined);
   if (info === undefined || !info.isDirectory()) throw new Error('目录不存在');
   const candidates = await collectFolderCandidates(root);
   if (candidates.length === 0) throw new Error('目录里没有 action.json');
-  return applyImportPlan(store, dataDir, candidates, decisions, root);
+  return applyImportPlan(store, dataDir, candidates, decisions, root, reservedIds);
 }
 
 /**
@@ -223,10 +143,10 @@ export async function applyFolderPlan(store, dataDir, source, decisions) {
  * @param {Array<{ key: string, mode: string, fingerprint?: string }>} decisions
  * @returns {Promise<object>}
  */
-export async function applyZipPlan(store, dataDir, buffer, decisions) {
+export async function applyZipPlan(store, dataDir, buffer, decisions, reservedIds = []) {
   const candidates = collectZipCandidates(buffer);
   if (candidates.length === 0) throw new Error('ZIP 里没有 Action 包');
-  return applyImportPlan(store, dataDir, candidates, decisions, 'ZIP');
+  return applyImportPlan(store, dataDir, candidates, decisions, 'ZIP', reservedIds);
 }
 
 // --------------------------------------------------------------- import core
@@ -499,7 +419,7 @@ async function writeCandidateFiles(dataDir, id, files) {
   }
 }
 
-async function applyImportPlan(store, dataDir, candidates, decisions, sourceLabel) {
+async function applyImportPlan(store, dataDir, candidates, decisions, sourceLabel, reservedIds = []) {
   const preview = await buildImportPlan(store, dataDir, candidates, sourceLabel);
   const chosen = decisionMap(decisions);
   const state = await store.read();
@@ -551,6 +471,11 @@ async function applyImportPlan(store, dataDir, candidates, decisions, sourceLabe
       byId.set(next.id, next);
       actions.push(next);
       updated += 1;
+      continue;
+    }
+    if (reservedIds.includes(candidate.raw.id)) {
+      skipped += 1;
+      conflicts += 1;
       continue;
     }
     let id = candidate.raw.id;

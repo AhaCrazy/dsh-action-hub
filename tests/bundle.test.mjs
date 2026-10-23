@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -7,8 +7,6 @@ import test from 'node:test';
 import {
   applyFolderPlan,
   applyZipPlan,
-  exportActionFolder,
-  exportAllFolder,
   exportZipBuffer,
   previewFolder,
   previewZipBuffer,
@@ -65,16 +63,17 @@ test('folder preview adds a new Action and a repeated import is a duplicate', as
   const target = await tempDir();
   const fresh = await freshStore();
   try {
-    const exported = await exportActionFolder(store, dataDir, action.id, target);
-    const preview = await previewFolder(fresh.store, fresh.dataDir, exported.path);
+    const bundleDir = path.join(target, action.id);
+    await cp(path.join(dataDir, 'actions', action.id), bundleDir, { recursive: true });
+    const preview = await previewFolder(fresh.store, fresh.dataDir, bundleDir);
     assert.equal(preview.items[0].status, 'new');
-    const created = await applyFolderPlan(fresh.store, fresh.dataDir, exported.path, decisionsFor(preview));
+    const created = await applyFolderPlan(fresh.store, fresh.dataDir, bundleDir, decisionsFor(preview));
     assert.equal(created.imported, 1);
     assert.equal(await readFile(path.join(fresh.dataDir, 'actions', created.actions[0].id, 'files', 'templates', 'run.sh'), 'utf8'), 'echo hi\n');
 
-    const repeated = await previewFolder(fresh.store, fresh.dataDir, exported.path);
+    const repeated = await previewFolder(fresh.store, fresh.dataDir, bundleDir);
     assert.equal(repeated.items[0].status, 'duplicate');
-    const skipped = await applyFolderPlan(fresh.store, fresh.dataDir, exported.path, decisionsFor(repeated));
+    const skipped = await applyFolderPlan(fresh.store, fresh.dataDir, bundleDir, decisionsFor(repeated));
     assert.equal(skipped.imported, 0);
     assert.equal(skipped.duplicated, 1);
     assert.equal((await fresh.store.read()).actions.length, 1);
@@ -174,22 +173,6 @@ test('zip export accepts an explicit selection of Actions', async () => {
     assert.equal(zip.count, 1);
   } finally {
     await rm(dataDir, { recursive: true, force: true });
-  }
-});
-
-test('whole-library folder export writes every Action', async () => {
-  const { dataDir, store, action } = await seededStore();
-  const target = await tempDir();
-  try {
-    const exported = await exportAllFolder(store, dataDir, target);
-    assert.equal(exported.count, 1);
-    const bundleDir = path.join(exported.path, action.id);
-    const document = JSON.parse(await readFile(path.join(bundleDir, 'action.json'), 'utf8'));
-    assert.equal(document.action.id, action.id);
-    assert.equal(await readFile(path.join(bundleDir, 'files', 'templates', 'run.sh'), 'utf8'), 'echo hi\n');
-  } finally {
-    await rm(dataDir, { recursive: true, force: true });
-    await rm(target, { recursive: true, force: true });
   }
 });
 

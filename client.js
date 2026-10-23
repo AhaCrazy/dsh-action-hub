@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '5.1.1';
+    const VERSION = '5.3.5';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -48,12 +48,10 @@ window.__ModuleLoader__.load({
       .ah-btn-sm { height: 28px; font-size: 12px; padding: 0 10px; border-radius: 8px; }
       .ah-btn-sm.ah-btn-icon { width: 28px; padding: 0; }
       .ah-btn[data-active="true"] { border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-brand-primary); background: transparent; }
-      .ah-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       .ah-search { position: relative; flex: 1 1 260px; min-width: 200px; }
       .ah-search input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 12px 0 32px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; outline: none; }
       .ah-search input:focus { border-color: var(--dsw-alias-brand-primary); }
       .ah-search-mark { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; color: var(--dsw-alias-label-secondary); pointer-events: none; }
-      .ah-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
       .ah-chip { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 999px; height: 26px; padding: 0 10px; font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
       .ah-chip:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
       .ah-chip[data-active="true"] { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
@@ -116,20 +114,13 @@ window.__ModuleLoader__.load({
       .ah-input:focus, .ah-textarea:focus { border-color: var(--dsw-alias-brand-primary); }
       .ah-textarea { resize: vertical; min-height: 160px; font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 12.5px; line-height: 1.65; }
       .ah-code { margin: 0; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; max-height: 280px; overflow: auto; }
-      .ah-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-      .ah-tab { appearance: none; background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12.5px; height: 34px; padding: 0 10px; cursor: pointer; }
-      .ah-tab[data-active="true"] { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-brand-primary); }
       .ah-list-plain { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
       .ah-plain-item { border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; padding: 9px 11px; display: flex; align-items: center; gap: 10px; }
       .ah-plain-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .ah-plain-name { font-size: 12.5px; font-weight: 600; }
-      .ah-plain-desc { font-size: 11.5px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ah-radio-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-      .ah-radio-row label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
       .ah-hidden { display: none !important; }
       .ah-user-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 260px; padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, var(--dsw-alias-brand-primary) 12%, transparent); color: color-mix(in srgb, var(--dsw-alias-brand-primary) 82%, var(--dsw-alias-label-primary)); font-weight: 500; user-select: none; }
       .ah-user-chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .ah-resource-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
       .ah-resource-list { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; max-height: 180px; overflow: auto; }
       .ah-tree-row { display: flex; align-items: center; gap: 7px; min-height: 24px; padding: 1px 6px; border-radius: 6px; }
       .ah-tree-row:hover { background: var(--dsw-alias-bg-layer-1); }
@@ -230,7 +221,6 @@ window.__ModuleLoader__.load({
         'action.copy': '复制正文',
         'action.pin': '置顶',
         'action.unpin': '取消置顶',
-        'action.open': '查看',
         'action.close': '关闭',
         'lib.all': '全部',
         'lib.uncategorized': '未分类',
@@ -242,6 +232,9 @@ window.__ModuleLoader__.load({
         'lib.sortRecent': '最近使用',
         'lib.sortName': '名称',
         'lib.sortCreated': '最近创建',
+        'lib.sortWeek': '本周使用',
+        'lib.sortMonth': '本月使用',
+        'lib.sortTotal': '总使用次数',
         'lib.sortLabel': '排序',
         'lib.emptyTitle': '收藏夹还是空的',
         'lib.emptyCopy': '把经常重复输入的提示词存成 Action：从右侧新建，或导入现成的 Action 包。',
@@ -266,9 +259,8 @@ window.__ModuleLoader__.load({
         'lib.unpinned': '已取消置顶',
         'lib.updated': '更新于 {time}',
         'lib.used': '用过 {count} 次',
+        'lib.builtin': '内置',
         'lib.skill': 'Skill',
-        'lib.detailTitle': 'Action 详情',
-        'lib.detailMeta': '分类 {category}',
         'lib.useInChat': '在任意会话输入框左侧的 Actions 按钮中调用',
         'editor.createTitle': '新建 Action',
         'editor.editTitle': '编辑 Action',
@@ -292,7 +284,6 @@ window.__ModuleLoader__.load({
         'editor.resourceSaved': '新建 Action 为纯文本；保存后如需附件，请在文件浏览器里把文件放进该 Action 的 files/ 目录。',
         'editor.resourcesEmpty': '暂无资源文件。',
         'editor.resourceEmptyText': '（无法预览的文件）',
-        'editor.resourceFailed': '资源操作失败',
         'editor.prompt': '提示词正文',
         'editor.promptPlaceholder': '把要发给 Agent 的提示词写在这里…',
         'editor.promptHint': '支持多段 Markdown；{{args}} 是参数，{{date}} 是当天日期。',
@@ -301,42 +292,6 @@ window.__ModuleLoader__.load({
         'delete.title': '删除这个 Action？',
         'delete.copy': '「{name}」会从收藏夹永久移除。',
         'import.title': '导入 Actions',
-        'import.jsonTab': '粘贴 JSON',
-        'import.skillTab': '从 Skill 导入',
-        'import.jsonHint': '粘贴本插件导出的 JSON，或选择文件。',
-        'import.chooseFile': '选择文件…',
-        'import.mode': '导入方式',
-        'import.merge': '合并（同 id 覆盖）',
-        'import.replace': '替换全部',
-        'import.run': '开始导入',
-        'import.invalid': '无法解析这份 JSON',
-        'import.done': '导入完成：新增 {added}，更新 {updated}',
-        'import.skillCwd': '项目目录（可选）',
-        'import.skillCwdHint': '留空扫描 Profile 默认目录；项目级 Skill 需要填写项目根目录。',
-        'import.skillLoad': '读取 Skills',
-        'import.skillEmpty': '没有找到 Skill，检查目录是否正确。',
-        'import.skillImport': '导入为 Action',
-        'import.skillDone': '已导入：{name}',
-        'import.skillDoneWithResources': '已导入：{name}（含 {count} 个资源文件）',
-        'import.pathLabel': '从技能目录导入',
-        'import.pathPlaceholder': '例如 C:\\Users\\me\\.claude\\skills\\my-skill',
-        'import.pathButton': '导入此目录',
-        'import.pathHint': '同名 Skill 被其他来源遮挡时，直接指定 SKILL.md 所在目录（会一并复制同目录资源文件）。',
-        'import.pathDone': '已从目录导入：{name}',
-        'import.pathDoneWithResources': '已从目录导入：{name}（含 {count} 个资源文件）',
-        'import.folderLabel': '从文件夹选择 Skill（推荐）',
-        'import.folderButton': '选择 Skill 文件夹',
-        'import.folderHint': '在系统选择器里选中包含 SKILL.md 的文件夹，会导入正文和其中所有文件；不受同名 Skill 遮挡影响。',
-        'import.folderNoSkill': '这个文件夹里没有 SKILL.md',
-        'import.folderDone': '已导入 {name}，资源文件 {count} 个',
-        'import.folderDoneSkipped': '已导入 {name}，资源文件 {count} 个，跳过 {skipped} 个',
-        'import.category': '导入',
-        'import.aiButton': '用 AI 导入',
-        'import.aiHint': '让 AI 读取 Skill，与你确认 Skill/Action 差异后生成 Action 和资源选择',
-        'import.aiStarted': '已打开 AI 导入对话：{name}。发送提示词并与 AI 确认，完成后 Action 会自动出现在库中。',
-        'import.aiUnavailable': '当前环境无法打开新对话，请改用「选择 Skill 文件夹」。',
-        'import.aiNoPath': '这个 Skill 没有可用的目录路径，请用「从技能目录导入」填写目录。',
-        'import.bundleTab': 'Action 包',
         'import.bundleHint': '选择文件夹或 ZIP 后先进入预览；可以为每个 Action 单独选择跳过、导入为新 Action 或更新本地副本。',
         'import.bundleFolder': '选择文件夹',
         'import.bundleZip': '选择 ZIP',
@@ -358,18 +313,15 @@ window.__ModuleLoader__.load({
         'import.confirm': '确认导入',
         'import.bundleResult': '导入完成：新增 {imported}，更新 {updated}，跳过 {skipped}（重复 {duplicated}，冲突 {conflicts}）',
         'import.bundleUnavailable': '当前环境无法打开目录选择器，请改用 ZIP。',
-        'import.skillUnavailable': '当前 Profile 未启用 Skills 服务',
         'category.title': '分类管理',
         'category.empty': '还没有分类',
         'category.rename': '重命名',
         'category.delete': '删除分类',
-        'category.deleteHint': '分类里的 Action 会移到未分类。',
         'category.deleteConfirm': '删除分类「{name}」？',
         'category.deleteConfirmDesc': '该分类下还有 {count} 个 Action。删除分类后它们会移到未分类，Action 本身不会被删除。',
         'category.deleteConfirmEmpty': '该分类下没有 Action，可以安全删除。',
         'category.confirmDelete': '确认删除',
         'category.name': '新名称',
-        'category.count': '{count} 个',
         'palette.title': '选择一个 Action',
         'palette.search': '搜索 Action…',
         'palette.empty': '还没有 Action',
@@ -384,14 +336,10 @@ window.__ModuleLoader__.load({
         'palette.sent': '已插入并发送',
         'palette.insertFailed': '当前会话暂时无法写入输入框',
         'palette.sendFailed': '发送失败，草稿已保留',
-        'palette.busy': '正在发送，稍后再试',
         'palette.hintNav': '选择',
         'palette.hintInsert': '插入',
         'palette.hintSend': '发送',
-        'palette.hintClose': '关闭',
         'palette.hintTab': '切换分组',
-        'palette.noSession': '先在对话中打开输入框，再使用 Actions。',
-        'palette.skillsHint': '需要批量导入？在管理页「导入 → 从 Skill 导入」。',
         'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
         'palette.refInserted': '已插入引用',
@@ -426,10 +374,7 @@ window.__ModuleLoader__.load({
         'settings.export': '导出整库 ZIP',
         'settings.about': '关于',
         'settings.aboutDesc': 'Action Hub {version} · 不注册 Agent Tool、不注入上下文。',
-        'settings.hotkeyKeys': '⌥ / Alt + A',
         'settings.saved': '设置已保存',
-        'notice.savedLocally': '已保存在本机',
-        'skill.source': '从 Skill 导入',
       },
       en: {
         'app.title': 'Action Hub',
@@ -447,7 +392,6 @@ window.__ModuleLoader__.load({
         'action.copy': 'Copy body',
         'action.pin': 'Pin',
         'action.unpin': 'Unpin',
-        'action.open': 'Open',
         'action.close': 'Close',
         'lib.all': 'All',
         'lib.uncategorized': 'Uncategorized',
@@ -459,6 +403,9 @@ window.__ModuleLoader__.load({
         'lib.sortRecent': 'Recently used',
         'lib.sortName': 'Name',
         'lib.sortCreated': 'Recently created',
+        'lib.sortWeek': 'This week',
+        'lib.sortMonth': 'This month',
+        'lib.sortTotal': 'Total uses',
         'lib.sortLabel': 'Sort',
         'lib.emptyTitle': 'Your shelf is empty',
         'lib.emptyCopy': 'Save the prompts you keep retyping. Create one here, or import an Action bundle.',
@@ -483,9 +430,8 @@ window.__ModuleLoader__.load({
         'lib.unpinned': 'Unpinned',
         'lib.updated': 'Updated {time}',
         'lib.used': 'Used {count}×',
+        'lib.builtin': 'Built-in',
         'lib.skill': 'Skill',
-        'lib.detailTitle': 'Action details',
-        'lib.detailMeta': 'Category: {category}',
         'lib.useInChat': 'Call it from the Actions button left of any composer',
         'editor.createTitle': 'New Action',
         'editor.editTitle': 'Edit Action',
@@ -509,7 +455,6 @@ window.__ModuleLoader__.load({
         'editor.resourceSaved': 'New Actions are plain text; after saving, put attachments into this Action’s files/ directory from your file browser.',
         'editor.resourcesEmpty': 'No resource files yet.',
         'editor.resourceEmptyText': '(not previewable)',
-        'editor.resourceFailed': 'Resource operation failed',
         'editor.prompt': 'Prompt body',
         'editor.promptPlaceholder': 'Write the prompt you send to the agent…',
         'editor.promptHint': 'Markdown is fine; {{args}} is the argument slot, {{date}} is today.',
@@ -518,42 +463,6 @@ window.__ModuleLoader__.load({
         'delete.title': 'Delete this Action?',
         'delete.copy': '“{name}” leaves the shelf permanently.',
         'import.title': 'Import Actions',
-        'import.jsonTab': 'Paste JSON',
-        'import.skillTab': 'From Skill',
-        'import.jsonHint': 'Paste JSON exported by this plugin, or choose a file.',
-        'import.chooseFile': 'Choose file…',
-        'import.mode': 'Import mode',
-        'import.merge': 'Merge (same id overwrites)',
-        'import.replace': 'Replace all',
-        'import.run': 'Import',
-        'import.invalid': 'That JSON could not be parsed',
-        'import.done': 'Imported: {added} added, {updated} updated',
-        'import.skillCwd': 'Project directory (optional)',
-        'import.skillCwdHint': 'Empty scans the profile default; project-level Skills need the project root.',
-        'import.skillLoad': 'Load Skills',
-        'import.skillEmpty': 'No Skills found. Check the directory.',
-        'import.skillImport': 'Import as Action',
-        'import.skillDone': 'Imported: {name}',
-        'import.skillDoneWithResources': 'Imported: {name} ({count} resource files)',
-        'import.pathLabel': 'Import from a skill directory',
-        'import.pathPlaceholder': 'e.g. C:\\Users\\me\\.claude\\skills\\my-skill',
-        'import.pathButton': 'Import this directory',
-        'import.pathHint': 'When a same-named Skill is shadowed by another source, point at the directory containing SKILL.md; sibling resource files are copied too.',
-        'import.pathDone': 'Imported from directory: {name}',
-        'import.pathDoneWithResources': 'Imported from directory: {name} ({count} resource files)',
-        'import.folderLabel': 'Pick a Skill folder (recommended)',
-        'import.folderButton': 'Choose a Skill folder',
-        'import.folderHint': 'Choose the folder containing SKILL.md; its body and every file inside are imported, unaffected by same-named Skill shadowing.',
-        'import.folderNoSkill': 'This folder has no SKILL.md',
-        'import.folderDone': 'Imported {name} with {count} resource file(s)',
-        'import.folderDoneSkipped': 'Imported {name} with {count} resource file(s), skipped {skipped}',
-        'import.category': 'Imported',
-        'import.aiButton': 'AI import',
-        'import.aiHint': 'Let the AI read the Skill, confirm Skill/Action differences with you, then create the Action and pick resources',
-        'import.aiStarted': 'Opened the AI import conversation: {name}. Send the brief, confirm with the AI, and the Action appears in the library automatically.',
-        'import.aiUnavailable': 'This environment cannot open a new conversation; use “Choose a Skill folder” instead.',
-        'import.aiNoPath': 'This Skill has no usable directory path; enter it under “Import from a skill directory”.',
-        'import.bundleTab': 'Action bundle',
         'import.bundleHint': 'Choose a folder or ZIP to open a preview; set each Action to skip, import as new, or update the local copy.',
         'import.bundleFolder': 'Choose folder',
         'import.bundleZip': 'Choose ZIP',
@@ -575,18 +484,15 @@ window.__ModuleLoader__.load({
         'import.confirm': 'Import',
         'import.bundleResult': 'Imported {imported}, updated {updated}, skipped {skipped} (duplicates {duplicated}, conflicts {conflicts})',
         'import.bundleUnavailable': 'This environment cannot open the directory picker; use a ZIP instead.',
-        'import.skillUnavailable': 'The Skills service is not enabled in this profile',
         'category.title': 'Categories',
         'category.empty': 'No categories yet',
         'category.rename': 'Rename',
         'category.delete': 'Delete',
-        'category.deleteHint': 'Its Actions move to Uncategorized.',
         'category.deleteConfirm': 'Delete category “{name}”?',
         'category.deleteConfirmDesc': 'It still contains {count} Action(s). They move to Uncategorized; the Actions themselves are kept.',
         'category.deleteConfirmEmpty': 'This category has no Actions, so it is safe to delete.',
         'category.confirmDelete': 'Delete category',
         'category.name': 'New name',
-        'category.count': '{count}',
         'palette.title': 'Pick an Action',
         'palette.search': 'Search Actions…',
         'palette.empty': 'No Actions yet',
@@ -601,14 +507,10 @@ window.__ModuleLoader__.load({
         'palette.sent': 'Inserted and sent',
         'palette.insertFailed': 'This session cannot be written to right now',
         'palette.sendFailed': 'Send failed; the draft is kept',
-        'palette.busy': 'Sending — try again in a moment',
         'palette.hintNav': 'navigate',
         'palette.hintInsert': 'insert',
         'palette.hintSend': 'send',
-        'palette.hintClose': 'close',
         'palette.hintTab': 'switch group',
-        'palette.noSession': 'Open a conversation composer first.',
-        'palette.skillsHint': 'Bulk import lives in Manage → Import → From Skill.',
         'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
         'palette.refInserted': 'Reference inserted',
@@ -643,10 +545,7 @@ window.__ModuleLoader__.load({
         'settings.export': 'Export library ZIP',
         'settings.about': 'About',
         'settings.aboutDesc': 'Action Hub {version} · registers no agent tool and injects no context.',
-        'settings.hotkeyKeys': '⌥ / Alt + A',
         'settings.saved': 'Saved',
-        'notice.savedLocally': 'Saved on this machine',
-        'skill.source': 'Imported from Skill',
       },
     };
 
@@ -749,37 +648,64 @@ window.__ModuleLoader__.load({
         ? occurrences.filter((entry) => entry !== null && typeof entry === 'object'
           && Number.isInteger(entry.offset) && Number.isInteger(entry.length)
           && typeof entry.clipboardText === 'string')
+          .sort((left, right) => left.offset - right.offset)
         : [];
-      const reference = {
+      // Detect-coordinate spans count one placeholder per chip, while clipboard
+      // offsets count the chip's full marker (`/ah-…`). Translate the caret.
+      const detectToClipboard = (position) => {
+        let delta = 0;
+        for (const occurrence of existing) {
+          const start = occurrence.offset - delta;
+          const end = start + 1;
+          if (position >= end) {
+            delta += Math.max(0, occurrence.length - 1);
+            continue;
+          }
+          if (position > start) return occurrence.offset;
+          break;
+        }
+        return position + delta;
+      };
+      const detectEnd = draft.length - existing.reduce((sum, entry) => sum + Math.max(0, entry.length - 1), 0);
+      const rawStart = span !== null && typeof span === 'object' && Number.isInteger(span.start) ? span.start : detectEnd;
+      const rawStop = span !== null && typeof span === 'object' && Number.isInteger(span.end) ? span.end : rawStart;
+      const detectStart = Math.min(Math.max(rawStart, 0), detectEnd);
+      const detectStop = Math.min(Math.max(rawStop, detectStart), detectEnd);
+      const start = detectToClipboard(detectStart);
+      const end = detectToClipboard(detectStop);
+      if (start < 0 || end < start || start > draft.length || end > draft.length) return null;
+
+      let insert = marker;
+      let insertAt = start;
+      if (start > 0 && !/\s/u.test(draft.slice(start - 1, start))) {
+        insert = ` ${insert}`;
+        insertAt += 1;
+      }
+      const tail = draft.slice(end);
+      if (tail === '' || !/^\s/u.test(tail)) insert += ' ';
+
+      const shift = insert.length - (end - start);
+      const references = [];
+      for (const occurrence of existing) {
+        if (occurrence.offset + occurrence.length <= start) {
+          references.push(referenceEntry(occurrence));
+        } else if (occurrence.offset >= end) {
+          references.push({ ...referenceEntry(occurrence), offset: occurrence.offset + shift });
+        }
+        // A selection covering a chip drops it; normal caret insertion never
+        // hits this branch.
+      }
+      references.push({
         source: 'action',
         ref: marker,
-        offset: 0,
+        offset: insertAt,
         length: marker.length,
         label: typeof label === 'string' && label !== '' ? label : marker,
         clipboardText: marker,
-      };
-      if (existing.length === 0) {
-        const start = span !== null && typeof span === 'object' && Number.isInteger(span.start) ? span.start : draft.length;
-        const end = span !== null && typeof span === 'object' && Number.isInteger(span.end) ? span.end : start;
-        if (start < 0 || end < start || start > draft.length || end > draft.length) return null;
-        let insert = marker;
-        let offset = start;
-        if (start > 0 && !/\s/u.test(draft.slice(start - 1, start))) {
-          insert = ` ${insert}`;
-          offset += 1;
-        }
-        const tail = draft.slice(end);
-        if (tail === '' || !/^\s/u.test(tail)) insert += ' ';
-        return {
-          text: `${draft.slice(0, start)}${insert}${tail}`,
-          references: [{ ...reference, offset }],
-        };
-      }
-      const separator = draft === '' || /\s$/u.test(draft) ? '' : '\n';
-      const text = `${draft}${separator}${marker}`;
+      });
       return {
-        text,
-        references: [...existing.map(referenceEntry), { ...reference, offset: text.length - marker.length }],
+        text: `${draft.slice(0, start)}${insert}${tail}`,
+        references,
       };
     }
 
@@ -881,11 +807,36 @@ window.__ModuleLoader__.load({
       return total;
     }
 
+    function usagePeriodKeys(now = new Date()) {
+      const pad = (value) => String(value).padStart(2, '0');
+      const month = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
+      const offset = (now.getDay() + 6) % 7;
+      const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+      const week = `${monday.getFullYear()}-${pad(monday.getMonth() + 1)}-${pad(monday.getDate())}`;
+      return { week, month };
+    }
+
+    function usageMetric(action, mode, keys) {
+      const usage = action.usage ?? {};
+      if (mode === 'week') return usage.week?.key === keys.week && Number.isFinite(usage.week?.count) ? usage.week.count : 0;
+      if (mode === 'month') return usage.month?.key === keys.month && Number.isFinite(usage.month?.count) ? usage.month.count : 0;
+      if (mode === 'total') return Number.isFinite(usage.count) ? usage.count : 0;
+      return 0;
+    }
+
     function sortActions(actions, sortBy = 'recent') {
+      const keys = usagePeriodKeys();
+      const usageMode = sortBy === 'week' || sortBy === 'month' || sortBy === 'total';
       return [...actions].sort((left, right) => {
         if ((left.pinned === true) !== (right.pinned === true)) return left.pinned === true ? -1 : 1;
+        const builtin = (left.builtin === true ? 1 : 0) - (right.builtin === true ? 1 : 0);
+        if (builtin !== 0) return builtin;
         if (sortBy === 'name') return (left.name || '').localeCompare(right.name || '', 'zh-CN');
         if (sortBy === 'created') return (right.createdAt ?? 0) - (left.createdAt ?? 0);
+        if (usageMode) {
+          const used = usageMetric(right, sortBy, keys) - usageMetric(left, sortBy, keys);
+          if (used !== 0) return used;
+        }
         const recent = (right.usage?.lastAt ?? 0) - (left.usage?.lastAt ?? 0);
         if (recent !== 0) return recent;
         return (left.name || '').localeCompare(right.name || '', 'zh-CN');
@@ -914,12 +865,20 @@ window.__ModuleLoader__.load({
         if (score < 0) continue;
         scored.push({ action, score });
       }
+      const keys = usagePeriodKeys();
+      const usageMode = sortBy === 'week' || sortBy === 'month' || sortBy === 'total';
       scored.sort((left, right) => {
         const pinned = (right.action.pinned === true ? 1 : 0) - (left.action.pinned === true ? 1 : 0);
         if (pinned !== 0) return pinned;
+        const builtin = (left.action.builtin === true ? 1 : 0) - (right.action.builtin === true ? 1 : 0);
+        if (builtin !== 0) return builtin;
         if (left.score !== right.score) return right.score - left.score;
         if (sortBy === 'name') return (left.action.name || '').localeCompare(right.action.name || '', 'zh-CN');
         if (sortBy === 'created') return (right.action.createdAt ?? 0) - (left.action.createdAt ?? 0);
+        if (usageMode) {
+          const used = usageMetric(right.action, sortBy, keys) - usageMetric(left.action, sortBy, keys);
+          if (used !== 0) return used;
+        }
         const recent = (right.action.usage?.lastAt ?? 0) - (left.action.usage?.lastAt ?? 0);
         if (recent !== 0) return recent;
         return (left.action.name || '').localeCompare(right.action.name || '', 'zh-CN');
@@ -1304,9 +1263,8 @@ window.__ModuleLoader__.load({
         referenceSourceOff = inputTriggers.registerSource({
           trigger: '/',
           name: 'action',
-          // The input-trigger pipeline always calls `.then()` on this result; a
-          // bare array throws before later sources (commands, skills) are
-          // fetched, leaving their menu groups stuck on skeletons.
+          // The pipeline always calls `.then()` on this result; a bare array
+          // throws before later sources (commands, skills) are fetched.
           candidates: async () => [],
           onPick: () => undefined,
           codec: {
@@ -1502,10 +1460,6 @@ window.__ModuleLoader__.load({
       download: iconOf([{ d: 'M8 2.6v7.9' }, { d: 'M5 7.6l3 3 3-3' }, { d: 'M2.6 10.8v2.2h10.8v-2.2' }]),
       arrow: iconOf([{ d: 'M2.8 8h10.4' }, { d: 'M9.4 4.2 13.2 8l-3.8 3.8' }]),
       send: iconOf([{ d: 'M2.4 8 14 2.4 11 13.6 7.6 9.2 2.4 8z' }, { d: 'M7.6 9.2 14 2.4' }]),
-      chevron: iconOf([{ d: 'M4 6.2 8 10l4-3.8' }]),
-      check: iconOf([{ d: 'M2.8 8.4 6.4 12l6.8-8' }]),
-      sparkle: iconOf([{ d: 'M8 2.2v3.2M8 10.6v3.2M2.2 8h3.2M10.6 8h3.2' }, { d: 'M4.9 4.9l2 2M9.1 9.1l2 2M11.1 4.9l-2 2M6.9 9.1l-2 2' }]),
-      keyboard: iconOf([{ d: 'M2.2 5.2h11.6v5.6H2.2z' }, { d: 'M4.2 7.2h.1M6.2 7.2h.1M8.2 7.2h.1M10.2 7.2h.1M4.2 9.2h7.4' }]),
       folder: iconOf([{ d: 'M2.2 4.2h4l1.3 1.4h6.3v6.2H2.2z' }]),
       refresh: iconOf([{ d: 'M13 8a5 5 0 1 1-1.6-3.7' }, { d: 'M13.2 2.6v3.2H10' }]),
       sliders: iconOf([{ d: 'M2.6 4.6h10.8M2.6 8h10.8M2.6 11.4h10.8' }, { d: 'M5.2 3.2v2.8M10.8 6.6v2.8M6.6 10v2.8' }]),
@@ -1640,14 +1594,15 @@ window.__ModuleLoader__.load({
       h('div', { className: 'ah-row-main' },
         h('div', { className: 'ah-row-title' },
           h('span', { className: 'ah-name' }, action.name),
+          action.builtin === true && action.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
           action.category ? h('span', { className: 'ah-badge ah-badge-accent' }, action.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
           action.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
           (action.tags ?? []).slice(0, 3).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`))),
         action.description ? h('p', { className: 'ah-desc' }, action.description) : null),
       h('div', { className: 'ah-row-actions' },
         h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) })),
-        h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.edit'), onClick: (event) => { event.stopPropagation(); props.onEdit(action); } }, h(Icons.edit, { size: 13 })),
-        h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.delete'), onClick: (event) => { event.stopPropagation(); props.onDelete(action); } }, h(Icons.trash, { size: 13 }))));
+        action.builtin === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.edit'), onClick: (event) => { event.stopPropagation(); props.onEdit(action); } }, h(Icons.edit, { size: 13 })),
+        action.builtin === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.delete'), onClick: (event) => { event.stopPropagation(); props.onDelete(action); } }, h(Icons.trash, { size: 13 }))));
     }
 
     function renderResourceTree(resources, t, onPreview) {
@@ -1785,44 +1740,11 @@ window.__ModuleLoader__.load({
 
     function ImportDialog(props) {
       const { t, ctx } = props;
-      const [tab, setTab] = React.useState('bundle');
-      const [text, setText] = React.useState('');
-      const [mode, setMode] = React.useState('merge');
-      const [error, setError] = React.useState('');
-      const [busy, setBusy] = React.useState(false);
       const [bundleBusy, setBundleBusy] = React.useState(false);
       const [bundleError, setBundleError] = React.useState('');
       const [preview, setPreview] = React.useState(null);
       const [choices, setChoices] = React.useState({});
-      const fileRef = React.useRef(null);
       const bundleRef = React.useRef(null);
-
-      const runImport = async () => {
-        setError('');
-        let parsed;
-        try {
-          parsed = JSON.parse(text);
-        } catch {
-          setError(t('import.invalid'));
-          return;
-        }
-        const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.actions) ? parsed.actions : null;
-        if (list === null) {
-          setError(t('import.invalid'));
-          return;
-        }
-        setBusy(true);
-        try {
-          const data = await api('/import', { actions: list, mode });
-          props.notify(t('import.done', { added: data.added, updated: data.updated }), 'ok');
-          props.onDone();
-          props.onClose();
-        } catch (failure) {
-          setError(describeError(failure));
-        } finally {
-          setBusy(false);
-        }
-      };
 
       const openPlan = (kind, source, data) => {
         const initial = {};
@@ -1909,11 +1831,7 @@ window.__ModuleLoader__.load({
         ? h(React.Fragment, null,
           h(Button, { disabled: bundleBusy, onClick: () => { setPreview(null); setChoices({}); setBundleError(''); } }, t('import.back')),
           h(Button, { primary: true, disabled: bundleBusy, onClick: confirmBundleImport }, t('import.confirm')))
-        : tab === 'json'
-          ? h(React.Fragment, null,
-            h(Button, { onClick: props.onClose }, t('action.cancel')),
-            h(Button, { primary: true, disabled: busy || text.trim() === '', onClick: runImport }, t('import.run')))
-          : h(Button, { onClick: props.onClose }, t('action.cancel'));
+        : h(Button, { onClick: props.onClose }, t('action.cancel'));
 
       const previewBody = preview === null ? null : h(React.Fragment, null,
         h('p', { className: 'ah-hint' }, t('import.previewHint', { source: preview.sourceLabel || '' })),
@@ -1942,34 +1860,6 @@ window.__ModuleLoader__.load({
           }, item.modes.map((value) => h('option', { key: value, value }, modeLabel(value))))))),
         bundleError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, bundleError));
 
-      const jsonBody = h(React.Fragment, null,
-        h('p', { className: 'ah-hint' }, t('import.jsonHint')),
-        h('textarea', { className: 'ah-textarea', value: text, rows: 9, spellCheck: false, placeholder: '{ "actions": [ … ] }', onChange: (event) => setText(event.target.value) }),
-        h('div', { className: 'ah-radio-row' },
-          h('span', { className: 'ah-hint' }, `${t('import.mode')}:`),
-          h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'merge', onChange: () => setMode('merge') }), ` ${t('import.merge')}`),
-          h('label', { className: 'ah-hint' }, h('input', { type: 'radio', checked: mode === 'replace', onChange: () => setMode('replace') }), ` ${t('import.replace')}`)),
-        h('div', null,
-          h('input', {
-            ref: fileRef,
-            type: 'file',
-            accept: '.json,application/json',
-            className: 'ah-hidden',
-            onChange: async (event) => {
-              const file = event.target.files?.[0];
-              event.target.value = '';
-              if (!file) return;
-              try {
-                setText(await file.text());
-                setError('');
-              } catch (failure) {
-                setError(describeError(failure));
-              }
-            },
-          }),
-          h(Button, { onClick: () => fileRef.current?.click() }, h(Icons.upload, { size: 13 }), t('import.chooseFile'))),
-        error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
-
       const bundleBody = h(React.Fragment, null,
         h('p', { className: 'ah-hint' }, t('import.bundleHint')),
         h('div', { className: 'ah-field-row' },
@@ -1978,20 +1868,12 @@ window.__ModuleLoader__.load({
         h('input', { ref: bundleRef, type: 'file', accept: '.zip,application/zip', className: 'ah-hidden', onChange: previewBundleZip }),
         bundleError === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, bundleError));
 
-      const content = preview !== null ? previewBody : tab === 'bundle' ? bundleBody : jsonBody;
-
       return h(Modal, {
         title: preview === null ? t('import.title') : t('import.previewTitle'),
         t,
         onClose: props.onClose,
         footer,
-      },
-      preview === null
-        ? h('div', { className: 'ah-tabs' },
-          h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'bundle', onClick: () => setTab('bundle') }, t('import.bundleTab')),
-          h('button', { type: 'button', className: 'ah-tab', 'data-active': tab === 'json', onClick: () => setTab('json') }, t('import.jsonTab')))
-        : null,
-      content);
+      }, preview === null ? bundleBody : previewBody);
     }
 
     function ExportDialog(props) {
@@ -2230,7 +2112,14 @@ window.__ModuleLoader__.load({
           }, h('span', { className: 'ah-nav-name' }, t('lib.uncategorized')), h('span', { className: 'ah-nav-count' }, unclassified)));
         }
 
-        const sortLabels = { recent: t('lib.sortRecent'), name: t('lib.sortName'), created: t('lib.sortCreated') };
+        const sortLabels = {
+          recent: t('lib.sortRecent'),
+          name: t('lib.sortName'),
+          created: t('lib.sortCreated'),
+          week: t('lib.sortWeek'),
+          month: t('lib.sortMonth'),
+          total: t('lib.sortTotal'),
+        };
 
         const body = [];
         body.push(h('header', { key: 'head', className: 'ah-head' },
@@ -2308,11 +2197,12 @@ window.__ModuleLoader__.load({
             onClose: () => setDetail(null),
             footer: h(React.Fragment, null,
               h(Button, { onClick: async () => { try { await copyText(detail.prompt); notify(t('lib.copied'), 'ok'); } catch { notify(t('lib.copyFailed'), 'error'); } } }, h(Icons.copy, { size: 13 }), t('action.copy')),
-              h(Button, { onClick: async () => { try { await downloadZip(detail.id); notify(t('lib.exported'), 'ok'); } catch (failure) { notify(describeError(failure), 'error'); } } }, h(Icons.download, { size: 13 }), t('lib.exportOne')),
-              h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
-              h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
+              detail.builtin === true ? null : h(Button, { onClick: async () => { try { await downloadZip(detail.id); notify(t('lib.exported'), 'ok'); } catch (failure) { notify(describeError(failure), 'error'); } } }, h(Icons.download, { size: 13 }), t('lib.exportOne')),
+              detail.builtin === true ? null : h(Button, { onClick: () => { setEditor(detail); setDetail(null); } }, h(Icons.edit, { size: 13 }), t('action.edit')),
+              detail.builtin === true ? null : h(Button, { danger: true, onClick: () => setDeleting(detail) }, h(Icons.trash, { size: 13 }), t('action.delete'))),
           },
           h('div', { className: 'ah-preview-meta' },
+            detail.builtin === true && detail.category !== '内置' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.builtin')) : null,
             detail.category ? h('span', { className: 'ah-badge ah-badge-accent' }, detail.category) : h('span', { className: 'ah-badge' }, t('lib.uncategorized')),
             detail.pinned ? h('span', { className: 'ah-badge ah-badge-warn' }, t('palette.pinned')) : null,
             detail.source?.kind === 'skill' ? h('span', { className: 'ah-badge ah-badge-warn' }, t('lib.skill')) : null,
@@ -2345,7 +2235,7 @@ window.__ModuleLoader__.load({
           body.push(h(ExportDialog, {
             key: 'export',
             t,
-            actions,
+            actions: actions.filter((action) => action.builtin !== true),
             notify,
             onClose: () => setExporting(false),
           }));
@@ -2387,6 +2277,7 @@ window.__ModuleLoader__.load({
         const shortcutState = useShortcutStore(shortcutStore);
         const searchRef = React.useRef(null);
         const listRef = React.useRef(null);
+        const insertRef = React.useRef(null);
         const [selectedId, setSelectedId] = React.useState(null);
         const [args, setArgs] = React.useState('');
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
@@ -2411,17 +2302,40 @@ window.__ModuleLoader__.load({
           return () => {
             clearTimeout(timer);
             if (composer === null || !composer.isConnected) return;
+            const hint = insertRef.current;
+            insertRef.current = null;
             // The palette search box owns focus while open. Returning it to the
             // composer after close lets the user keep typing after an insert.
+            // When the close followed a chip insert, the caret belongs right
+            // after that chip instead of at the end of the draft.
             setTimeout(() => {
               try {
+                const selection = window.getSelection();
+                const previous = selection !== null && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
                 composer.focus({ preventScroll: true });
+                const place = (range) => {
+                  selection?.removeAllRanges();
+                  selection?.addRange(range);
+                };
+                if (hint !== null) {
+                  const chips = [...composer.querySelectorAll('[data-composer-chip="action"]')];
+                  for (let index = chips.length - 1; index >= 0; index -= 1) {
+                    if (!chips[index].textContent.includes(hint.label)) continue;
+                    const range = document.createRange();
+                    range.setStartAfter(chips[index]);
+                    range.collapse(true);
+                    place(range);
+                    return;
+                  }
+                }
+                if (previous !== null && composer.contains(previous.startContainer)) {
+                  place(previous);
+                  return;
+                }
                 const range = document.createRange();
                 range.selectNodeContents(composer);
                 range.collapse(false);
-                const selection = window.getSelection();
-                selection?.removeAllRanges();
-                selection?.addRange(range);
+                place(range);
               } catch {
                 /* focus restoration is best-effort */
               }
@@ -2487,7 +2401,10 @@ window.__ModuleLoader__.load({
           const inputActions = bridge.inputActions;
           const draft = bridge.input?.draft ?? '';
           const occurrences = Array.isArray(bridge.input?.occurrences) ? bridge.input.occurrences : [];
-          const hasCommand = bridge.input?.claim !== undefined || (typeof draft === 'string' && draft.trimStart().startsWith('/'));
+          // A leading Action marker is still a normal reference draft; only a
+          // real slash command (or a claimed input) blocks chip composition.
+          const commandDraft = /^\/(?!ah-[0-9a-f]{10}(?![0-9a-f]))/u.test(draft.trimStart());
+          const hasCommand = bridge.input?.claim !== undefined || commandDraft;
           const handle = snapshot.meta?.handles?.[action.id];
           const referenceMode = args.trim() === '' && typeof handle === 'string' && handle !== '';
           const referenceText = referenceMode ? `/${handle}` : '';
@@ -2542,7 +2459,10 @@ window.__ModuleLoader__.load({
           }
           if (referenced) showToast(t('palette.refInserted'));
           else showToast(atCaret ? t('palette.insertedAtCaret') : t('palette.inserted'));
-          if (prefs.closeAfterInsert) setTimeout(() => palette.close(), 220);
+          if (prefs.closeAfterInsert) {
+            insertRef.current = referenced ? { label: action.name } : null;
+            setTimeout(() => palette.close(), 220);
+          }
         };
 
         const onSearchKey = (event) => {
@@ -2564,9 +2484,11 @@ window.__ModuleLoader__.load({
               event.preventDefault();
               if (selected) doInsert(selected, 'insert');
             }
-          } else if (event.key === 'Tab') {
+          } else if (event.key === 'Tab' && !event.shiftKey) {
+            // Match the `/` reference menu: Tab completes the selected Action.
+            // Shift+Tab falls through to normal focus navigation.
             event.preventDefault();
-            cycleCategory(event.shiftKey ? -1 : 1);
+            if (selected) doInsert(selected, 'insert');
           }
         };
 
@@ -2657,7 +2579,7 @@ window.__ModuleLoader__.load({
           h('div', { className: 'ah-hints' },
             h('span', null, h(Kbd, null, '←→'), ` ${t('palette.hintTab')}`),
             h('span', null, h(Kbd, null, '↑↓'), ` ${t('palette.hintNav')}`),
-            h('span', null, h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),
+            h('span', null, h(Kbd, null, 'Tab'), ' / ', h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),
             h('span', null, h(Kbd, null, 'Ctrl+↵'), ` ${t('palette.hintSend')}`),
             h('span', null, h(Kbd, null, shortcutState.manageKeys.join('')), ` ${t('palette.manage')}`)));
 
@@ -2781,7 +2703,7 @@ window.__ModuleLoader__.load({
             h('span', { className: 'ah-hint', style: { marginTop: '-2px' } }, t('settings.shortcutGroupHint'))),
           h('section', { className: 'ah-settings-card' },
             h('h3', { className: 'ah-settings-title' }, t('settings.data')),
-            h('p', { className: 'ah-settings-row-desc' }, t('settings.dataDesc', { path: snapshot.meta.dataFileDisplay ?? snapshot.meta.dataFile ?? '—', count: snapshot.actions.length })),
+            h('p', { className: 'ah-settings-row-desc' }, t('settings.dataDesc', { path: snapshot.meta.dataFileDisplay ?? snapshot.meta.dataFile ?? '—', count: snapshot.actions.filter((action) => action.builtin !== true).length })),
             h('div', { className: 'ah-actions' },
               h(Button, { onClick: () => props.ctx.get('layout')?.selectPanel?.(PANEL_ID) }, t('settings.openLibrary')),
               h(Button, { onClick: async () => {

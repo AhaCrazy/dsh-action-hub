@@ -1,6 +1,6 @@
 {
   "name": "dsh-action-hub",
-  "version": "5.1.1",
+  "version": "5.3.5",
   "private": true,
   "type": "module",
   "description": "DeepSeek Harness plugin: a Spotlight-style Action shelf for prompts and local resource bundles, with a built-in import helper, selection-aware ZIP/folder export, and zero context cost.",
@@ -31,7 +31,11 @@
     "description": "Spotlight 式 Action 收藏夹：提示词 + 资源文件，按需调用不占上下文。"
   },
   "scripts": {
-    "test": "node tests/store.test.mjs && node tests/resources.test.mjs && node tests/bundle.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
+    "build": "node scripts/build-client.mjs",
+    "dev": "node scripts/watch-client.mjs",
+    "pretest": "npm run build",
+    "prepack": "npm run build",
+    "test": "node tests/store.test.mjs && node tests/resources.test.mjs && node tests/bundle.test.mjs && node tests/builtins.test.mjs && node tests/client.test.mjs && node tests/host.test.mjs"
   },
   "exports": {
     ".": "./index.js",
@@ -47,6 +51,10 @@
     "resources.js",
     "bundle.js",
     "zip.js",
+    "builtins.js",
+    "builtin-state.js",
+    "builtin-actions/**",
+    "host/**",
     "client.js",
     "cordis.patch.yml",
     "icon.svg",

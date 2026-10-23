@@ -1,5 +1,88 @@
 # Changelog
 
+## 5.3.5 — 2026-10-22
+
+- **Removed the `/action` slash command.** The palette already covers search,
+  arguments, insertion, and immediate send; keeping a second name-based command
+  entry was redundant. The `agent/pre-step` chip expander and all palette paths
+  remain unchanged.
+
+## 5.3.4 — 2026-10-22
+
+- **Inserting several Actions no longer corrupts the draft.**
+  - The palette maps the detect-coordinate caret to clipboard offsets through
+    existing chips, so a second insertion stays at the caret instead of being
+    appended with a newline.
+  - A draft that already starts with an Action marker is no longer mistaken for
+    a slash command; the second Action keeps its name chip instead of degrading
+    to a raw `/ah-…` marker.
+  - Existing chips keep their labels/offsets; the caret lands after the newly
+    inserted chip.
+
+## 5.3.3 — 2026-10-22
+
+- **Tab now inserts the selected Action**, matching the `/` reference menu's
+  completion gesture. Enter keeps inserting too; Ctrl/⌘+Enter still sends.
+  Shift+Tab no longer switches categories and falls through to normal focus
+  navigation.
+
+## 5.3.2 — 2026-10-22
+
+- **Caret stays after the inserted Action** when closing the palette after an
+  insertion, instead of jumping to the end of the draft. Plain-text insertion
+  keeps the input's caret; Escape still restores focus without moving a live
+  selection.
+
+## 5.3.1 — 2026-10-22
+
+- **Refactored for smaller, focused files.**
+  - `client.js` is now generated from 15 ordered fragments under `src/client/`
+    (loader/CSS/i18n/helpers/stores/shortcuts/reference source/UI/page/dialogs/
+    palette/session/settings/apply). `npm run build` concatenates them; the
+    output is byte-identical to the previous bundle.
+  - `npm run dev` watches `src/client/` and rebuilds automatically; `pretest`
+    and `prepack` run the build.
+  - Host helpers moved into `host/state.js` (user + built-in sources),
+    `host/refs.js` (reference handles and injection), and `host/invoke.js`
+    (`/action` command and pre-step expander). `index.js` keeps only the plugin
+    surface and HTTP routes.
+  - Removed dead code found by an audit: 20 unused i18n keys, 4 unused icons,
+    7 unused CSS rules, and the obsolete folder-export/import wrappers
+    (`exportActionFolder`, `exportAllFolder`, `importFolder`,
+    `importZipBuffer`, `readDocument`).
+
+## 5.3.0 — 2026-10-22
+
+- **Built-in Actions now use standard Action directories inside the plugin
+  package** (`builtin-actions/<id>/action.json` + optional `files/`), loaded
+  read-only by `builtins.js`. They gain the same resource support and document
+  format as user Actions while still never entering the user data directory.
+- Built-in Actions sort **after user Actions by default**, but can be pinned.
+  Pin and usage state live in a small `builtin-state.json` sidecar (never in
+  `actions/`); the Host only accepts `pinned` updates for built-in ids.
+- Usage counters now track **total, this week, and this month**; the library adds
+  the matching sort modes. `/touch` and `/action` update all three counters.
+- `package.json` ships `builtin-actions/`, `builtins.js`, `builtin-state.js`.
+
+## 5.2.1 — 2026-10-22
+
+- Removed the **“粘贴 JSON”** import tab; Action import now has a single,
+  preview-first bundle flow (folder or ZIP). Legacy JSON import keys and docs
+  were cleaned up.
+
+## 5.2.0 — 2026-10-22
+
+- **Built-in Actions now live in plugin code, not the user data directory.**
+  - The default “Action 导入助手” is bundled with the plugin and updated
+    automatically on plugin upgrades; it no longer writes to
+    `~/.dsh/dsh-action-hub/actions`.
+  - Built-in Actions are read-only in the library: no edit, delete, pin, or
+    single export; the Host rejects `/update`, `/delete`, and `/create`
+    overwrites for their ids.
+  - Startup cleanup removes the persisted copy that older versions installed
+    (and the `.defaults-v1` marker).
+  - The settings data count now counts only user Actions.
+
 ## 5.1.1 — 2026-10-22
 
 - **Removed the “复制一份” Action duplication feature** (list button, client

@@ -12,9 +12,14 @@
  *
  * @module dsh-action-hub
  */
-import { createHash } from 'node:crypto';
 import os from 'node:os';
+import path from 'node:path';
 
+import { updateBuiltinState } from './builtin-state.js';
+import { installActionInvocations } from './host/invoke.js';
+import { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
+export { actionInvocationMessage, planActionRefs, referencedActions } from './host/refs.js';
+import { actionResourceDir, cleanupLegacyBuiltins, getBuiltins, isBuiltinId, readAll } from './host/state.js';
 import {
   applyFolderPlan,
   applyZipPlan,
@@ -24,7 +29,6 @@ import {
 } from './bundle.js';
 import {
   exportResourceFiles,
-  readInvocationResources,
   readResourcePreviews,
   removeActionDir,
   resourceDir,
@@ -35,7 +39,6 @@ import {
   createStore,
   defaultDataDir,
   expandPrompt,
-  installDefaultActions,
   mergeActions,
   normalizeAction,
   sortActions,
@@ -49,145 +52,6 @@ export const inject = ['webServer'];
 
 const ROUTE = '/api/dsh-action-hub';
 const MAX_BODY = 40 * 1024 * 1024;
-const ACTION_PREFIX = 'ah-';
-const MARKER_PATTERN = /(^|\s)\/(ah-[0-9a-f]{10})(?![0-9a-f])/gu;
-
-/**
- * Stable, opaque reference marker for one Action. The id survives renames, so
- * a marker already sitting in a draft keeps resolving.
- *
- * @param {string} id
- * @returns {string}
- */
-function actionMarker(id) {
-  return `${ACTION_PREFIX}${createHash('sha1').update(String(id)).digest('hex').slice(0, 10)}`;
-}
-
-/**
- * Map every Action to the opaque `/ah-…` marker that references it. The hash is
- * intentionally not the display name: the transcript chip shows the Action name,
- * while this handle is only the wire spelling.
- *
- * @param {readonly object[]} actions
- * @returns {{ handles: Map<string, string>, entries: Array<{ action: object, name: string }> }}
- */
-export function planActionRefs(actions) {
-  const used = new Set();
-  const handles = new Map();
-  const entries = [];
-  for (const action of actions) {
-    let name = actionMarker(action.id);
-    let suffix = 2;
-    while (used.has(name)) name = `${actionMarker(action.id)}-${suffix++}`;
-    used.add(name);
-    handles.set(action.id, name);
-    entries.push({ action, name });
-  }
-  return { handles, entries };
-}
-
-/**
- * Collect the references a claimed batch of direct user messages carries.
- * Only `source.kind === 'user'` text is scanned, so injected context can never
- * forge an invocation.
- *
- * @param {readonly object[]} messages
- * @param {ReadonlySet<string>} known - markers that resolve to an existing Action.
- * @returns {string[]} unique markers, in first-seen order.
- */
-export function referencedActions(messages, known) {
-  const found = [];
-  for (const message of messages) {
-    if (message?.role !== 'user' || message.source?.kind !== 'user') continue;
-    for (const block of Array.isArray(message.content) ? message.content : []) {
-      if (block?.type !== 'text' || typeof block.text !== 'string') continue;
-      for (const match of block.text.matchAll(MARKER_PATTERN)) {
-        const marker = match[2];
-        if (marker !== undefined && known.has(marker) && !found.includes(marker)) found.push(marker);
-      }
-    }
-  }
-  return found;
-}
-
-/**
- * Build the durable, model-facing injection for one explicitly invoked Action.
- * It is appended to the step like a Skill invocation, so later steps keep it in
- * history, but it uses our own source kind — Action references are not Skills
- * and never appear in the Skill catalog or the `/` menu. Small text resources
- * are inlined; everything else is listed by path for on-demand reads.
- *
- * @param {object} action
- * @param {{ basePath?: string, files?: Array<{ name: string, bytes: number, text?: string, path: string }> }} [context]
- * @returns {object} a plain user-role message.
- */
-export function actionInvocationMessage(action, context = undefined) {
-  const escape = (value) => String(value).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;');
-  const name = escape(action.name);
-  const body = expandPrompt(action.prompt, { date: new Date() });
-  const files = Array.isArray(context?.files) ? context.files : [];
-  const parts = [`<action_content name="${name}">`];
-  if (files.length > 0) {
-    parts.push(`<action_resources base="${escape(context.basePath ?? '')}">`);
-    for (const file of files) {
-      if (typeof file.text === 'string') {
-        parts.push(`<action_file name="${escape(file.name)}">\n${file.text}\n</action_file>`);
-      } else {
-        parts.push(`<action_file name="${escape(file.name)}" path="${escape(file.path)}" bytes="${file.bytes}"/>`);
-      }
-    }
-    parts.push('</action_resources>');
-    parts.push('The files above are local resources for this Action. Read any file you need with the file tools before applying it.');
-  }
-  parts.push('<action_instructions>', body, '</action_instructions>', '</action_content>');
-  return {
-    id: `action-${globalThis.crypto.randomUUID()}`,
-    role: 'user',
-    content: [{ type: 'text', text: parts.join('\n') }],
-    source: { kind: 'action', name: action.name, form: 'instructions' },
-  };
-}
-
-/**
- * Install the user-invoked Action expander. A `/ah-…` marker in a direct user
- * message becomes an `<action_content>` message for the model; the durable log
- * still holds the marker, so the transcript can show only the Action name.
- *
- * @param {object} ctx
- * @param {ReturnType<typeof createStore>} store
- */
-function installActionInvocations(ctx, store, dataDir) {
-  return ctx.on('agent/pre-step', async ({ messages, signal }, next) => {
-    const decision = await next();
-    if (decision.kind === 'reject' || signal.aborted) return decision;
-    const direct = messages.filter((message) => message?.source?.kind === 'user');
-    if (direct.length === 0) return decision;
-    const hasMarker = direct.some((message) => (message.content ?? []).some(
-      (block) => block?.type === 'text' && typeof block.text === 'string' && /(^|\s)\/ah-[0-9a-f]{10}(?![0-9a-f])/.test(block.text),
-    ));
-    if (!hasMarker) return decision;
-    let plan;
-    try {
-      const state = await store.read();
-      plan = planActionRefs(sortActions(state.actions));
-    } catch (error) {
-      ctx.logger?.warn?.(`dsh-action-hub: could not read Actions for an invocation: ${describe(error)}`);
-      return decision;
-    }
-    const byHandle = new Map(plan.entries.map((entry) => [entry.name, entry.action]));
-    const markers = referencedActions(messages, new Set(byHandle.keys()));
-    if (markers.length === 0) return decision;
-    const injections = await Promise.all(markers.map(async (marker) => {
-      const action = byHandle.get(marker);
-      const context = await readInvocationResources(dataDir, action);
-      return actionInvocationMessage(action, context);
-    }));
-    return {
-      ...decision,
-      messages: [...decision.messages, ...injections],
-    };
-  });
-}
 
 /**
  * Register the store route.
@@ -200,98 +64,16 @@ export function apply(ctx, config = {}) {
     ? config.dataDir.trim()
     : defaultDataDir();
   const store = createStore({ dataDir, seed: config.seed !== false });
-  void installDefaultActions(store, dataDir).catch((error) => {
-    ctx.logger?.warn?.(`dsh-action-hub: could not install default Actions: ${describe(error)}`);
+  void cleanupLegacyBuiltins(store, dataDir).catch((error) => {
+    ctx.logger?.warn?.(`dsh-action-hub: could not clean up legacy built-in Actions: ${describe(error)}`);
   });
   ctx.effect(() => installActionInvocations(ctx, store, dataDir), 'action-hub: action invocations');
-
-  // The command registry may finish activating after this row; a child context
-  // waits for it instead of dropping the command when it is momentarily absent.
-  const attachCommand = (commandCtx) => {
-    commandCtx.effect(
-      () => commandCtx.commands.register(buildCommand(ctx, store)),
-      'action-hub: /action command',
-    );
-  };
-  if (typeof ctx.inject === 'function') {
-    ctx.inject(['commands'], attachCommand);
-  } else {
-    const commands = ctx.get('commands');
-    if (commands !== undefined) ctx.effect(() => commands.register(buildCommand(ctx, store)), 'action-hub: /action command');
-  }
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: ROUTE,
     handler: (req, res) => handle(ctx, store, dataDir, req, res),
   }), 'action-hub: API route');
-}
-
-/**
- * Resolve the Action a `/action` line names: exact name first (case
- * insensitive), then an exact id, then a unique id prefix.
- *
- * @param {readonly object[]} actions
- * @param {string} raw - the text after `/action`.
- * @returns {{ action?: object, args: string, error?: string }}
- */
-export function parseActionCommand(actions, raw) {
-  const line = typeof raw === 'string' ? raw.trim() : '';
-  if (line === '') return { args: '', error: '' };
-  const [head, ...rest] = line.split(/\s+/u);
-  const args = rest.join(' ');
-  const name = head.toLowerCase();
-  const byName = actions.filter((action) => action.name.toLowerCase() === name);
-  if (byName.length === 1) return { action: byName[0], args };
-  if (byName.length > 1) return { args, error: `有多个同名 Action「${head}」，请改用 id` };
-  const byId = actions.filter((action) => action.id.toLowerCase() === name || action.id.toLowerCase().startsWith(name));
-  if (byId.length === 1) return { action: byId[0], args };
-  if (byId.length > 1) return { args, error: `「${head}」匹配到多个 Action，请写得更完整` };
-  return { args, error: `没有找到 Action「${head}」` };
-}
-
-/**
- * Build the human command `/action`. It runs from a Host half, so the prompt
- * becomes a real user turn through the same endpoint the composer uses.
- *
- * @param {object} ctx
- * @param {ReturnType<typeof createStore>} store
- * @returns {object} CommandDefinition
- */
-function buildCommand(ctx, store) {
-  return {
-    name: 'action',
-    description: '运行 Action 收藏夹里的一条提示词 / Run a saved Action by name',
-    input: { hint: '<名称> [参数]' },
-    async handler(invocation) {
-      const state = await store.read();
-      const actions = sortActions(state.actions);
-      const parsed = parseActionCommand(actions, invocation.rawInput);
-      if (parsed.error !== '') return { kind: 'error', text: parsed.error };
-      if (parsed.action === undefined) {
-        const names = actions.slice(0, 40).map((action) => action.name);
-        const listing = names.length === 0 ? '收藏夹里还没有 Action。' : `可用 Action：${names.join('、')}`;
-        return { kind: 'success', text: `${listing}\n用法：/action <名称> [参数]` };
-      }
-      const sessionController = ctx.get('sessionController');
-      if (sessionController === undefined) {
-        return { kind: 'error', text: '当前 Profile 未提供会话服务，无法运行 Action' };
-      }
-      const prompt = expandPrompt(parsed.action.prompt, { args: parsed.args });
-      await sessionController.prompt({
-        requestId: globalThis.crypto.randomUUID(),
-        sessionId: invocation.agent.id,
-        mode: 'queue',
-        content: [{ type: 'text', text: prompt }],
-      }, invocation.signal);
-      await store.mutate((draft) => {
-        draft.actions = draft.actions.map((entry) => (entry.id === parsed.action.id
-          ? { ...entry, usage: { count: (entry.usage?.count ?? 0) + 1, lastAt: Date.now() } }
-          : entry));
-      });
-      return { kind: 'success', text: `已运行 Action「${parsed.action.name}」` };
-    },
-  };
 }
 
 /**
@@ -315,8 +97,7 @@ async function handle(ctx, store, dataDir, req, res) {
     const method = req.method ?? 'GET';
 
     if (method === 'GET' && route === '/state') {
-      const state = await store.read();
-      const actions = sortActions(state.actions);
+      const { state, actions } = await readAll(store, dataDir);
       const plan = planActionRefs(actions);
       sendJson(res, 200, {
         ok: true,
@@ -334,13 +115,13 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (method === 'GET' && route === '/resources') {
       const id = url.searchParams.get('id') ?? '';
-      const state = await store.read();
-      const action = state.actions.find((entry) => entry.id === id);
+      const { actions } = await readAll(store, dataDir);
+      const action = actions.find((entry) => entry.id === id);
       if (action === undefined) {
         sendJson(res, 404, { ok: false, error: 'Action 不存在' });
         return;
       }
-      const files = await readResourcePreviews(resourceDir(dataDir, action.id), action.resources);
+      const files = await readResourcePreviews(actionResourceDir(action, dataDir), action.resources);
       sendJson(res, 200, { ok: true, files });
       return;
     }
@@ -397,9 +178,9 @@ async function handle(ctx, store, dataDir, req, res) {
 
     if (route === '/bundle/import-folder') {
       try {
-        const imported = await applyFolderPlan(store, dataDir, text(body.path), Array.isArray(body.decisions) ? body.decisions : []);
+        const imported = await applyFolderPlan(store, dataDir, text(body.path), Array.isArray(body.decisions) ? body.decisions : [], (await getBuiltins()).map((action) => action.id));
         const state = await store.read();
-        sendJson(res, 200, { ...imported, ok: true, actions: sortActions(state.actions) });
+        sendJson(res, 200, { ...imported, ok: true, actions: (await readAll(store, dataDir)).actions });
       } catch (error) {
         sendJson(res, 400, { ok: false, error: describe(error) });
       }
@@ -422,9 +203,9 @@ async function handle(ctx, store, dataDir, req, res) {
       try {
         const buffer = Buffer.from(typeof body.contentBase64 === 'string' ? body.contentBase64 : '', 'base64');
         if (buffer.length === 0) throw new Error('ZIP 内容为空');
-        const imported = await applyZipPlan(store, dataDir, buffer, Array.isArray(body.decisions) ? body.decisions : []);
+        const imported = await applyZipPlan(store, dataDir, buffer, Array.isArray(body.decisions) ? body.decisions : [], (await getBuiltins()).map((action) => action.id));
         const state = await store.read();
-        sendJson(res, 200, { ...imported, ok: true, actions: sortActions(state.actions) });
+        sendJson(res, 200, { ...imported, ok: true, actions: (await readAll(store, dataDir)).actions });
       } catch (error) {
         sendJson(res, 400, { ok: false, error: describe(error) });
       }
@@ -438,13 +219,17 @@ async function handle(ctx, store, dataDir, req, res) {
         sendJson(res, 400, { ok: false, error: invalid.message, code: invalid.code });
         return;
       }
-      const { state } = await store.mutate((draft) => {
+      if (await isBuiltinId(action.id)) {
+        sendJson(res, 403, { ok: false, error: '内置 Action 不能被覆盖' });
+        return;
+      }
+      await store.mutate((draft) => {
         if (draft.actions.some((entry) => entry.id === action.id)) {
           action.id = `${action.id}-${Math.random().toString(16).slice(2, 6)}`;
         }
         draft.actions = [...draft.actions, action];
       });
-      sendJson(res, 200, { ok: true, action, actions: sortActions(state.actions) });
+      sendJson(res, 200, { ok: true, action, actions: (await readAll(store, dataDir)).actions });
       return;
     }
 
@@ -455,7 +240,25 @@ async function handle(ctx, store, dataDir, req, res) {
         sendJson(res, 400, { ok: false, error: '缺少 id 或 patch' });
         return;
       }
-      const { state, result } = await store.mutate((draft) => {
+      if (await isBuiltinId(id)) {
+        const keys = Object.keys(patch);
+        if (keys.some((key) => key !== 'pinned')) {
+          sendJson(res, 403, { ok: false, error: '内置 Action 只允许修改置顶状态' });
+          return;
+        }
+        if (typeof patch.pinned !== 'boolean') {
+          sendJson(res, 400, { ok: false, error: 'pinned 必须是布尔值' });
+          return;
+        }
+        await updateBuiltinState(dataDir, (state) => ({
+          ...state,
+          pinned: { ...state.pinned, [id]: patch.pinned },
+        }));
+        const { actions } = await readAll(store, dataDir);
+        sendJson(res, 200, { ok: true, action: actions.find((entry) => entry.id === id), actions });
+        return;
+      }
+      const { result } = await store.mutate((draft) => {
         const index = draft.actions.findIndex((entry) => entry.id === id);
         if (index < 0) return { missing: true };
         const previous = draft.actions[index];
@@ -473,34 +276,43 @@ async function handle(ctx, store, dataDir, req, res) {
         sendJson(res, 400, { ok: false, error: result.invalid.message, code: result.invalid.code });
         return;
       }
-      sendJson(res, 200, { ok: true, action: result.action, actions: sortActions(state.actions) });
+      sendJson(res, 200, { ok: true, action: result.action, actions: (await readAll(store, dataDir)).actions });
       return;
     }
 
     if (route === '/delete') {
       const id = text(body.id);
-      const { state, result } = await store.mutate((draft) => {
+      if (await isBuiltinId(id)) {
+        sendJson(res, 403, { ok: false, error: '内置 Action 由插件管理，不能删除' });
+        return;
+      }
+      const { result } = await store.mutate((draft) => {
         const before = draft.actions.length;
         draft.actions = draft.actions.filter((entry) => entry.id !== id);
         return { removed: before - draft.actions.length };
       });
       if (result.removed > 0) await removeActionDir(dataDir, id);
-      sendJson(res, 200, { ok: true, removed: result.removed, actions: sortActions(state.actions) });
+      sendJson(res, 200, { ok: true, removed: result.removed, actions: (await readAll(store, dataDir)).actions });
       return;
     }
 
     if (route === '/touch') {
       const id = text(body.id);
+      if (await isBuiltinId(id)) {
+        await updateBuiltinState(dataDir, (state) => ({
+          ...state,
+          usage: { ...state.usage, [id]: bumpUsage(state.usage[id]) },
+        }));
+        sendJson(res, 200, { ok: true, missing: false });
+        return;
+      }
       const { result } = await store.mutate((draft) => {
         const index = draft.actions.findIndex((entry) => entry.id === id);
         if (index < 0) return { missing: true };
         const previous = draft.actions[index];
         const next = {
           ...previous,
-          usage: {
-            count: (previous.usage?.count ?? 0) + 1,
-            lastAt: Date.now(),
-          },
+          usage: bumpUsage(previous.usage),
         };
         draft.actions = draft.actions.map((entry, at) => (at === index ? next : entry));
         return { action: next };
@@ -519,14 +331,23 @@ async function handle(ctx, store, dataDir, req, res) {
         return;
       }
       const mode = body.mode === 'replace' ? 'replace' : 'merge';
+      const reserved = new Set((await getBuiltins()).map((action) => action.id));
+      const accepted = list.filter((entry) => {
+        if (entry === null || typeof entry !== 'object') return false;
+        try {
+          return !reserved.has(normalizeAction(entry).id);
+        } catch {
+          return false;
+        }
+      });
       const written = new Map();
-      for (const entry of list) {
-        if (entry === null || typeof entry !== 'object' || !Array.isArray(entry.resources)) continue;
+      for (const entry of accepted) {
+        if (!Array.isArray(entry.resources)) continue;
         const normalized = normalizeAction(entry);
         written.set(normalized.id, await writeResourceEntries(resourceDir(dataDir, normalized.id), entry.resources));
       }
-      const { state, result } = await store.mutate((draft) => {
-        const merged = mergeActions(draft.actions, list, mode);
+      const { result } = await store.mutate((draft) => {
+        const merged = mergeActions(draft.actions, accepted, mode);
         draft.actions = merged.actions;
         return merged;
       });
@@ -542,7 +363,7 @@ async function handle(ctx, store, dataDir, req, res) {
         mode,
         added: result.added,
         updated: result.updated,
-        actions: sortActions((await store.read()).actions),
+        actions: (await readAll(store, dataDir)).actions,
       });
       return;
     }
@@ -564,7 +385,7 @@ async function handle(ctx, store, dataDir, req, res) {
         });
         return { changed };
       });
-      sendJson(res, 200, { ok: true, changed: result.changed, actions: sortActions(state.actions) });
+      sendJson(res, 200, { ok: true, changed: result.changed, actions: (await readAll(store, dataDir)).actions });
       return;
     }
 
@@ -579,7 +400,7 @@ async function handle(ctx, store, dataDir, req, res) {
         });
         return { changed };
       });
-      sendJson(res, 200, { ok: true, changed: result.changed, actions: sortActions(state.actions) });
+      sendJson(res, 200, { ok: true, changed: result.changed, actions: (await readAll(store, dataDir)).actions });
       return;
     }
 

@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-5.1.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-5.3.5-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ![Action Hub palette](assets/screenshots/01-palette.png)
@@ -21,7 +21,7 @@ Action Hub separates the shelf from the trigger:
 
 - **Zero context cost.** No agent tool, no system-prompt text. A large shelf never grows the per-turn prompt.
 - **User-triggered only.** Open the palette with `Alt + A` (macOS `⌥ + A`) or the composer-toolbar button; the pick inserts a chip with the Action name, and pressing Enter sends it yourself.
-- **Organized and shareable.** Categories, tags, pinning, full-text search, single/selected ZIP or folder export, and whole-library import/export.
+- **Organized and shareable.** Categories, tags, pinning, full-text search, single/selected ZIP export, and whole-library import/export.
 
 ## Screens
 
@@ -46,13 +46,12 @@ Action Hub separates the shelf from the trigger:
 | Insert at the caret | Uses the host `inputActions.insertText()` facade: one undoable edit at the cursor, existing draft preserved |
 | Capture the draft | Save the current composer draft as an Action from the palette |
 | Pinning | Star an Action to keep it first in the palette and library |
-| Library | Category navigation with counts, full-text search, sort by recent / name / created |
+| Library | Category navigation with counts, full-text search, sort by recent / name / created / this week / this month / total uses |
 | Arguments | `{{args}}` / `$ARGUMENTS` filled from the palette; `{{date}}` becomes today |
 | Resource files | Attach code, templates, docs, and fixtures to an Action; small text is inlined at invocation, larger files are listed by local path |
 | Default import helper | A built-in “Action 导入助手” Action turns a Skill directory or a piece of text into an importable Action bundle |
 | Import / export | Import a folder or ZIP (one Action or a whole library); export one Action, a ticked selection, or the whole library as ZIP |
-| Sharing | Export one Action or the whole library as a ZIP/folder; import ZIP, folder, or legacy JSON; every Action is a self-contained directory |
-| Slash command | `/action <name> [args]` runs one Action, or lists them all |
+| Sharing | Export one Action or the whole library as a ZIP; import ZIP or folder; every Action is a self-contained directory |
 
 ## Install
 
@@ -116,26 +115,26 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 - In an Action's details, **Export ZIP** downloads just that Action.
 - The library header “Export” opens a selection list: tick the Actions to bundle (all selected by default), then download the selected ZIP. Backing up only needs `actions/`.
 - Import → “Action bundle”: choose a folder (one Action or a whole library) or a `.zip`, review the preview, then import; each item can be skipped, created, or updated. Content fingerprints keep repeated ZIP imports idempotent.
-- Legacy whole-library JSON import is still available under the JSON tab.
+- Built-in Actions (such as “Action 导入助手”) are ordinary Action directories shipped under the plugin's `builtin-actions/` (`action.json` + optional `files/`); they never write to the user data directory and update with the plugin. They cannot be edited, deleted, or exported individually, sort after user Actions by default, and can be pinned manually.
 
 ## Design
 
-- **Host half** (`index.js`, `store.js`, `resources.js`, `bundle.js`): one directory per Action (`actions/<id>/action.json` + `files/`) with per-Action atomic writes, same-origin `/api/dsh-action-hub` routes, and the `/action` human command, which submits a genuine user message through `sessionController.prompt(..., mode: 'queue')`.
+- **Host half** (`index.js`, `host/`, `store.js`, `resources.js`, `bundle.js`): one directory per Action (`actions/<id>/action.json` + `files/`) with per-Action atomic writes, same-origin `/api/dsh-action-hub` routes; palette references are expanded by `agent/pre-step` into a genuine user message.
 - **References**: the composer renders an Action-name chip while the draft's serialized text stays the opaque `/ah-…` marker; a reference-source codec writes the chip back to that marker. The Host expands the marker in `agent/pre-step` into one `<action_content>` message for the step. **No runtime Skill is registered**, so Actions never appear in the Skills catalog, the `/` menu, or the context panel's skill list. When an Action has resource files, the same message carries `<action_resources>`: small text inline, everything else by path.
 - **Client half** (`client.js`): registers the composer-toolbar button (`conversation.input.left`), the session bridge (`conversation.input.overlay`), the frame-level palette (`shell.overlay`), the library (`main` + sidebar icon), and the settings page (`settings.section`).
 - **Deliberately absent**: no `ctx.tools`, no `ctx.systemPrompt.section()`; an Action enters a step only when the user explicitly references one, so shelf size does not affect context.
 
 ## Data and privacy
 
-- Data lives in `~/.dsh/dsh-action-hub/actions/<id>/` (under `$DSH_HOME`): `action.json` for metadata/body and `files/` for resources, with temp+rename writes. Legacy `actions.json` is migrated on first start; the old files are renamed to `.migrated-*` and kept. The old `~/.dsh/action-hub` directory is also renamed to `dsh-action-hub` on first start.
+- Data lives in `~/.dsh/dsh-action-hub/actions/<id>/` (under `$DSH_HOME`): `action.json` for metadata/body and `files/` for resources, with temp+rename writes. Built-in pin/usage state lives separately in `~/.dsh/dsh-action-hub/builtin-state.json`, never in `actions/`. Legacy `actions.json` is migrated on first start; the old files are renamed to `.migrated-*` and kept. The old `~/.dsh/action-hub` directory is also renamed to `dsh-action-hub` on first start.
 - Settings show `~/.dsh/...` rather than an absolute path with the account name.
 - The plugin talks only to the local DSH Host (`/api/dsh-action-hub`); it makes no external network requests.
-- ZIP/folder/JSON exports contain bodies, categories, tags, pinned state, and resources — not local usage counters. Check a body and its resources for internal information before sharing.
+- ZIP exports contain bodies, categories, tags, pinned state, and resources — not local usage counters. Check a body and its resources for internal information before sharing.
 
 ## Compatibility
 
 - Targets DSH desktop / Web UI `0.2.x` (the plugin API is still in preview).
-- The library and palette need the Host `webServer` service; `/action` additionally needs `commands` and `sessionController` and degrades safely when absent.
+- The library and palette need the Host `webServer` service and degrade safely when it is absent.
 - After changing plugin files, reload the page to pick up `client.js`; Host changes require reloading the bundle.
 
 ## Development
@@ -144,12 +143,40 @@ After installing, an `Actions` icon appears in the sidebar and an Action Hub but
 node --check index.js
 node --check client.js
 node --check store.js
-npm test
+npm test          # builds client.js, then runs the suites
+npm run dev       # watches src/client/ and rebuilds client.js
 ```
 
+`client.js` is generated; edit the numbered fragments under `src/client/` instead. `npm test` and `npm pack` rebuild automatically.
+
 - `tests/store.test.mjs` — data model, placeholders, pinning order, import merging, atomic persistence.
+- `tests/builtins.test.mjs` — bundled Action loader, packaged built-ins, built-in pin/usage state, usage periods.
 - `tests/client.test.mjs` — captures the module registration, checks pure helpers and locale completeness, asserts no tool/prompt surface.
-- `tests/host.test.mjs` — same-origin check, export trimming, `/action` argument parsing.
+- `tests/host.test.mjs` — same-origin check, export trimming, Action reference handles and injection.
+
+```text
+dsh-action-hub/
+├── package.json           # bundle manifest + dsh.bundle / dsh.client
+├── cordis.patch.yml       # Loader row (seed / dataDir)
+├── index.js               # Host: plugin entry + HTTP routes
+├── host/
+│   ├── state.js           # user + built-in Action sources, resource dirs, cleanup
+│   ├── refs.js            # /ah-… handles, model injection message, command parsing
+│   └── invoke.js          # agent/pre-step injection
+├── store.js               # shelf, data model, import merging, usage periods
+├── builtins.js            # loader for read-only built-in Actions in the package
+├── builtin-state.js       # local pin / usage state for built-ins
+├── builtin-actions/       # built-in Actions (standard action.json + files/)
+├── src/client/            # Web source fragments (built into client.js)
+├── scripts/               # build-client / watch-client
+├── client.js              # generated: palette / library / settings / composer button
+├── locale/{zh,en}.json    # plugin-manager display names
+├── assets/screenshots/    # store screenshots
+├── screenshots.json       # screenshot manifest
+├── store/                 # awesome-dsh-plugin entry
+├── tests/
+└── CHANGELOG.md
+```
 
 ## License
 

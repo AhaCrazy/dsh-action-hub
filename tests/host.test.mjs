@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { internals, parseActionCommand } from '../index.js';
+import { internals } from '../index.js';
 
 const { originAllowed, exportable, planActionRefs, referencedActions, actionInvocationMessage } = internals;
 
@@ -52,39 +52,6 @@ test('exportable drops per-machine usage counters but keeps content', () => {
   ]);
   assert.equal(exported.usage, undefined);
   assert.equal(exported.extra, undefined);
-});
-
-test('parseActionCommand resolves by name, id, and unique id prefix', () => {
-  const actions = [
-    { id: 'code-review-ab12cd', name: '代码审查' },
-    { id: 'commit-msg-ef34ab', name: 'Commit Message' },
-  ];
-  const byName = parseActionCommand(actions, '代码审查 重点看网络层');
-  assert.equal(byName.action.name, '代码审查');
-  assert.equal(byName.args, '重点看网络层');
-
-  const byCaseInsensitiveName = parseActionCommand(actions, 'commit message');
-  assert.equal(byCaseInsensitiveName.action.id, 'commit-msg-ef34ab');
-
-  const byPrefix = parseActionCommand(actions, 'code-review');
-  assert.equal(byPrefix.action.name, '代码审查');
-
-  assert.equal(parseActionCommand(actions, '').action, undefined);
-  assert.equal(parseActionCommand(actions, '').error, '');
-  assert.match(parseActionCommand(actions, 'missing').error, /没有找到/);
-});
-
-test('parseActionCommand refuses ambiguous matches', () => {
-  const actions = [
-    { id: 'dup-aaa111', name: 'Dup' },
-    { id: 'dup-bbb222', name: 'Dup' },
-  ];
-  assert.match(parseActionCommand(actions, 'dup').error, /多个同名/);
-  const prefix = parseActionCommand([
-    { id: 'same-aaa111', name: 'One' },
-    { id: 'same-bbb222', name: 'Two' },
-  ], 'same');
-  assert.match(prefix.error, /多个 Action/);
 });
 
 test('planActionRefs mints stable, unique, opaque handles', () => {

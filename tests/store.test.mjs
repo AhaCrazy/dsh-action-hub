@@ -5,14 +5,12 @@ import path from 'node:path';
 import test from 'node:test';
 
 import {
-  DEFAULT_ACTIONS,
   SEED_ACTIONS,
   STORE_VERSION,
   createStore,
   defaultDataDir,
   expandPrompt,
   hasArgumentPlaceholder,
-  installDefaultActions,
   matchesQuery,
   mergeActions,
   mintId,
@@ -151,21 +149,6 @@ test('parseState accepts a bare array from a hand-edited file', () => {
   assert.equal(state.version, STORE_VERSION);
   assert.equal(state.actions.length, 1);
   assert.throws(() => parseState('{"nope":true}', false), /actions/);
-});
-
-test('installDefaultActions adds the helper exactly once', async () => {
-  await withTempDir(async (dir) => {
-    const store = createStore({ dataDir: dir, seed: false });
-    await installDefaultActions(store, dir);
-    let state = await store.read();
-    assert.equal(state.actions.filter((action) => action.id === DEFAULT_ACTIONS[0].id).length, 1);
-    await store.mutate((draft) => {
-      draft.actions = draft.actions.filter((action) => action.id !== DEFAULT_ACTIONS[0].id);
-    });
-    await installDefaultActions(store, dir);
-    state = await store.read();
-    assert.equal(state.actions.filter((action) => action.id === DEFAULT_ACTIONS[0].id).length, 0);
-  });
 });
 
 test('store reads resource metadata from the Action files directory', async () => {
