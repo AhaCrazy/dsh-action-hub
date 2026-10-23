@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.3.2 — 2026-10-23
+
+- Only the selected group in the group list gets a card/background; hovering an
+  unselected group now highlights just its name, so an unselected row no longer
+  looks like a selected full-width card.
+
 ## 7.3.1 — 2026-10-23
 
 - Fix the group editor layout: the search field no longer stretches vertically
