@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.4.1';
+    const VERSION = '7.4.2';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -159,6 +159,7 @@ window.__ModuleLoader__.load({
       .ah-group-include { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; padding: 4px 8px; cursor: pointer; font-size: 11.5px; }
       .ah-group-include[data-checked="true"] { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
       .ah-group-include[data-cycle="true"] { border-style: dashed; }
+      .ah-group-include[data-effective="true"] { border-style: dashed; background: var(--dsw-alias-bg-layer-2); }
       .ah-group-include-name { font-weight: 600; }
       .ah-group-inherited { padding: 8px 12px 10px; border-top: 1px solid var(--dsw-alias-border-l1); }
       .ah-group-inherited-list { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -460,6 +461,8 @@ window.__ModuleLoader__.load({
         'groups.includesTitle': '包含其他分组',
         'groups.includesHint': '勾选后，该分组会继承子分组的全部 Action；环引用会合并为同一个可用集合。',
         'groups.cycleHint': '会形成环，按合集生效',
+        'groups.effectiveBadge': '已间接生效',
+        'groups.effectiveHint': '该分组已通过当前引用关系间接包含，无需重复勾选。',
         'groups.inheritedTitle': '通过子分组继承的 Action',
         'groups.inheritedBadge': '继承',
         'groups.inheritedFrom': '包含该 Action 的分组：{groups}',
@@ -697,6 +700,8 @@ window.__ModuleLoader__.load({
         'groups.includesTitle': 'Includes groups',
         'groups.includesHint': 'Selected groups contribute all their Actions to this group; cycles merge into one shared set.',
         'groups.cycleHint': 'Forms a cycle; merged set applies',
+        'groups.effectiveBadge': 'Already active',
+        'groups.effectiveHint': 'This group is already included indirectly through the current references.',
         'groups.inheritedTitle': 'Actions inherited from child groups',
         'groups.inheritedBadge': 'Inherited',
         'groups.inheritedFrom': 'Contained by: {groups}',
@@ -2764,23 +2769,45 @@ window.__ModuleLoader__.load({
       });
 
 
+      const effectiveGroupIds = (groupId, seen = new Set()) => {
+        const out = new Set();
+        if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return out;
+        seen.add(groupId);
+        out.add(groupId);
+        const group = groups.find((entry) => entry.id === groupId);
+        for (const child of group === undefined ? [] : draftIncludes(group)) {
+          for (const id of effectiveGroupIds(child, seen)) out.add(id);
+        }
+        return out;
+      };
+      const activeEffectiveGroups = active === null ? new Set() : effectiveGroupIds(active.id);
       const childGroups = active === null ? [] : groups.filter((group) => group.id !== active.id);
       const includesBlock = active === null ? null : h('div', { className: 'ah-group-includes' },
         h('div', { className: 'ah-group-section-label' }, t('groups.includesTitle')),
         h('p', { className: 'ah-hint' }, t('groups.includesHint')),
         h('div', { className: 'ah-group-include-list' }, childGroups.map((child) => {
           const checked = activeIncludes.includes(child.id);
-          const cycle = !checked && reachesGroup(child.id, active.id);
-          return h('label', { key: child.id, className: 'ah-group-include', 'data-checked': checked, 'data-cycle': cycle },
-            h('input', {
-              type: 'checkbox',
-              checked,
-              disabled: busy,
-              onChange: (event) => toggleInclude(child, event.target.checked),
-            }),
-            h('span', { className: 'ah-group-include-name' }, child.name),
-            h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
-            cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
+          const effective = !checked && activeEffectiveGroups.has(child.id);
+          const cycle = !checked && !effective && reachesGroup(child.id, active.id);
+          return h('label', {
+            key: child.id,
+            className: 'ah-group-include',
+            'data-checked': checked,
+            'data-effective': effective,
+            'data-cycle': cycle,
+            title: effective ? t('groups.effectiveHint') : undefined,
+          },
+          h('input', {
+            type: 'checkbox',
+            checked,
+            disabled: busy,
+            onChange: (event) => toggleInclude(child, event.target.checked),
+          }),
+          h('span', { className: 'ah-group-include-name' }, child.name),
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
+          effective
+            ? h('span', { className: 'ah-badge' }, t('groups.effectiveBadge'))
+            : cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
         })));
       const inheritedActions = active === null
         ? []

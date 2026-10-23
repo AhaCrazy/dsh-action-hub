@@ -220,23 +220,45 @@
       });
 
 
+      const effectiveGroupIds = (groupId, seen = new Set()) => {
+        const out = new Set();
+        if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return out;
+        seen.add(groupId);
+        out.add(groupId);
+        const group = groups.find((entry) => entry.id === groupId);
+        for (const child of group === undefined ? [] : draftIncludes(group)) {
+          for (const id of effectiveGroupIds(child, seen)) out.add(id);
+        }
+        return out;
+      };
+      const activeEffectiveGroups = active === null ? new Set() : effectiveGroupIds(active.id);
       const childGroups = active === null ? [] : groups.filter((group) => group.id !== active.id);
       const includesBlock = active === null ? null : h('div', { className: 'ah-group-includes' },
         h('div', { className: 'ah-group-section-label' }, t('groups.includesTitle')),
         h('p', { className: 'ah-hint' }, t('groups.includesHint')),
         h('div', { className: 'ah-group-include-list' }, childGroups.map((child) => {
           const checked = activeIncludes.includes(child.id);
-          const cycle = !checked && reachesGroup(child.id, active.id);
-          return h('label', { key: child.id, className: 'ah-group-include', 'data-checked': checked, 'data-cycle': cycle },
-            h('input', {
-              type: 'checkbox',
-              checked,
-              disabled: busy,
-              onChange: (event) => toggleInclude(child, event.target.checked),
-            }),
-            h('span', { className: 'ah-group-include-name' }, child.name),
-            h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
-            cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
+          const effective = !checked && activeEffectiveGroups.has(child.id);
+          const cycle = !checked && !effective && reachesGroup(child.id, active.id);
+          return h('label', {
+            key: child.id,
+            className: 'ah-group-include',
+            'data-checked': checked,
+            'data-effective': effective,
+            'data-cycle': cycle,
+            title: effective ? t('groups.effectiveHint') : undefined,
+          },
+          h('input', {
+            type: 'checkbox',
+            checked,
+            disabled: busy,
+            onChange: (event) => toggleInclude(child, event.target.checked),
+          }),
+          h('span', { className: 'ah-group-include-name' }, child.name),
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
+          effective
+            ? h('span', { className: 'ah-badge' }, t('groups.effectiveBadge'))
+            : cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
         })));
       const inheritedActions = active === null
         ? []

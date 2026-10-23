@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.4.2 — 2026-10-23
+
+- Groups already reachable through the current includes (including cycles) are
+  now shown as “Already active” with a dashed highlighted row, even when their
+  checkbox is not selected, so indirect coverage is visible before saving.
+
 ## 7.4.1 — 2026-10-23
 
 - Group Action rows now show only the Skill/Command badge on the right. Group
