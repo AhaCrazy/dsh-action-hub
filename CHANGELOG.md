@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.2.0 — 2026-10-23
+
+- Redesigned the group dialog as a two-pane editor: group list on the left,
+  searchable Action checklist on the right.
+- Group membership changes are drafted locally and saved in one batch; closing
+  with unsaved changes asks for confirmation. Common stays fixed and cannot be
+  renamed or deleted.
+- Added select-all/clear, selected/unselected filters, per-group Action counts,
+  inline rename, and a wide modal layout.
+
 ## 7.1.0 — 2026-10-23
 
 - The group dialog now lists the Actions in each group directly, with search

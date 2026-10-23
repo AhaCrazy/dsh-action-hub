@@ -75,6 +75,37 @@
       .ah-modal-title { margin: 0; font-size: 15px; font-weight: 650; flex: 1 1 auto; }
       .ah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
       .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+      .ah-modal-wide { width: min(900px, 96vw); max-height: min(90vh, 920px); }
+      .ah-group-create { display: flex; align-items: center; gap: 8px; }
+      .ah-group-create .ah-input { flex: 1 1 auto; }
+      .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
+      .ah-group-list { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 6px; overflow-y: auto; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; gap: 3px; }
+      .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; }
+      .ah-group-item:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-item-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .ah-group-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-group-count { font-size: 11px; color: var(--dsw-alias-label-secondary); text-align: right; }
+      .ah-group-item-actions { grid-column: 1 / -1; display: flex; gap: 2px; opacity: 0; pointer-events: none; margin-top: 3px; }
+      .ah-group-item[data-active="true"] .ah-group-item-actions { opacity: 1; pointer-events: auto; }
+      .ah-group-rename { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; }
+      .ah-group-rename .ah-input { flex: 1 1 auto; }
+      .ah-group-detail { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+      .ah-group-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+      .ah-group-detail-title { margin: 0; font-size: 14px; font-weight: 650; }
+      .ah-group-detail-actions { display: flex; gap: 2px; }
+      .ah-group-tools { padding: 9px 12px 7px; display: flex; flex-direction: column; gap: 7px; }
+      .ah-group-filters { display: flex; gap: 4px; }
+      .ah-group-actions { overflow-y: auto; padding: 2px 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+      .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+      .ah-group-action:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-group-action[data-checked="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
+      .ah-group-action-desc { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-group-dirty { margin-right: auto; font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
+      .ah-group-empty { padding: 24px 12px; text-align: center; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+      @media (max-width: 720px) { .ah-group-layout { grid-template-columns: 1fr; } }
       .ah-field { display: flex; flex-direction: column; gap: 6px; }
       .ah-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }
       .ah-hint { font-size: 11.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); }

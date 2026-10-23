@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.1.0';
+    const VERSION = '7.2.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -105,6 +105,37 @@ window.__ModuleLoader__.load({
       .ah-modal-title { margin: 0; font-size: 15px; font-weight: 650; flex: 1 1 auto; }
       .ah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
       .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+      .ah-modal-wide { width: min(900px, 96vw); max-height: min(90vh, 920px); }
+      .ah-group-create { display: flex; align-items: center; gap: 8px; }
+      .ah-group-create .ah-input { flex: 1 1 auto; }
+      .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
+      .ah-group-list { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 6px; overflow-y: auto; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; gap: 3px; }
+      .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; }
+      .ah-group-item:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-item-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
+      .ah-group-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-group-count { font-size: 11px; color: var(--dsw-alias-label-secondary); text-align: right; }
+      .ah-group-item-actions { grid-column: 1 / -1; display: flex; gap: 2px; opacity: 0; pointer-events: none; margin-top: 3px; }
+      .ah-group-item[data-active="true"] .ah-group-item-actions { opacity: 1; pointer-events: auto; }
+      .ah-group-rename { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; }
+      .ah-group-rename .ah-input { flex: 1 1 auto; }
+      .ah-group-detail { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+      .ah-group-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+      .ah-group-detail-title { margin: 0; font-size: 14px; font-weight: 650; }
+      .ah-group-detail-actions { display: flex; gap: 2px; }
+      .ah-group-tools { padding: 9px 12px 7px; display: flex; flex-direction: column; gap: 7px; }
+      .ah-group-filters { display: flex; gap: 4px; }
+      .ah-group-actions { overflow-y: auto; padding: 2px 8px 10px; display: flex; flex-direction: column; gap: 2px; }
+      .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
+      .ah-group-action:hover { background: var(--dsw-alias-bg-layer-2); }
+      .ah-group-action[data-checked="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
+      .ah-group-action-desc { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .ah-group-dirty { margin-right: auto; font-size: 11.5px; color: var(--dsw-alias-label-secondary); }
+      .ah-group-empty { padding: 24px 12px; text-align: center; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+      @media (max-width: 720px) { .ah-group-layout { grid-template-columns: 1fr; } }
       .ah-field { display: flex; flex-direction: column; gap: 6px; }
       .ah-label { font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }
       .ah-hint { font-size: 11.5px; line-height: 1.55; color: var(--dsw-alias-label-secondary); }
@@ -387,6 +418,18 @@ window.__ModuleLoader__.load({
         'groups.actionCount': '{count} 个 Action',
         'groups.actionsTitle': '“{name}”包含的 Action',
         'groups.actionSearch': '搜索要加入分组的 Action',
+        'groups.defaultBadge': '默认',
+        'groups.save': '保存修改',
+        'groups.unsaved': '已修改 {count} 项',
+        'groups.noChanges': '没有未保存的修改',
+        'groups.discard': '还有 {count} 项未保存，确定放弃修改？',
+        'groups.empty': '还没有分组',
+        'groups.selectAll': '全选',
+        'groups.clear': '清空',
+        'groups.filterAll': '全部',
+        'groups.filterSelected': '已选',
+        'groups.filterUnselected': '未选',
+        'groups.noMatch': '没有匹配的 Action',
         'scope.title': '项目可用范围',
         'scope.project': '项目',
         'scope.groups': '可用分组',
@@ -606,6 +649,18 @@ window.__ModuleLoader__.load({
         'groups.actionCount': '{count} Actions',
         'groups.actionsTitle': 'Actions in “{name}”',
         'groups.actionSearch': 'Search Actions to add',
+        'groups.defaultBadge': 'Default',
+        'groups.save': 'Save changes',
+        'groups.unsaved': '{count} unsaved changes',
+        'groups.noChanges': 'No unsaved changes',
+        'groups.discard': 'Discard {count} unsaved changes?',
+        'groups.empty': 'No groups yet',
+        'groups.selectAll': 'Select all',
+        'groups.clear': 'Clear',
+        'groups.filterAll': 'All',
+        'groups.filterSelected': 'Selected',
+        'groups.filterUnselected': 'Unselected',
+        'groups.noMatch': 'No matching Actions',
         'scope.title': 'Project availability',
         'scope.project': 'Project',
         'scope.groups': 'Available groups',
@@ -1652,7 +1707,7 @@ window.__ModuleLoader__.load({
         onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose(); },
       },
       h('div', {
-        className: 'ah-modal',
+        className: props.wide ? 'ah-modal ah-modal-wide' : 'ah-modal',
         role: 'dialog',
         'aria-modal': 'true',
         'aria-label': props.title,
@@ -2456,14 +2511,38 @@ window.__ModuleLoader__.load({
       const actions = Array.isArray(props.actions) ? props.actions : [];
       const [name, setName] = React.useState('');
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
+      const [drafts, setDrafts] = React.useState({});
       const [query, setQuery] = React.useState('');
+      const [filter, setFilter] = React.useState('all');
+      const [renamingId, setRenamingId] = React.useState('');
+      const [renameValue, setRenameValue] = React.useState('');
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
+
       const active = groups.find((group) => group.id === selectedId) ?? groups[0] ?? null;
-      const activeNames = active === null ? [] : actions.filter((action) => (action.groups ?? []).includes(active.id)).map((action) => action.name);
-      const filteredActions = query.trim() === ''
-        ? actions
-        : actions.filter((action) => `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
+      const originalNames = (group) => actions.filter((action) => (action.groups ?? []).includes(group.id)).map((action) => action.name);
+      const draftNames = (group) => drafts[group.id]?.actions ?? originalNames(group);
+      const activeNames = active === null ? [] : draftNames(active);
+      const activeSet = new Set(activeNames);
+      const dirtyGroups = groups.filter((group) => {
+        const before = originalNames(group);
+        const after = draftNames(group);
+        return before.length !== after.length || before.some((entry) => !after.includes(entry));
+      });
+      const dirtyCount = dirtyGroups.reduce((sum, group) => {
+        const before = originalNames(group);
+        const after = draftNames(group);
+        const added = after.filter((entry) => !before.includes(entry)).length;
+        const removed = before.filter((entry) => !after.includes(entry)).length;
+        return sum + added + removed;
+      }, 0);
+      const filtered = actions.filter((action) => {
+        if (filter === 'selected' && !activeSet.has(action.name)) return false;
+        if (filter === 'unselected' && activeSet.has(action.name)) return false;
+        if (query.trim() === '') return true;
+        return `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase());
+      });
+      const groupLabel = (id) => groups.find((group) => group.id === id)?.name ?? id;
 
       const refresh = async () => {
         await props.onChanged?.();
@@ -2480,79 +2559,170 @@ window.__ModuleLoader__.load({
           setBusy(false);
         }
       };
+      const close = () => {
+        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        props.onClose?.();
+      };
+      const toggle = (action) => {
+        if (active === null) return;
+        const next = activeSet.has(action.name)
+          ? activeNames.filter((entry) => entry !== action.name)
+          : [...activeNames, action.name];
+        setDrafts((previous) => ({ ...previous, [active.id]: { actions: next } }));
+      };
+      const setFiltered = (checked) => {
+        if (active === null) return;
+        const names = new Set(activeNames);
+        for (const action of filtered) {
+          if (checked) names.add(action.name);
+          else names.delete(action.name);
+        }
+        setDrafts((previous) => ({ ...previous, [active.id]: { actions: [...names] } }));
+      };
+      const save = async () => {
+        setBusy(true);
+        setError('');
+        try {
+          for (const group of dirtyGroups) await api('/groups/actions', { id: group.id, actions: draftNames(group) });
+          await refresh();
+          props.onClose?.();
+        } catch (failure) {
+          setError(describeError(failure));
+        } finally {
+          setBusy(false);
+        }
+      };
+      const createGroup = async () => {
+        await run(async () => {
+          const result = await api('/groups/create', { name: name.trim() });
+          setName('');
+          setSelectedId(result.group.id);
+        });
+      };
+      const startRename = (group) => {
+        setRenamingId(group.id);
+        setRenameValue(group.name);
+      };
+      const commitRename = async (group) => {
+        const next = renameValue.trim();
+        if (next === '' || next === group.name) {
+          setRenamingId('');
+          return;
+        }
+        await run(async () => {
+          await api('/groups/rename', { id: group.id, name: next });
+          setRenamingId('');
+        });
+      };
+      const removeGroup = async (group) => {
+        if (!window.confirm(t('groups.deleteConfirm', { name: group.name }))) return;
+        await run(async () => {
+          await api('/groups/delete', { id: group.id });
+          setDrafts((previous) => {
+            const next = { ...previous };
+            delete next[group.id];
+            return next;
+          });
+          if (selectedId === group.id) setSelectedId('');
+        });
+      };
+
+      const groupRows = groups.map((group) => {
+        const renaming = renamingId === group.id;
+        const titleRow = h('div', { className: 'ah-group-item-main' },
+          h('span', { className: 'ah-group-name' }, group.name),
+          group.builtin ? h('span', { className: 'ah-badge' }, t('groups.defaultBadge')) : null);
+        const actionsRow = group.builtin ? null : h('div', { className: 'ah-group-item-actions' },
+          h(Button, { ghost: true, small: true, onClick: (event) => { event.stopPropagation(); startRename(group); } }, t('groups.rename')),
+          h(Button, { ghost: true, small: true, danger: true, onClick: (event) => { event.stopPropagation(); void removeGroup(group); } }, t('groups.delete')));
+        const body = renaming
+          ? h('div', { className: 'ah-group-rename' },
+            h('input', {
+              className: 'ah-input',
+              value: renameValue,
+              autoFocus: true,
+              onChange: (event) => setRenameValue(event.target.value),
+              onKeyDown: (event) => {
+                if (event.key === 'Enter') { event.preventDefault(); void commitRename(group); }
+                if (event.key === 'Escape') setRenamingId('');
+              },
+            }),
+            h(Button, { small: true, primary: true, onClick: () => void commitRename(group) }, t('action.save')),
+            h(Button, { small: true, onClick: () => setRenamingId('') }, t('action.cancel')))
+          : h(React.Fragment, null, titleRow,
+            h('span', { className: 'ah-group-count' }, t('groups.actionCount', { count: draftNames(group).length })),
+            actionsRow);
+        return h('div', {
+          key: group.id,
+          className: 'ah-group-item',
+          'data-active': group.id === active?.id,
+          onClick: () => { if (!renaming) setSelectedId(group.id); },
+        }, body);
+      });
+
+
+      const detailHeader = active === null ? null : h('header', { className: 'ah-group-detail-head' },
+        h('div', null,
+          h('h3', { className: 'ah-group-detail-title' }, active.name),
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: activeNames.length }))),
+        h('div', { className: 'ah-group-detail-actions' },
+          h(Button, { ghost: true, small: true, onClick: () => setFiltered(true) }, t('groups.selectAll')),
+          h(Button, { ghost: true, small: true, onClick: () => setFiltered(false) }, t('groups.clear'))));
+      const detailTools = active === null ? null : h('div', { className: 'ah-group-tools' },
+        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery }),
+        h('div', { className: 'ah-group-filters' },
+          [['all', t('groups.filterAll')], ['selected', t('groups.filterSelected')], ['unselected', t('groups.filterUnselected')]].map(([value, label]) => h('button', {
+            key: value,
+            type: 'button',
+            className: 'ah-chip',
+            'data-active': filter === value,
+            onClick: () => setFilter(value),
+          }, label))));
+      const actionRows = active === null ? null : h('div', { className: 'ah-group-actions' },
+        filtered.length === 0
+          ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
+          : filtered.map((action) => h('label', {
+            key: action.id,
+            className: 'ah-group-action',
+            'data-checked': activeSet.has(action.name),
+          },
+          h('input', { type: 'checkbox', checked: activeSet.has(action.name), onChange: () => toggle(action) }),
+          h('span', { className: 'ah-group-action-main' },
+            h('span', { className: 'ah-group-action-name' }, action.name),
+            h('span', { className: 'ah-group-action-desc' }, action.description || '')),
+          h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')),
+          (action.groups ?? []).filter((id) => id !== active.id).map((id) => h('span', { key: id, className: 'ah-badge' }, groupLabel(id))))));
+      const detail = active === null
+        ? h('div', { className: 'ah-group-empty' }, t('groups.empty'))
+        : h(React.Fragment, null, detailHeader, detailTools, actionRows);
+      const layout = h('div', { className: 'ah-group-layout' },
+        h('aside', { className: 'ah-group-list', 'aria-label': t('groups.title') }, groupRows),
+        h('section', { className: 'ah-group-detail' }, detail));
 
       return h(Modal, {
         title: t('groups.title'),
         t,
-        onClose: props.onClose,
-        footer: h(Button, { onClick: props.onClose }, t('action.close')),
+        wide: true,
+        onClose: close,
+        footer: h(React.Fragment, null,
+          h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
+          h(Button, { onClick: close }, t('action.cancel')),
+          h(Button, { primary: true, disabled: busy || dirtyCount === 0, onClick: save }, t('groups.save'))),
       },
-      h('p', { className: 'ah-hint' }, t('groups.hint')),
-      h('div', { className: 'ah-settings-row' },
-        h('div', { className: 'ah-settings-row-main' },
-          h('input', {
-            className: 'ah-input',
-            value: name,
-            placeholder: t('groups.namePlaceholder'),
-            onChange: (event) => setName(event.target.value),
-            onKeyDown: (event) => {
-              if (event.key !== 'Enter' || name.trim() === '') return;
-              event.preventDefault();
-              void run(async () => {
-                const result = await api('/groups/create', { name: name.trim() });
-                setName('');
-                setSelectedId(result.group.id);
-              });
-            },
-          })),
-        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void run(async () => {
-          const result = await api('/groups/create', { name: name.trim() });
-          setName('');
-          setSelectedId(result.group.id);
-        }) }, t('groups.create'))),
-      h('div', { className: 'ah-scope-list' },
-        groups.map((group) => h('div', {
-          key: group.id,
-          className: 'ah-settings-row',
-          'data-active': group.id === active?.id,
-          onClick: () => setSelectedId(group.id),
-        },
-        h('div', { className: 'ah-settings-row-main' },
-          h('span', { className: 'ah-settings-row-title' }, group.name),
-          group.builtin ? h('span', { className: 'ah-badge' }, t('editor.groupCommon')) : null,
-          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: actions.filter((action) => (action.groups ?? []).includes(group.id)).length }))),
-        group.builtin ? null : h(Button, { ghost: true, small: true, onClick: (event) => {
-          event.stopPropagation();
-          const next = window.prompt(t('groups.renamePrompt'), group.name);
-          if (next === null || next.trim() === '' || next.trim() === group.name) return;
-          void run(() => api('/groups/rename', { id: group.id, name: next.trim() }));
-        } }, t('groups.rename')),
-        group.builtin ? null : h(Button, { ghost: true, small: true, danger: true, onClick: (event) => {
-          event.stopPropagation();
-          if (window.confirm(t('groups.deleteConfirm', { name: group.name }))) {
-            void run(async () => {
-              await api('/groups/delete', { id: group.id });
-              if (selectedId === group.id) setSelectedId('');
-            });
-          }
-        } }, t('groups.delete'))))),
-      active === null ? null : h('div', { className: 'ah-field' },
-        h('label', { className: 'ah-label' }, t('groups.actionsTitle', { name: active.name })),
-        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery }),
-        h('div', { className: 'ah-scope-list' }, filteredActions.map((action) => h('label', { key: action.id, className: 'ah-scope-option' },
-          h('input', {
-            type: 'checkbox',
-            checked: activeNames.includes(action.name),
-            disabled: busy,
-            onChange: (event) => {
-              const next = event.target.checked
-                ? [...new Set([...activeNames, action.name])]
-                : activeNames.filter((entry) => entry !== action.name);
-              void run(() => api('/groups/actions', { id: active.id, actions: next }));
-            },
-          }),
-          ` ${action.name}`,
-          action.builtin ? h('span', { className: 'ah-badge' }, t('lib.builtin')) : null)))),
+      h('div', { className: 'ah-group-create' },
+        h('input', {
+          className: 'ah-input',
+          value: name,
+          placeholder: t('groups.namePlaceholder'),
+          onChange: (event) => setName(event.target.value),
+          onKeyDown: (event) => {
+            if (event.key !== 'Enter' || name.trim() === '' || busy) return;
+            event.preventDefault();
+            void createGroup();
+          },
+        }),
+        h(Button, { primary: true, disabled: busy || name.trim() === '', onClick: () => void createGroup() }, t('groups.create'))),
+      layout,
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }
 
@@ -2578,7 +2748,6 @@ window.__ModuleLoader__.load({
         const found = scopes.find((entry) => String(entry.path).toLowerCase() === String(path).toLowerCase());
         setProfile(found ?? { path, label: '', groups: ['common'], actions: [] });
       };
-
       const toggleGroup = (id, checked) => {
         setProfile((previous) => ({
           ...previous,

@@ -133,7 +133,7 @@
         onMouseDown: (event) => { if (event.target === event.currentTarget) props.onClose(); },
       },
       h('div', {
-        className: 'ah-modal',
+        className: props.wide ? 'ah-modal ah-modal-wide' : 'ah-modal',
         role: 'dialog',
         'aria-modal': 'true',
         'aria-label': props.title,
