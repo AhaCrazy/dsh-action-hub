@@ -1,5 +1,14 @@
 # Changelog
 
+## 6.0.3 — 2026-10-23
+
+- **Keep Action Hub skills out of the native `/` menu** while keeping them
+  model-invocable: provider candidates now use
+  `{ modelInvocable: true, userInvocable: false }`. The `/` menu from the Host
+  notification change is no longer needed for these entries.
+- Palette Skill rows now insert the skill body (and send it on Ctrl/⌘+Enter)
+  instead of writing a `/name` token.
+
 ## 6.0.2 — 2026-10-23
 
 - **Refresh the Web `/` skill menu after mode/scope changes.** The DSH client

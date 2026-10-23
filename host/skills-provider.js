@@ -53,7 +53,9 @@ export function installSkillsProvider(ctx, store) {
           candidates.push({
             name: action.name,
             description: action.description.slice(0, 500),
-            invocation: { modelInvocable: true, userInvocable: true },
+            // Keep Action Hub entries out of the native `/` menu. They remain
+            // model-invocable, and the user reaches them through Alt+A.
+            invocation: { modelInvocable: true, userInvocable: false },
             source: PROVIDER,
             provider: PROVIDER,
             rank: 250,

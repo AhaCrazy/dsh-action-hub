@@ -142,9 +142,7 @@
           const isSkill = action.mode === 'skill';
           const referenceMode = !isSkill && args.trim() === '' && typeof handle === 'string' && handle !== '';
           const referenceText = referenceMode ? `/${handle}` : '';
-          const skillText = isSkill
-            ? `/${action.name}${args.trim() === '' ? '' : ` ${args.trim()}`} `
-            : '';
+          const skillText = isSkill ? expandPrompt(action.prompt, { args }) : '';
           const text = referenceMode ? referenceText : isSkill ? skillText : expandPrompt(action.prompt, { args });
           let placed = false;
           let atCaret = false;

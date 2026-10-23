@@ -1,11 +1,11 @@
-/**
- * dsh-action-hub 鈥?Client half (Web UI).
+﻿/**
+ * dsh-action-hub 閳?Client half (Web UI).
  *
  * Product surfaces:
  *   - `conversation.input.left`: a compact "Actions" trigger in the composer tool row.
  *   - `conversation.input.overlay`: a session bridge that hands the palette the
  *     live composer facade (inputActions / input state) it needs to insert text.
- *   - `shell.overlay`: the Spotlight-style palette (Alt+A / 鈱?A), rendered at
+ *   - `shell.overlay`: the Spotlight-style palette (Alt+A / 閳?A), rendered at
  *     the frame level so it is never clipped by the composer card.
  *   - `main` + `sidebar.panellist`: the management library.
  *   - `settings.section`: preferences and data controls.
@@ -23,10 +23,11 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '6.0.2';
+    const VERSION = '6.0.3';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
+
 
 
     const CSS = `
@@ -351,7 +352,7 @@ window.__ModuleLoader__.load({
         'palette.hintSend': '发送',
         'palette.hintTab': '切换分组',
         'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
-        'palette.skillHint': '将插入技能调用 /{name}，由模型加载技能正文',
+        'palette.skillHint': '将插入技能正文；Agent 仍可自行调用，但不进入 / 菜单',
         'palette.scope': '可用范围',
         'palette.scopeAll': '所有项目',
         'palette.scopeCustom': '多个项目',
@@ -536,7 +537,7 @@ window.__ModuleLoader__.load({
         'palette.hintSend': 'send',
         'palette.hintTab': 'switch group',
         'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
-        'palette.skillHint': 'Inserts /{name}; the model loads the skill body',
+        'palette.skillHint': 'Inserts the skill body; the agent can still invoke it, but it is hidden from /',
         'palette.scope': 'Availability',
         'palette.scopeAll': 'All projects',
         'palette.scopeCustom': 'Multiple projects',
@@ -2475,9 +2476,7 @@ window.__ModuleLoader__.load({
           const isSkill = action.mode === 'skill';
           const referenceMode = !isSkill && args.trim() === '' && typeof handle === 'string' && handle !== '';
           const referenceText = referenceMode ? `/${handle}` : '';
-          const skillText = isSkill
-            ? `/${action.name}${args.trim() === '' ? '' : ` ${args.trim()}`} `
-            : '';
+          const skillText = isSkill ? expandPrompt(action.prompt, { args }) : '';
           const text = referenceMode ? referenceText : isSkill ? skillText : expandPrompt(action.prompt, { args });
           let placed = false;
           let atCaret = false;

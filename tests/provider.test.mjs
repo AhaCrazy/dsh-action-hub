@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -34,6 +34,7 @@ test('provider exposes only Skill-mode entries', async () => {
   installSkillsProvider(ctx, store);
   const listed = await provider().list({ cwd: dataDir });
   assert.deepEqual(listed.candidates.map((entry) => entry.name), ['visible-skill']);
+  assert.deepEqual(listed.candidates[0].invocation, { modelInvocable: true, userInvocable: false });
   assert.equal((await provider().get({ name: 'visible-skill' }, { cwd: dataDir })).content, 'body');
   assert.equal(await provider().get({ name: 'hidden-command' }, { cwd: dataDir }), undefined);
 });

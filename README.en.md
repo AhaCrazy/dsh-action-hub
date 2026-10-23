@@ -5,7 +5,7 @@
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.0.2-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-6.0.3-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -26,7 +26,7 @@
 - Search by name, description, tags, body;
 - Each row shows `[Command]` / `[Skill]` and its scope;
 - Command: inserts a reference chip without arguments, or the expanded body with arguments;
-- Skill: inserts `/skill-name`, loaded by DSH natively;
+- Skill: inserts the skill body; the agent can still invoke it, but Action Hub entries stay out of the `/` menu;
 - `Enter` / `Tab` inserts, `Ctrl/⌘ + Enter` sends.
 
 ### Library
