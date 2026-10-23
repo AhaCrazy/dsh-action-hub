@@ -1,5 +1,10 @@
 # Changelog
 
+## 7.6.1 — 2026-10-23
+
+- Moved the merged configuration tabs into the modal header as bookmark-style
+  tabs, so they appear exactly where the old dialog title/toolbar entry lived.
+
 ## 7.6.0 — 2026-10-23
 
 - Merged the group editor and project availability editor into one dialog with

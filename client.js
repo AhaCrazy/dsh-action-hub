@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.6.0';
+    const VERSION = '7.6.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -107,6 +107,8 @@ window.__ModuleLoader__.load({
       .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
       .ah-modal-wide { width: min(900px, 96vw); max-height: min(90vh, 920px); }
       .ah-config-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--dsw-alias-border-l1); margin: -4px 0 2px; }
+      .ah-modal-head .ah-config-tabs { border-bottom: 0; margin: 0; gap: 2px; }
+      .ah-modal-head .ah-config-tab { top: 0; padding: 7px 14px; }
       .ah-config-tab { appearance: none; border: 1px solid transparent; border-bottom: 0; border-radius: 9px 9px 0 0; background: transparent; color: var(--dsw-alias-label-secondary); padding: 8px 16px; font: inherit; font-size: 12.5px; cursor: pointer; position: relative; top: 1px; }
       .ah-config-tab:hover { color: var(--dsw-alias-label-primary); }
       .ah-config-tab[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); font-weight: 650; }
@@ -1780,7 +1782,9 @@ window.__ModuleLoader__.load({
         ref: panelRef,
       },
       h('div', { className: 'ah-modal-head' },
-        h('h2', { className: 'ah-modal-title' }, props.title),
+        props.head === undefined
+          ? h('h2', { className: 'ah-modal-title' }, props.title)
+          : props.head,
         h(Button, { ghost: true, iconOnly: true, small: true, onClick: props.onClose, title: props.t('action.close') }, h(Icons.close, { size: 13 }))),
       h('div', { className: 'ah-modal-body' }, props.children),
       props.footer === undefined ? null : h('div', { className: 'ah-modal-foot' }, props.footer)));
@@ -3186,8 +3190,8 @@ window.__ModuleLoader__.load({
         t,
         wide: true,
         onClose: close,
+        head: h('div', { className: 'ah-config-tabs', role: 'tablist' }, tabButton('groups', t('groups.title')), tabButton('scope', t('scope.title'))),
       },
-      h('div', { className: 'ah-config-tabs', role: 'tablist' }, tabButton('groups', t('groups.title')), tabButton('scope', t('scope.title'))),
       h('div', { className: 'ah-config-pane', hidden: tab !== 'groups' },
         h(GroupDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('groups') })),
       h('div', { className: 'ah-config-pane', hidden: tab !== 'scope' },
