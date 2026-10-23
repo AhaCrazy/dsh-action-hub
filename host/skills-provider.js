@@ -78,6 +78,7 @@ export function installSkillsProvider(ctx, store) {
           name: skill.name,
           description: skill.description,
           content: skill.body,
+          source: PROVIDER,
           provider: PROVIDER,
           path: skill.dir,
           resourceBase: { kind: 'directory', path: skill.dir },

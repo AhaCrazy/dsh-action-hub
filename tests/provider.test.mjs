@@ -35,7 +35,9 @@ test('provider exposes only Skill-mode entries', async () => {
   const listed = await provider().list({ cwd: dataDir });
   assert.deepEqual(listed.candidates.map((entry) => entry.name), ['visible-skill']);
   assert.deepEqual(listed.candidates[0].invocation, { modelInvocable: true, userInvocable: false });
-  assert.equal((await provider().get({ name: 'visible-skill' }, { cwd: dataDir })).content, 'body');
+  const loaded = await provider().get({ name: 'visible-skill' }, { cwd: dataDir });
+  assert.equal(loaded.content, 'body');
+  assert.equal(loaded.source, 'action-hub');
   assert.equal(await provider().get({ name: 'hidden-command' }, { cwd: dataDir }), undefined);
 });
 

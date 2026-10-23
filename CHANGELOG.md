@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.0.4 — 2026-10-23
+
+- **Fix model skill loading.** The provider's `get()` returned `provider` but not
+  the required `source` string, so DSH's `skill` tool failed with
+  `loaded skill "..." source must be a string` and the model fell back to reading
+  the file by hand. The definition now includes `source: "action-hub"`.
+
 ## 6.0.3 — 2026-10-23
 
 - **Keep Action Hub skills out of the native `/` menu** while keeping them
