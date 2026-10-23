@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.3.1';
+    const VERSION = '8.3.2';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -1135,6 +1135,7 @@ window.__ModuleLoader__.load({
       };
       let inflight = null;
       let activeSessionId = '';
+      let refreshSeq = 0;
 
       const emit = () => {
         for (const listener of [...listeners]) listener(snapshot);
@@ -1146,10 +1147,12 @@ window.__ModuleLoader__.load({
 
       async function refresh(force = false) {
         if (inflight !== null && !force) return inflight;
+        const seq = ++refreshSeq;
         if (snapshot.status === 'idle' || snapshot.status === 'error') set({ ...snapshot, status: 'loading', error: '' });
         const suffix = activeSessionId === '' ? '' : `?sessionId=${encodeURIComponent(activeSessionId)}`;
         inflight = api(`/state${suffix}`).then(
           (data) => {
+            if (seq !== refreshSeq) return snapshot;
             set({
               status: 'ready',
               actions: data.actions ?? [],
@@ -1165,11 +1168,11 @@ window.__ModuleLoader__.load({
             return snapshot;
           },
           (error) => {
-            set({ ...snapshot, status: 'error', error: describeError(error) });
+            if (seq === refreshSeq) set({ ...snapshot, status: 'error', error: describeError(error) });
             throw error;
           },
         ).finally(() => {
-          inflight = null;
+          if (seq === refreshSeq) inflight = null;
         });
         return inflight;
       }
@@ -3350,6 +3353,7 @@ window.__ModuleLoader__.load({
           setSelectedId(null);
           setArgs('');
           setToast({ text: '', kind: 'ok' });
+          if (state.bridge?.sessionId) hub.setSession(state.bridge.sessionId);
           void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
           return () => {

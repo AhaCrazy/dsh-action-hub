@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.3.2 — 2026-10-23
+
+- Serialized session-aware `/state` refreshes so an older request without the
+  active session can no longer overwrite the newer, session-scoped result. The
+  palette also re-applies its bridge session before refreshing.
+
 ## 8.3.1 — 2026-10-23
 
 - Availability is now resolved from the current conversation's session cwd

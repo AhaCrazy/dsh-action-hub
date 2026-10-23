@@ -37,6 +37,7 @@
           setSelectedId(null);
           setArgs('');
           setToast({ text: '', kind: 'ok' });
+          if (state.bridge?.sessionId) hub.setSession(state.bridge.sessionId);
           void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
           return () => {
