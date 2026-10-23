@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.3.1 — 2026-10-23
+
+- Fix the group editor layout: the search field no longer stretches vertically
+  inside a column flex container, and the selected group gets a stronger
+  active-state accent.
+
 ## 7.3.0 — 2026-10-23
 
 - Groups can include other groups. Selecting a parent group grants every Action

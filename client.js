@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.3.0';
+    const VERSION = '7.3.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -112,7 +112,7 @@ window.__ModuleLoader__.load({
       .ah-group-list { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 6px; overflow-y: auto; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; gap: 3px; }
       .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; }
       .ah-group-item:hover { background: var(--dsw-alias-bg-layer-2); }
-      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); }
       .ah-group-item-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .ah-group-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ah-group-count { font-size: 11px; color: var(--dsw-alias-label-secondary); text-align: right; }
@@ -125,6 +125,7 @@ window.__ModuleLoader__.load({
       .ah-group-detail-title { margin: 0; font-size: 14px; font-weight: 650; }
       .ah-group-detail-actions { display: flex; gap: 2px; }
       .ah-group-tools { padding: 9px 12px 7px; display: flex; flex-direction: column; gap: 7px; }
+      .ah-group-tools .ah-search, .ah-field .ah-search { flex: 0 0 auto; width: 100%; }
       .ah-group-filters { display: flex; gap: 4px; }
       .ah-group-actions { overflow-y: auto; padding: 2px 8px 10px; display: flex; flex-direction: column; gap: 2px; }
       .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
