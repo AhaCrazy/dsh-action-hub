@@ -14,7 +14,20 @@
         const [categoryDialog, setCategoryDialog] = React.useState(false);
         const [configOpen, setConfigOpen] = React.useState(false);
         const [configTab, setConfigTab] = React.useState('groups');
+        const [menu, setMenu] = React.useState(null);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
+
+        React.useEffect(() => {
+          if (menu === null) return undefined;
+          const close = () => setMenu(null);
+          const onKey = (event) => { if (event.key === 'Escape') setMenu(null); };
+          document.addEventListener('mousedown', close);
+          document.addEventListener('keydown', onKey);
+          return () => {
+            document.removeEventListener('mousedown', close);
+            document.removeEventListener('keydown', onKey);
+          };
+        }, [menu]);
 
         const notify = React.useCallback((text, kind = 'ok') => setNotice({ text, kind }), []);
         React.useEffect(() => {
@@ -70,6 +83,16 @@
           try {
             await hub.patchAction(action.id, { pinned: action.pinned !== true });
             notify(action.pinned ? t('lib.unpinned') : t('lib.pinned'), 'ok');
+          } catch (failure) {
+            notify(describeError(failure), 'error');
+          }
+        };
+
+        const toggleMode = async (action) => {
+          const next = action.mode === 'skill' ? 'command' : 'skill';
+          try {
+            await hub.call('/mode', { id: action.name, mode: next });
+            notify(next === 'skill' ? t('lib.modeSkill') : t('lib.modeCommand'), 'ok');
           } catch (failure) {
             notify(describeError(failure), 'error');
           }
@@ -171,6 +194,13 @@
                     onPin: togglePin,
                     onEdit: (entry) => setEditor(entry),
                     onDelete: setDeleting,
+                    onContextMenu: (entry, event) => {
+                      setMenu({
+                        action: entry,
+                        x: Math.min(event.clientX, window.innerWidth - 180),
+                        y: Math.min(event.clientY, window.innerHeight - 150),
+                      });
+                    },
                   }))))));
 
         if (editor !== undefined) {
@@ -274,6 +304,32 @@
             onClose: () => setCategoryDialog(false),
             onDone: () => { void hub.refresh(true).catch(() => {}); },
           }));
+        }
+
+        if (menu !== null) {
+          const action = menu.action;
+          body.push(h('div', {
+            key: 'menu',
+            className: 'ah-group-context',
+            style: { left: `${menu.x}px`, top: `${menu.y}px` },
+            onMouseDown: (event) => event.stopPropagation(),
+          },
+          h('button', {
+            type: 'button',
+            className: 'ah-group-context-item',
+            onClick: () => { setMenu(null); void toggleMode(action); },
+          }, action.mode === 'skill' ? t('action.switchToCommand') : t('action.switchToSkill')),
+          action.builtin === true ? null : h('button', {
+            type: 'button',
+            className: 'ah-group-context-item',
+            onClick: () => { setMenu(null); setEditor(action); },
+          }, t('action.edit')),
+          action.builtin === true ? null : h('button', {
+            type: 'button',
+            className: 'ah-group-context-item',
+            'data-danger': 'true',
+            onClick: () => { setMenu(null); setDeleting(action); },
+          }, t('action.delete'))));
         }
 
         return h('div', { className: 'ah-page' }, body);

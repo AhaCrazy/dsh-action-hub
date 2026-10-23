@@ -128,6 +128,8 @@
       .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
       .ah-group-action:hover { background: var(--dsw-alias-bg-layer-2); }
       .ah-group-action[data-checked="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-action[data-covered="true"] { cursor: default; }
+      .ah-group-action-check { width: 13px; height: 13px; flex: 0 0 auto; display: inline-block; }
       .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
       .ah-group-action-desc { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

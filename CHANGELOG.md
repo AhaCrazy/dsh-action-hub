@@ -1,5 +1,13 @@
 # Changelog
 
+## 7.7.0 — 2026-10-23
+
+- Moved Action row Edit/Delete out of the inline trailing controls into a
+  right-click context menu, and added a “Switch to Skill/Command” item based on
+  the Action's current mode.
+- Project availability rows covered by a selected group no longer render a
+  checkbox; the row, type badge, and “Covered by a group” state remain.
+
 ## 7.6.1 — 2026-10-23
 
 - Moved the merged configuration tabs into the modal header as bookmark-style

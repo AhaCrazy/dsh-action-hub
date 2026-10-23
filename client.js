@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.6.1';
+    const VERSION = '7.7.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -158,6 +158,8 @@ window.__ModuleLoader__.load({
       .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
       .ah-group-action:hover { background: var(--dsw-alias-bg-layer-2); }
       .ah-group-action[data-checked="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
+      .ah-group-action[data-covered="true"] { cursor: default; }
+      .ah-group-action-check { width: 13px; height: 13px; flex: 0 0 auto; display: inline-block; }
       .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
       .ah-group-action-desc { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -287,6 +289,8 @@ window.__ModuleLoader__.load({
         'action.import': '导入',
         'action.groups': '分组',
         'action.scopes': '项目范围',
+        'action.switchToSkill': '切换为 Skill',
+        'action.switchToCommand': '切换为 Command',
         'action.export': '导出',
         'action.refresh': '刷新',
         'action.save': '保存',
@@ -333,6 +337,8 @@ window.__ModuleLoader__.load({
         'export.run': '导出所选 ZIP',
         'lib.pinned': '已置顶',
         'lib.unpinned': '已取消置顶',
+        'lib.modeSkill': '已切换为 Skill',
+        'lib.modeCommand': '已切换为 Command',
         'lib.updated': '更新于 {time}',
         'lib.used': '用过 {count} 次',
         'lib.builtin': '内置',
@@ -532,6 +538,8 @@ window.__ModuleLoader__.load({
         'action.import': 'Import',
         'action.groups': 'Groups',
         'action.scopes': 'Project scopes',
+        'action.switchToSkill': 'Switch to Skill',
+        'action.switchToCommand': 'Switch to Command',
         'action.export': 'Export',
         'action.refresh': 'Refresh',
         'action.save': 'Save',
@@ -578,6 +586,8 @@ window.__ModuleLoader__.load({
         'export.run': 'Export selected ZIP',
         'lib.pinned': 'Pinned',
         'lib.unpinned': 'Unpinned',
+        'lib.modeSkill': 'Switched to Skill',
+        'lib.modeCommand': 'Switched to Command',
         'lib.updated': 'Updated {time}',
         'lib.used': 'Used {count}×',
         'lib.builtin': 'Built-in',
@@ -1816,6 +1826,10 @@ window.__ModuleLoader__.load({
         tabIndex: 0,
         'aria-label': action.name,
         onClick: () => props.onOpen(action),
+        onContextMenu: (event) => {
+          event.preventDefault();
+          props.onContextMenu(action, event);
+        },
         onKeyDown: (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -1844,9 +1858,7 @@ window.__ModuleLoader__.load({
           (action.tags ?? []).slice(0, 3).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`))),
         action.description ? h('p', { className: 'ah-desc' }, action.description) : null),
       h('div', { className: 'ah-row-actions' },
-        h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) })),
-        action.builtin === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.edit'), onClick: (event) => { event.stopPropagation(); props.onEdit(action); } }, h(Icons.edit, { size: 13 })),
-        action.builtin === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.delete'), onClick: (event) => { event.stopPropagation(); props.onDelete(action); } }, h(Icons.trash, { size: 13 }))));
+        h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) }))));
     }
 
     function renderResourceTree(resources, t, onPreview) {
@@ -2297,7 +2309,20 @@ window.__ModuleLoader__.load({
         const [categoryDialog, setCategoryDialog] = React.useState(false);
         const [configOpen, setConfigOpen] = React.useState(false);
         const [configTab, setConfigTab] = React.useState('groups');
+        const [menu, setMenu] = React.useState(null);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
+
+        React.useEffect(() => {
+          if (menu === null) return undefined;
+          const close = () => setMenu(null);
+          const onKey = (event) => { if (event.key === 'Escape') setMenu(null); };
+          document.addEventListener('mousedown', close);
+          document.addEventListener('keydown', onKey);
+          return () => {
+            document.removeEventListener('mousedown', close);
+            document.removeEventListener('keydown', onKey);
+          };
+        }, [menu]);
 
         const notify = React.useCallback((text, kind = 'ok') => setNotice({ text, kind }), []);
         React.useEffect(() => {
@@ -2353,6 +2378,16 @@ window.__ModuleLoader__.load({
           try {
             await hub.patchAction(action.id, { pinned: action.pinned !== true });
             notify(action.pinned ? t('lib.unpinned') : t('lib.pinned'), 'ok');
+          } catch (failure) {
+            notify(describeError(failure), 'error');
+          }
+        };
+
+        const toggleMode = async (action) => {
+          const next = action.mode === 'skill' ? 'command' : 'skill';
+          try {
+            await hub.call('/mode', { id: action.name, mode: next });
+            notify(next === 'skill' ? t('lib.modeSkill') : t('lib.modeCommand'), 'ok');
           } catch (failure) {
             notify(describeError(failure), 'error');
           }
@@ -2454,6 +2489,13 @@ window.__ModuleLoader__.load({
                     onPin: togglePin,
                     onEdit: (entry) => setEditor(entry),
                     onDelete: setDeleting,
+                    onContextMenu: (entry, event) => {
+                      setMenu({
+                        action: entry,
+                        x: Math.min(event.clientX, window.innerWidth - 180),
+                        y: Math.min(event.clientY, window.innerHeight - 150),
+                      });
+                    },
                   }))))));
 
         if (editor !== undefined) {
@@ -2557,6 +2599,32 @@ window.__ModuleLoader__.load({
             onClose: () => setCategoryDialog(false),
             onDone: () => { void hub.refresh(true).catch(() => {}); },
           }));
+        }
+
+        if (menu !== null) {
+          const action = menu.action;
+          body.push(h('div', {
+            key: 'menu',
+            className: 'ah-group-context',
+            style: { left: `${menu.x}px`, top: `${menu.y}px` },
+            onMouseDown: (event) => event.stopPropagation(),
+          },
+          h('button', {
+            type: 'button',
+            className: 'ah-group-context-item',
+            onClick: () => { setMenu(null); void toggleMode(action); },
+          }, action.mode === 'skill' ? t('action.switchToCommand') : t('action.switchToSkill')),
+          action.builtin === true ? null : h('button', {
+            type: 'button',
+            className: 'ah-group-context-item',
+            onClick: () => { setMenu(null); setEditor(action); },
+          }, t('action.edit')),
+          action.builtin === true ? null : h('button', {
+            type: 'button',
+            className: 'ah-group-context-item',
+            'data-danger': 'true',
+            onClick: () => { setMenu(null); setDeleting(action); },
+          }, t('action.delete'))));
         }
 
         return h('div', { className: 'ah-page' }, body);
@@ -3121,11 +3189,12 @@ window.__ModuleLoader__.load({
               key: action.id,
               className: 'ah-group-action',
               'data-checked': profile.actions.includes(action.name),
+              'data-covered': inherited,
             },
-            h('input', {
+            inherited ? h('span', { className: 'ah-group-action-check' }) : h('input', {
               type: 'checkbox',
               checked: profile.actions.includes(action.name),
-              disabled: inherited || busy,
+              disabled: busy,
               onChange: (event) => toggleAction(action.name, event.target.checked),
             }),
             h('span', { className: 'ah-group-action-main' },

@@ -556,11 +556,12 @@
               key: action.id,
               className: 'ah-group-action',
               'data-checked': profile.actions.includes(action.name),
+              'data-covered': inherited,
             },
-            h('input', {
+            inherited ? h('span', { className: 'ah-group-action-check' }) : h('input', {
               type: 'checkbox',
               checked: profile.actions.includes(action.name),
-              disabled: inherited || busy,
+              disabled: busy,
               onChange: (event) => toggleAction(action.name, event.target.checked),
             }),
             h('span', { className: 'ah-group-action-main' },

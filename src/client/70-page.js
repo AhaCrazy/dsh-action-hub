@@ -9,6 +9,10 @@
         tabIndex: 0,
         'aria-label': action.name,
         onClick: () => props.onOpen(action),
+        onContextMenu: (event) => {
+          event.preventDefault();
+          props.onContextMenu(action, event);
+        },
         onKeyDown: (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -37,9 +41,7 @@
           (action.tags ?? []).slice(0, 3).map((tag) => h('span', { key: tag, className: 'ah-badge' }, `#${tag}`))),
         action.description ? h('p', { className: 'ah-desc' }, action.description) : null),
       h('div', { className: 'ah-row-actions' },
-        h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) })),
-        action.builtin === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.edit'), onClick: (event) => { event.stopPropagation(); props.onEdit(action); } }, h(Icons.edit, { size: 13 })),
-        action.builtin === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, title: t('action.delete'), onClick: (event) => { event.stopPropagation(); props.onDelete(action); } }, h(Icons.trash, { size: 13 }))));
+        h('span', { className: 'ah-meta' }, used > 0 ? t('lib.used', { count: used }) : t('lib.updated', { time: relativeTime(action.updatedAt) }))));
     }
 
     function renderResourceTree(resources, t, onPreview) {
