@@ -80,10 +80,10 @@
       .ah-group-create .ah-input { flex: 1 1 auto; }
       .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
       .ah-group-list { border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; padding: 6px; overflow-y: auto; background: var(--dsw-alias-bg-layer-1); display: flex; flex-direction: column; gap: 3px; }
-      .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: center; }
+      .ah-group-item { border: 1px solid transparent; border-radius: 8px; padding: 8px 9px; cursor: pointer; display: grid; grid-template-columns: auto auto; gap: 3px 8px; align-items: center; width: fit-content; max-width: 100%; align-self: flex-start; }
       .ah-group-item:hover { background: transparent; }
       .ah-group-item:not([data-active="true"]):hover .ah-group-name { color: var(--dsw-alias-brand-primary); }
-      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); }
+      .ah-group-item[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); box-shadow: inset 3px 0 0 var(--dsw-alias-brand-primary); grid-template-columns: minmax(0, 1fr) auto; width: 100%; align-self: stretch; }
       .ah-group-item-main { display: flex; align-items: center; gap: 6px; min-width: 0; }
       .ah-group-name { font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .ah-group-count { font-size: 11px; color: var(--dsw-alias-label-secondary); text-align: right; }

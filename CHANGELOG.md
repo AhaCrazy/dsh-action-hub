@@ -1,5 +1,10 @@
 # Changelog
 
+## 7.3.3 — 2026-10-23
+
+- Unselected group rows now shrink to their content instead of spanning the full
+  left column; only the selected group expands to full width for its actions.
+
 ## 7.3.2 — 2026-10-23
 
 - Only the selected group in the group list gets a card/background; hovering an
