@@ -1,5 +1,11 @@
 # Changelog
 
+## 7.8.1 — 2026-10-23
+
+- Group inclusion rows now use the same three-state check: blue for a direct
+  include and grey for a group already reachable through another selected group.
+  The per-row “already active” / cycle text badges were removed.
+
 ## 7.8.0 — 2026-10-23
 
 - Introduced a three-state checkbox for Actions in both the group and project

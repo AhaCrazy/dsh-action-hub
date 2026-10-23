@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.8.0';
+    const VERSION = '7.8.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -177,8 +177,6 @@ window.__ModuleLoader__.load({
       .ah-group-include-list { display: flex; flex-wrap: wrap; gap: 5px; padding-bottom: 8px; }
       .ah-group-include { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; padding: 4px 8px; cursor: pointer; font-size: 11.5px; }
       .ah-group-include[data-checked="true"] { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2); }
-      .ah-group-include[data-cycle="true"] { border-style: dashed; }
-      .ah-group-include[data-effective="true"] { border-style: dashed; background: var(--dsw-alias-bg-layer-2); }
       .ah-group-include-name { font-weight: 600; }
       .ah-group-inherited { padding: 8px 12px 10px; border-top: 1px solid var(--dsw-alias-border-l1); }
       .ah-group-inherited-list { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -497,7 +495,7 @@ window.__ModuleLoader__.load({
         'scope.searchActions': '搜索 Action',
         'scope.viaGroup': '已由分组覆盖',
         'scope.projects': '项目列表',
-        'scope.groupsHint': '勾选分组后，该项目的 Action 范围会自动包含子分组的 Action。',
+        'scope.groupsHint': '勾选分组后自动包含子分组 Action；灰色勾表示由父分组间接覆盖，点击可切换为蓝色直接选择。',
         'scope.extraHint': '灰色勾表示由已选分组覆盖，点击可切换为蓝色单独选中；无需重复追加。',
         'scope.groupCount': '{count} 个分组',
         'scope.noProjects': '没有可配置的项目',
@@ -746,7 +744,7 @@ window.__ModuleLoader__.load({
         'scope.searchActions': 'Search Actions',
         'scope.viaGroup': 'Covered by a group',
         'scope.projects': 'Projects',
-        'scope.groupsHint': 'Selecting a group automatically includes the Actions of its child groups.',
+        'scope.groupsHint': 'Selecting a group automatically includes its child groups. A grey check is covered by a parent group; click it to switch to a blue direct selection.',
         'scope.extraHint': 'A grey check means the Action is covered by a selected group; click it to switch to a blue individual selection.',
         'scope.groupCount': '{count} groups',
         'scope.noProjects': 'No projects to configure',
@@ -2703,13 +2701,6 @@ window.__ModuleLoader__.load({
       const activeIncludes = active === null ? [] : draftIncludes(active);
       const activeEffective = active === null ? new Set() : namesFor(active.id);
       const inheritedNames = new Set([...activeEffective].filter((entry) => !activeDirectSet.has(entry)));
-      const reachesGroup = (from, target, seen = new Set()) => {
-        if (from === target) return true;
-        if (typeof from !== 'string' || seen.has(from)) return false;
-        seen.add(from);
-        const group = groups.find((entry) => entry.id === from);
-        return (group === undefined ? [] : draftIncludes(group)).some((child) => reachesGroup(child, target, seen));
-      };
       const dirtyGroups = groups.filter((group) => {
         const before = originalNames(group);
         const after = draftNames(group);
@@ -2896,26 +2887,22 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ah-group-include-list' }, childGroups.map((child) => {
           const checked = activeIncludes.includes(child.id);
           const effective = !checked && activeEffectiveGroups.has(child.id);
-          const cycle = !checked && !effective && reachesGroup(child.id, active.id);
+          const state = checked ? 'on' : effective ? 'inherited' : 'off';
           return h('label', {
             key: child.id,
             className: 'ah-group-include',
             'data-checked': checked,
             'data-effective': effective,
-            'data-cycle': cycle,
-            title: effective ? t('groups.effectiveHint') : undefined,
+            'data-state': state,
           },
-          h('input', {
-            type: 'checkbox',
+          h(ActionCheck, {
             checked,
+            state,
             disabled: busy,
             onChange: (event) => toggleInclude(child, event.target.checked),
           }),
           h('span', { className: 'ah-group-include-name' }, child.name),
-          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })),
-          effective
-            ? h('span', { className: 'ah-badge' }, t('groups.effectiveBadge'))
-            : cycle ? h('span', { className: 'ah-badge' }, t('groups.cycleHint')) : null);
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: namesFor(child.id).size })));
         })));
       const inheritedActions = active === null
         ? []
@@ -3182,21 +3169,22 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ah-group-include-list' }, groups.map((group) => {
           const checked = profile.groups.includes(group.id);
           const effective = !checked && expandGroups(profile.groups).has(group.id);
+          const state = checked ? 'on' : effective ? 'inherited' : 'off';
           return h('label', {
             key: group.id,
             className: 'ah-group-include',
             'data-checked': checked,
             'data-effective': effective,
+            'data-state': state,
           },
-          h('input', {
-            type: 'checkbox',
+          h(ActionCheck, {
             checked,
+            state,
             disabled: busy,
             onChange: (event) => toggleGroup(group.id, event.target.checked),
           }),
           h('span', { className: 'ah-group-include-name' }, group.name),
-          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: groupActionCount(group.id) })),
-          effective ? h('span', { className: 'ah-badge' }, t('groups.effectiveBadge')) : null);
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: groupActionCount(group.id) })));
         })));
 
       const actionTools = h('div', { className: 'ah-group-tools' },
