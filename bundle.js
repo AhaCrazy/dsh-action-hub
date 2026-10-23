@@ -126,7 +126,7 @@ export async function previewZipBuffer(store, dataDir, buffer) {
       await fs.writeFile(target, data);
     }
     const candidates = await collectFolderSkills(temporary);
-    return buildPlan(store, candidates, 'ZIP');
+    return await buildPlan(store, candidates, 'ZIP');
   } finally {
     await fs.rm(temporary, { recursive: true, force: true }).catch(() => {});
   }
@@ -135,13 +135,7 @@ export async function previewZipBuffer(store, dataDir, buffer) {
 async function copySkill(source, target) {
   await fs.rm(target, { recursive: true, force: true });
   await fs.mkdir(target, { recursive: true });
-  const files = [SKILL_FILE, ...await listFiles(source)];
-  for (const relative of files) {
-    const from = path.join(source, relative);
-    const to = path.join(target, relative);
-    await fs.mkdir(path.dirname(to), { recursive: true });
-    await fs.copyFile(from, to);
-  }
+  await fs.cp(source, target, { recursive: true, force: true });
 }
 
 async function applyPlan(store, dataDir, candidates, decisions, reserved) {
@@ -200,7 +194,8 @@ export async function applyZipPlan(store, dataDir, buffer, decisions, reservedId
       await fs.writeFile(target, data);
     }
     const candidates = await collectFolderSkills(temporary);
-    return applyPlan(store, dataDir, candidates, decisions, new Set(reservedIds));
+    const result = await applyPlan(store, dataDir, candidates, decisions, new Set(reservedIds));
+    return result;
   } finally {
     await fs.rm(temporary, { recursive: true, force: true }).catch(() => {});
   }

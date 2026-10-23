@@ -1,5 +1,14 @@
 # Changelog
 
+## 6.0.1 — 2026-10-23
+
+- **Prune orphan entries from `state.json`.** Deleting a skill directory outside
+  the plugin (for example from the file explorer) now removes its local mode /
+  scope / usage state on the next library read, instead of leaving permanent
+  orphans. Built-in state and temporarily unreadable skill directories are kept.
+- Fix a race in ZIP import where the temporary extraction directory could be
+  removed before the imported files were copied.
+
 ## 6.0.0 — 2026-10-23
 
 - **Standard-first redesign.** Each entry is now a standard Agent Skill directory

@@ -1,96 +1,73 @@
-# Action Hub
+﻿# Action Hub
 
-**DSH 的标准 Agent Skill 库：同一份 `SKILL.md`，可以当模型可调用的 Skill，也可以只当你能调用的 Command。**
+**DSH 鐨勬爣鍑?Agent Skill 搴擄細鍚屼竴浠?`SKILL.md`锛屽彲浠ュ綋妯″瀷鍙皟鐢ㄧ殑 Skill锛屼篃鍙互鍙綋浣犺兘璋冪敤鐨?Command銆?*
 
-[English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
+[English](README.en.md) 路 [鏇存柊鏃ュ織](CHANGELOG.md) 路 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-6.0.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-6.0.1-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
-## 核心理念
+## 鏍稿績鐞嗗康
 
-- **文件即标准**：每个条目就是一个标准目录 `SKILL.md` + 资源文件，不生成 `action.json`，不往 frontmatter 里塞插件私有字段。
-- **模式在本地**：`Command` / `Skill` 是同一文件的两种本机使用方式，切换不改文件、不复制正文。
-- **Command 零上下文**：默认不注册给模型，只在 Action 面板里由你主动调用。
-- **Skill 可被模型调用**：只有你显式切换后才会进入模型目录；切换会显示上下文成本。
-- **项目范围**：每个条目可以只允许在指定项目使用；范围存本地，不随分享包走。
-- **导入零转换**：网上下载的 SKILL.md 目录/ZIP 原样导入，导出也是原样标准目录。
+- **鏂囦欢鍗虫爣鍑?*锛氭瘡涓潯鐩氨鏄竴涓爣鍑嗙洰褰?`SKILL.md` + 璧勬簮鏂囦欢锛屼笉鐢熸垚 `action.json`锛屼笉寰€ frontmatter 閲屽鎻掍欢绉佹湁瀛楁銆?- **妯″紡鍦ㄦ湰鍦?*锛歚Command` / `Skill` 鏄悓涓€鏂囦欢鐨勪袱绉嶆湰鏈轰娇鐢ㄦ柟寮忥紝鍒囨崲涓嶆敼鏂囦欢銆佷笉澶嶅埗姝ｆ枃銆?- **Command 闆朵笂涓嬫枃**锛氶粯璁や笉娉ㄥ唽缁欐ā鍨嬶紝鍙湪 Action 闈㈡澘閲岀敱浣犱富鍔ㄨ皟鐢ㄣ€?- **Skill 鍙妯″瀷璋冪敤**锛氬彧鏈変綘鏄惧紡鍒囨崲鍚庢墠浼氳繘鍏ユā鍨嬬洰褰曪紱鍒囨崲浼氭樉绀轰笂涓嬫枃鎴愭湰銆?- **椤圭洰鑼冨洿**锛氭瘡涓潯鐩彲浠ュ彧鍏佽鍦ㄦ寚瀹氶」鐩娇鐢紱鑼冨洿瀛樻湰鍦帮紝涓嶉殢鍒嗕韩鍖呰蛋銆?- **瀵煎叆闆惰浆鎹?*锛氱綉涓婁笅杞界殑 SKILL.md 鐩綍/ZIP 鍘熸牱瀵煎叆锛屽鍑轰篃鏄師鏍锋爣鍑嗙洰褰曘€?
+## 浣跨敤
 
-## 使用
+### 闈㈡澘
 
-### 面板
+`Alt + A`锛坢acOS `鈱?+ A`锛夋垨杈撳叆妗嗗伐鍏疯鎸夐挳鎵撳紑锛?
+- 涓枃鍚嶃€佹弿杩般€佹爣绛俱€佹鏂囧潎鍙悳绱紱
+- 姣忚鏄剧ず `[Command]` / `[Skill]` 涓庤寖鍥达紱
+- Command锛氭棤鍙傛暟鎻掑叆寮曠敤 chip锛屾湁鍙傛暟鎻掑叆灞曞紑鍚庣殑姝ｆ枃锛?- Skill锛氭彃鍏?`/skill-name`锛岀敱 DSH 鍘熺敓鍔犺浇鎶€鑳芥鏂囷紱
+- `Enter` / `Tab` 鎻掑叆锛宍Ctrl/鈱?+ Enter` 鍙戦€併€?
+### 绠＄悊
 
-`Alt + A`（macOS `⌥ + A`）或输入框工具行按钮打开：
+`Ctrl + Alt + A`锛坢acOS `鈱?+ 鈱?+ A`锛夋垨绠＄悊椤碉細
 
-- 中文名、描述、标签、正文均可搜索；
-- 每行显示 `[Command]` / `[Skill]` 与范围；
-- Command：无参数插入引用 chip，有参数插入展开后的正文；
-- Skill：插入 `/skill-name`，由 DSH 原生加载技能正文；
-- `Enter` / `Tab` 插入，`Ctrl/⌘ + Enter` 发送。
+- 鏂板缓/缂栬緫鏍囧噯鎶€鑳斤紙`name` 蹇呴』鏄?kebab-case锛夛紱
+- 鍒囨崲 Command / Skill锛?- 閰嶇疆鈥滄墍鏈夐」鐩€濇垨鍕鹃€夋寚瀹氶」鐩紱
+- 瀵煎叆鏂囦欢澶?ZIP锛屽鍑哄崟鏉℃垨鏁村簱銆?
+### 瀵煎叆浠绘剰鏍囧噯 Skill
 
-### 管理
-
-`Ctrl + Alt + A`（macOS `⌘ + ⌥ + A`）或管理页：
-
-- 新建/编辑标准技能（`name` 必须是 kebab-case）；
-- 切换 Command / Skill；
-- 配置“所有项目”或勾选指定项目；
-- 导入文件夹/ZIP，导出单条或整库。
-
-### 导入任意标准 Skill
-
-导入目录必须包含 `SKILL.md`：
-
+瀵煎叆鐩綍蹇呴』鍖呭惈 `SKILL.md`锛?
 ```text
 my-skill/
   SKILL.md
-  ...资源文件
+  ...璧勬簮鏂囦欢
 ```
 
 ```markdown
 ---
 name: my-skill
-description: 一句话说明何时使用
+description: 涓€鍙ヨ瘽璇存槑浣曟椂浣跨敤
 ---
 
-正文……
-```
+姝ｆ枃鈥︹€?```
 
-导入后默认是 **Command**。需要在编辑器里切换为 **Skill**，模型才能自行调用；切换前会提示上下文成本。
-
-## 数据
+瀵煎叆鍚庨粯璁ゆ槸 **Command**銆傞渶瑕佸湪缂栬緫鍣ㄩ噷鍒囨崲涓?**Skill**锛屾ā鍨嬫墠鑳借嚜琛岃皟鐢紱鍒囨崲鍓嶄細鎻愮ず涓婁笅鏂囨垚鏈€?
+## 鏁版嵁
 
 ```text
 ~/.dsh/dsh-action-hub/
   library/<skill-name>/
-    SKILL.md       # 唯一事实源，标准格式
-    ...资源
-  state.json       # 本机状态：mode / scope / category / pin / usage
+    SKILL.md       # 鍞竴浜嬪疄婧愶紝鏍囧噯鏍煎紡
+    ...璧勬簮
+  state.json       # 鏈満鐘舵€侊細mode / scope / category / pin / usage
 ```
 
-- 不创建 `action.json`；
-- 升级自 5.x 时，旧 `actions/` 会归档到 `backup-v5-test-*`，新库为空，不做兼容迁移；
-- 分享包只包含标准技能目录，不包含 `state.json`，因此模式/范围/分类不会随包分享。
+- 涓嶅垱寤?`action.json`锛?- 鍗囩骇鑷?5.x 鏃讹紝鏃?`actions/` 浼氬綊妗ｅ埌 `backup-v5-test-*`锛屾柊搴撲负绌猴紝涓嶅仛鍏煎杩佺Щ锛?- 鍒嗕韩鍖呭彧鍖呭惈鏍囧噯鎶€鑳界洰褰曪紝涓嶅寘鍚?`state.json`锛屽洜姝ゆā寮?鑼冨洿/鍒嗙被涓嶄細闅忓寘鍒嗕韩銆?
+## 椤圭洰鑼冨洿
 
-## 项目范围
-
-- 范围只做全局 + 项目级；
-- 项目来源是 DSH 已登记工作区，不手输路径；
-- 范围在 provider 和 Command 注入点各校验一次；
-- 未知项目/scope 损坏时默认不可用（fail-closed）。
-
-## 开发
-
+- 鑼冨洿鍙仛鍏ㄥ眬 + 椤圭洰绾э紱
+- 椤圭洰鏉ユ簮鏄?DSH 宸茬櫥璁板伐浣滃尯锛屼笉鎵嬭緭璺緞锛?- 鑼冨洿鍦?provider 鍜?Command 娉ㄥ叆鐐瑰悇鏍￠獙涓€娆★紱
+- 鏈煡椤圭洰/scope 鎹熷潖鏃堕粯璁や笉鍙敤锛坒ail-closed锛夈€?
+## 寮€鍙?
 ```bash
 npm install
 npm test
 ```
 
-客户端由 `src/client/*.js` 拼接为 `client.js`；Host 入口 `index.js`，标准文档解析在 `skill-doc.js`。
+瀹㈡埛绔敱 `src/client/*.js` 鎷兼帴涓?`client.js`锛汬ost 鍏ュ彛 `index.js`锛屾爣鍑嗘枃妗ｈВ鏋愬湪 `skill-doc.js`銆?
+## 闄愬埗
 
-## 限制
-
-- 原生 `/` 菜单按 ASCII name 搜索，中文搜索请用 Action 面板；
-- Skill 目录变化会让模型目录整体重发一次；切换前请留意成本提示；
-- 当前版本不提供 agent/preset 级范围。
+- 鍘熺敓 `/` 鑿滃崟鎸?ASCII name 鎼滅储锛屼腑鏂囨悳绱㈣鐢?Action 闈㈡澘锛?- Skill 鐩綍鍙樺寲浼氳妯″瀷鐩綍鏁翠綋閲嶅彂涓€娆★紱鍒囨崲鍓嶈鐣欐剰鎴愭湰鎻愮ず锛?- 褰撳墠鐗堟湰涓嶆彁渚?agent/preset 绾ц寖鍥淬€?
