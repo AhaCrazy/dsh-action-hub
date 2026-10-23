@@ -1,5 +1,14 @@
 # Changelog
 
+## 7.5.0 — 2026-10-23
+
+- Redesigned the project availability dialog as a two-pane editor: project list
+  on the left, selected project's groups and extra Actions on the right.
+- Project edits are drafted per project and saved together; closing with unsaved
+  changes asks for confirmation.
+- The project pane shows indirectly active groups, covered Actions, per-group
+  Action counts, and the shared wide modal layout.
+
 ## 7.4.2 — 2026-10-23
 
 - Groups already reachable through the current includes (including cycles) are

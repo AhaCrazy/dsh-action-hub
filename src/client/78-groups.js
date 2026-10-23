@@ -367,31 +367,56 @@
       const currentProject = props.currentProject ?? null;
       const initialPath = currentProject?.path ?? scopes[0]?.path ?? projects[0]?.path ?? '';
       const [projectPath, setProjectPath] = React.useState(initialPath);
-      const [profile, setProfile] = React.useState(() => {
-        const found = scopes.find((entry) => String(entry.path).toLowerCase() === String(initialPath).toLowerCase());
-        return found ?? { path: initialPath, label: '', groups: ['common'], actions: [] };
-      });
+      const [drafts, setDrafts] = React.useState({});
       const [query, setQuery] = React.useState('');
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
 
-      const selectProject = (path) => {
-        setProjectPath(path);
-        const found = scopes.find((entry) => String(entry.path).toLowerCase() === String(path).toLowerCase());
-        setProfile(found ?? { path, label: '', groups: ['common'], actions: [] });
+      const keyOf = (value) => String(value ?? '').toLowerCase();
+      const normalizeProfile = (raw, path) => ({
+        path,
+        label: typeof raw?.label === 'string' ? raw.label : '',
+        groups: Array.isArray(raw?.groups) ? raw.groups : ['common'],
+        actions: Array.isArray(raw?.actions) ? raw.actions : [],
+      });
+      const originalFor = (path) => {
+        const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
+        return normalizeProfile(found ?? { path, label: '', groups: ['common'], actions: [] }, path);
       };
-      const toggleGroup = (id, checked) => {
-        setProfile((previous) => ({
+      const draftFor = (path) => drafts[keyOf(path)] ?? originalFor(path);
+      const profile = draftFor(projectPath);
+      const updateProfile = (updater) => {
+        if (projectPath === '') return;
+        const key = keyOf(projectPath);
+        setDrafts((previous) => ({
           ...previous,
-          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
+          [key]: updater(previous[key] ?? originalFor(projectPath)),
         }));
       };
-      const toggleAction = (name, checked) => {
-        setProfile((previous) => ({
-          ...previous,
-          actions: checked ? [...new Set([...previous.actions, name])] : previous.actions.filter((entry) => entry !== name),
-        }));
-      };
+      const maybeStaleProjects = (() => {
+        const options = projects.map((project) => ({ ...project, stale: false }));
+        for (const scope of scopes) {
+          if (!options.some((project) => keyOf(project.path) === keyOf(scope.path))) {
+            options.push({ label: scope.label || scope.path, path: scope.path, stale: true });
+          }
+        }
+        return options;
+      })();
+      const differs = (before, after) => before.length !== after.length || before.some((entry) => !after.includes(entry));
+      const dirtyProjects = maybeStaleProjects.filter((project) => {
+        const before = originalFor(project.path);
+        const after = draftFor(project.path);
+        return differs(before.groups, after.groups) || differs(before.actions, after.actions);
+      });
+      const dirtyCount = dirtyProjects.reduce((sum, project) => {
+        const before = originalFor(project.path);
+        const after = draftFor(project.path);
+        const groupsAdded = after.groups.filter((entry) => !before.groups.includes(entry)).length;
+        const groupsRemoved = before.groups.filter((entry) => !after.groups.includes(entry)).length;
+        const actionsAdded = after.actions.filter((entry) => !before.actions.includes(entry)).length;
+        const actionsRemoved = before.actions.filter((entry) => !after.actions.includes(entry)).length;
+        return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved;
+      }, 0);
       const expandGroups = (selected) => {
         const byId = new Map(groups.map((group) => [group.id, group]));
         const seen = new Set();
@@ -407,26 +432,53 @@
         const selected = expandGroups(profile.groups);
         return (action.groups ?? []).some((id) => selected.has(id));
       };
-      const projectOptions = [...projects];
-      for (const scope of scopes) {
-        if (!projectOptions.some((project) => String(project.path).toLowerCase() === String(scope.path).toLowerCase())) {
-          projectOptions.push({ label: scope.label || scope.path, path: scope.path, stale: true });
-        }
-      }
+      const collectGroupActions = (groupId, seen = new Set(), out = new Set()) => {
+        if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return out;
+        seen.add(groupId);
+        for (const action of actions) if ((action.groups ?? []).includes(groupId)) out.add(action.name);
+        const group = groups.find((entry) => entry.id === groupId);
+        for (const child of group?.includes ?? []) collectGroupActions(child, seen, out);
+        return out;
+      };
+      const groupActionCount = (groupId) => collectGroupActions(groupId).size;
+      const selectedActionCount = actions.filter((action) => covered(action) || profile.actions.includes(action.name)).length;
       const filtered = query.trim() === ''
         ? actions
         : actions.filter((action) => `${action.name} ${action.description} ${(action.tags ?? []).join(' ')}`.toLowerCase().includes(query.trim().toLowerCase()));
 
+      const selectProject = (path) => {
+        setProjectPath(path);
+        setQuery('');
+      };
+      const toggleGroup = (id, checked) => {
+        updateProfile((previous) => ({
+          ...previous,
+          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
+        }));
+      };
+      const toggleAction = (name, checked) => {
+        updateProfile((previous) => ({
+          ...previous,
+          actions: checked ? [...new Set([...previous.actions, name])] : previous.actions.filter((entry) => entry !== name),
+        }));
+      };
+      const close = () => {
+        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
+        props.onClose?.();
+      };
       const save = async () => {
         setBusy(true);
         setError('');
         try {
-          await api('/project-scope', {
-            path: projectPath,
-            label: projectOptions.find((project) => project.path === projectPath)?.label ?? '',
-            groups: profile.groups,
-            actions: profile.actions,
-          });
+          for (const project of dirtyProjects) {
+            const draft = draftFor(project.path);
+            await api('/project-scope', {
+              path: project.path,
+              label: project.label,
+              groups: draft.groups,
+              actions: draft.actions,
+            });
+          }
           await props.onChanged?.();
           props.onClose?.();
         } catch (failure) {
@@ -436,38 +488,90 @@
         }
       };
 
+      const projectRows = maybeStaleProjects.map((project) => h('div', {
+        key: project.path,
+        className: 'ah-group-item',
+        'data-active': keyOf(project.path) === keyOf(projectPath),
+        onClick: () => selectProject(project.path),
+      },
+      h('div', { className: 'ah-group-item-main' },
+        h('span', { className: 'ah-group-name' }, project.label || project.path),
+        project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null),
+      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: draftFor(project.path).groups.length }))));
+
+      const projectHead = h('header', { className: 'ah-group-detail-head' },
+        h('div', { className: 'ah-scope-project-head' },
+          h('h3', { className: 'ah-group-detail-title' }, profile.label || projectPath || t('scope.project')),
+          h('span', { className: 'ah-scope-project-path', title: projectPath }, projectPath || t('scope.noProjects')),
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: selectedActionCount }))));
+
+      const groupBlock = h('div', { className: 'ah-group-includes' },
+        h('div', { className: 'ah-group-section-label' }, t('scope.groups')),
+        h('p', { className: 'ah-hint' }, t('scope.groupsHint')),
+        h('div', { className: 'ah-group-include-list' }, groups.map((group) => {
+          const checked = profile.groups.includes(group.id);
+          const effective = !checked && expandGroups(profile.groups).has(group.id);
+          return h('label', {
+            key: group.id,
+            className: 'ah-group-include',
+            'data-checked': checked,
+            'data-effective': effective,
+          },
+          h('input', {
+            type: 'checkbox',
+            checked,
+            disabled: busy,
+            onChange: (event) => toggleGroup(group.id, event.target.checked),
+          }),
+          h('span', { className: 'ah-group-include-name' }, group.name),
+          h('span', { className: 'ah-count' }, t('groups.actionCount', { count: groupActionCount(group.id) })),
+          effective ? h('span', { className: 'ah-badge' }, t('groups.effectiveBadge')) : null);
+        })));
+
+      const actionTools = h('div', { className: 'ah-group-tools' },
+        h('p', { className: 'ah-hint' }, t('scope.extraHint')),
+        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery }));
+
+      const actionRows = h('div', { className: 'ah-group-actions' },
+        filtered.length === 0
+          ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
+          : filtered.map((action) => {
+            const inherited = covered(action);
+            return h('label', {
+              key: action.id,
+              className: 'ah-group-action',
+              'data-checked': profile.actions.includes(action.name),
+            },
+            h('input', {
+              type: 'checkbox',
+              checked: profile.actions.includes(action.name),
+              disabled: inherited || busy,
+              onChange: (event) => toggleAction(action.name, event.target.checked),
+            }),
+            h('span', { className: 'ah-group-action-main' },
+              h('span', { className: 'ah-group-action-name' }, action.name),
+              h('span', { className: 'ah-group-action-desc' }, action.description || '')),
+            h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')),
+            inherited ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null);
+          }));
+
+      const detail = h(React.Fragment, null, projectHead, groupBlock, actionTools, actionRows);
+      const layout = h('div', { className: 'ah-group-layout' },
+        h('aside', { className: 'ah-group-list', 'aria-label': t('scope.projects') },
+          h('div', { className: 'ah-group-section-label' }, t('scope.projects')),
+          projectRows.length === 0 ? h('div', { className: 'ah-group-empty' }, t('scope.noProjects')) : projectRows),
+        h('section', { className: 'ah-group-detail' }, detail));
+
       return h(Modal, {
         title: t('scope.title'),
         t,
-        onClose: props.onClose,
+        wide: true,
+        onClose: close,
         footer: h(React.Fragment, null,
-          h(Button, { onClick: props.onClose }, t('action.cancel')),
-          h(Button, { primary: true, disabled: busy || projectPath === '', onClick: save }, t('action.save'))),
+          h('span', { className: 'ah-group-dirty' }, dirtyCount > 0 ? t('groups.unsaved', { count: dirtyCount }) : t('groups.noChanges')),
+          h(Button, { onClick: close }, t('action.cancel')),
+          h(Button, { primary: true, disabled: busy || projectPath === '' || dirtyCount === 0, onClick: save }, t('groups.save'))),
       },
-      h('div', { className: 'ah-field' },
-        h('label', { className: 'ah-label' }, t('scope.project')),
-        h('select', { className: 'ah-input', value: projectPath, onChange: (event) => selectProject(event.target.value) },
-          projectOptions.map((project) => h('option', { key: project.path, value: project.path }, `${project.label}${project.stale ? ` (${t('editor.scopeStale')})` : ''}`)))),
-      h('div', { className: 'ah-field' },
-        h('label', { className: 'ah-label' }, t('scope.groups')),
-        h('div', { className: 'ah-scope-list' }, groups.map((group) => h('label', { key: group.id, className: 'ah-scope-option' },
-          h('input', {
-            type: 'checkbox',
-            checked: profile.groups.includes(group.id),
-            onChange: (event) => toggleGroup(group.id, event.target.checked),
-          }),
-          ` ${group.name}`)))),
-      h('div', { className: 'ah-field' },
-        h('label', { className: 'ah-label' }, t('scope.extraActions')),
-        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery }),
-        h('div', { className: 'ah-scope-list' }, filtered.map((action) => h('label', { key: action.id, className: 'ah-scope-option' },
-          h('input', {
-            type: 'checkbox',
-            checked: profile.actions.includes(action.name),
-            disabled: covered(action),
-            onChange: (event) => toggleAction(action.name, event.target.checked),
-          }),
-          ` ${action.name}`,
-          covered(action) ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null)))),
+      layout,
       error === '' ? null : h('div', { className: 'ah-notice', 'data-kind': 'error', role: 'alert' }, error));
     }

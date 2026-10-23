@@ -110,6 +110,8 @@
       .ah-group-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 12px 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
       .ah-group-detail-title { margin: 0; font-size: 14px; font-weight: 650; }
       .ah-group-detail-actions { display: flex; gap: 2px; }
+      .ah-scope-project-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+      .ah-scope-project-path { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
       .ah-group-tools { padding: 9px 12px 7px; display: flex; flex-direction: column; gap: 7px; }
       .ah-group-tools .ah-search, .ah-field .ah-search { flex: 0 0 auto; width: 100%; }
       .ah-group-filters { display: flex; gap: 4px; }
