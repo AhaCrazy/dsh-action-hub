@@ -1,5 +1,12 @@
 # Changelog
 
+## 6.0.5 — 2026-10-23
+
+- **Complete the loaded skill definition.** `get()` now also returns the
+  `invocation: { modelInvocable: true, userInvocable: false }` policy. Without it
+  the DSH `skill` tool crashed on `reading 'modelInvocable'` after a successful
+  provider lookup.
+
 ## 6.0.4 — 2026-10-23
 
 - **Fix model skill loading.** The provider's `get()` returned `provider` but not

@@ -80,6 +80,7 @@ export function installSkillsProvider(ctx, store) {
           content: skill.body,
           source: PROVIDER,
           provider: PROVIDER,
+          invocation: { modelInvocable: true, userInvocable: false },
           path: skill.dir,
           resourceBase: { kind: 'directory', path: skill.dir },
         };
