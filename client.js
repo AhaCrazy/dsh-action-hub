@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.7.0';
+    const VERSION = '7.7.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -96,6 +96,9 @@ window.__ModuleLoader__.load({
       .ah-notice { font-size: 12px; line-height: 1.55; border-radius: 8px; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); }
       .ah-notice[data-kind="error"] { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 55%, transparent); }
       .ah-notice[data-kind="ok"] { color: var(--dsw-alias-state-success-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 55%, transparent); }
+      .ah-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 300; max-width: min(560px, calc(100vw - 40px)); padding: 8px 14px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 9px; background: var(--dsw-alias-bg-overlay); box-shadow: 0 14px 38px rgba(0, 0, 0, .36); font-size: 12px; line-height: 1.5; color: var(--dsw-alias-label-primary); pointer-events: none; }
+      .ah-toast[data-kind="error"] { color: var(--dsw-alias-state-error-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 55%, transparent); }
+      .ah-toast[data-kind="ok"] { color: var(--dsw-alias-state-success-primary); border-color: color-mix(in srgb, var(--dsw-alias-state-success-primary) 55%, transparent); }
       .ah-kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 5px; border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); font-size: 10.5px; font-family: inherit; line-height: 1; }
       /* modal */
       .ah-backdrop { position: fixed; inset: 0; z-index: 60; background: rgba(9, 11, 16, .42); display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -158,8 +161,7 @@ window.__ModuleLoader__.load({
       .ah-group-action { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; }
       .ah-group-action:hover { background: var(--dsw-alias-bg-layer-2); }
       .ah-group-action[data-checked="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); }
-      .ah-group-action[data-covered="true"] { cursor: default; }
-      .ah-group-action-check { width: 13px; height: 13px; flex: 0 0 auto; display: inline-block; }
+      .ah-group-action[data-covered="true"] { cursor: default; padding-left: 29px; }
       .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
       .ah-group-action-desc { font-size: 11px; color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2444,8 +2446,6 @@ window.__ModuleLoader__.load({
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
-        if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'ah-notice', 'data-kind': notice.kind, role: 'status' }, notice.text));
-
         body.push(h('div', { key: 'body', className: 'ah-body' },
           h('nav', { className: 'ah-nav', 'aria-label': t('lib.categories') },
             h('div', { className: 'ah-nav-label' }, t('lib.categories')),
@@ -2626,6 +2626,8 @@ window.__ModuleLoader__.load({
             onClick: () => { setMenu(null); setDeleting(action); },
           }, t('action.delete'))));
         }
+
+        if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'ah-toast', 'data-kind': notice.kind, role: 'status', 'aria-live': 'polite' }, notice.text));
 
         return h('div', { className: 'ah-page' }, body);
       };
@@ -3191,7 +3193,7 @@ window.__ModuleLoader__.load({
               'data-checked': profile.actions.includes(action.name),
               'data-covered': inherited,
             },
-            inherited ? h('span', { className: 'ah-group-action-check' }) : h('input', {
+            inherited ? null : h('input', {
               type: 'checkbox',
               checked: profile.actions.includes(action.name),
               disabled: busy,

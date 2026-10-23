@@ -1,5 +1,12 @@
 # Changelog
 
+## 7.7.1 — 2026-10-23
+
+- Removed the remaining checkbox placeholder from project Actions covered by a
+  group; covered rows now have no checkbox at all.
+- Moved transient library notices to a fixed bottom toast so success/error
+  messages no longer push the main content down.
+
 ## 7.7.0 — 2026-10-23
 
 - Moved Action row Edit/Delete out of the inline trailing controls into a

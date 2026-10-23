@@ -558,7 +558,7 @@
               'data-checked': profile.actions.includes(action.name),
               'data-covered': inherited,
             },
-            inherited ? h('span', { className: 'ah-group-action-check' }) : h('input', {
+            inherited ? null : h('input', {
               type: 'checkbox',
               checked: profile.actions.includes(action.name),
               disabled: busy,

@@ -149,8 +149,6 @@
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
-        if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'ah-notice', 'data-kind': notice.kind, role: 'status' }, notice.text));
-
         body.push(h('div', { key: 'body', className: 'ah-body' },
           h('nav', { className: 'ah-nav', 'aria-label': t('lib.categories') },
             h('div', { className: 'ah-nav-label' }, t('lib.categories')),
@@ -331,6 +329,8 @@
             onClick: () => { setMenu(null); setDeleting(action); },
           }, t('action.delete'))));
         }
+
+        if (notice.text !== '') body.push(h('div', { key: 'notice', className: 'ah-toast', 'data-kind': notice.kind, role: 'status', 'aria-live': 'polite' }, notice.text));
 
         return h('div', { className: 'ah-page' }, body);
       };
