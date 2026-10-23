@@ -1,5 +1,15 @@
 # Changelog
 
+## 7.3.0 — 2026-10-23
+
+- Groups can include other groups. Selecting a parent group grants every Action
+  of its descendants through the same availability check.
+- The group editor adds an “Includes groups” section with cycle-safe checkboxes,
+  effective Action counts, inherited Action badges, and traversal-aware project
+  coverage.
+- Cycle creation is rejected on the Host and sanitized when state is read;
+  deleting a group also removes the reference from parent groups.
+
 ## 7.2.0 — 2026-10-23
 
 - Redesigned the group dialog as a two-pane editor: group list on the left,

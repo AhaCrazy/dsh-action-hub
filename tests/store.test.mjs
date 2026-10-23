@@ -105,6 +105,19 @@ test('assigns a group membership from the group side', async () => {
   assert.deepEqual(result.actions.find((action) => action.name === 'two').groups, ['common', 'shared']);
 });
 
+test('nests groups and rejects a cycle', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  const art = await store.createGroup('Art');
+  const figma = await store.createGroup('Figma');
+  await store.setGroupIncludes(art.id, [figma.id]);
+  let groups = await store.readState().then((state) => state.groups);
+  assert.deepEqual(groups.find((group) => group.id === art.id).includes, [figma.id]);
+  await assert.rejects(() => store.setGroupIncludes(figma.id, [art.id]), /环/u);
+  groups = await store.readState().then((state) => state.groups);
+  assert.deepEqual(groups.find((group) => group.id === figma.id).includes, []);
+});
+
 test('migrates legacy per-Action scopes into groups and project profiles', async () => {
   const dataDir = await tempData();
   await fs.mkdir(path.join(dataDir, 'library', 'legacy'), { recursive: true });

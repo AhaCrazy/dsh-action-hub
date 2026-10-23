@@ -21,19 +21,33 @@ export function profileFor(projects, projectRoot) {
   return findProjectProfile(projects, projectRoot) ?? defaultProjectProfile(typeof projectRoot === 'string' ? projectRoot : '');
 }
 
-export function selectedGroupIds(profile) {
-  const groups = Array.isArray(profile?.groups) ? profile.groups : [COMMON_GROUP_ID];
-  return new Set(groups);
+export function expandGroupIds(groups, selectedIds) {
+  const selected = Array.isArray(selectedIds) ? selectedIds : [];
+  const byId = new Map((Array.isArray(groups) ? groups : []).map((group) => [group.id, group]));
+  const seen = new Set();
+  const visit = (id) => {
+    if (typeof id !== 'string' || id === '' || seen.has(id)) return;
+    seen.add(id);
+    const group = byId.get(id);
+    for (const child of group?.includes ?? []) visit(child);
+  };
+  for (const id of selected) visit(id);
+  return seen;
 }
 
-export function actionAvailable(action, profile) {
+export function selectedGroupIds(profile, groups = []) {
+  const selected = Array.isArray(profile?.groups) ? profile.groups : [COMMON_GROUP_ID];
+  return expandGroupIds(groups, selected);
+}
+
+export function actionAvailable(action, profile, groups = []) {
   if (action === null || typeof action !== 'object') return false;
   if (action.builtin === true) return true;
-  const groups = selectedGroupIds(profile);
+  const selected = selectedGroupIds(profile, groups);
   if (Array.isArray(profile?.actions) && profile.actions.includes(action.name)) return true;
-  return Array.isArray(action.groups) && action.groups.some((id) => groups.has(id));
+  return Array.isArray(action.groups) && action.groups.some((id) => selected.has(id));
 }
 
-export function availableActions(actions, profile) {
-  return actions.filter((action) => actionAvailable(action, profile));
+export function availableActions(actions, profile, groups = []) {
+  return actions.filter((action) => actionAvailable(action, profile, groups));
 }

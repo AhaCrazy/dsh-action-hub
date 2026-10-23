@@ -76,7 +76,7 @@ async function handle(ctx, store, dataDir, req, res) {
       sendJson(res, 200, {
         ok: true,
         version: state.version,
-        actions: sortActions(actions).map((action) => ({ ...action, available: actionAvailable(action, currentProfile) })),
+        actions: sortActions(actions).map((action) => ({ ...action, available: actionAvailable(action, currentProfile, view.groups) })),
         projects,
         projectScopes: view.projects,
         groups: state.state.groups,
@@ -228,6 +228,13 @@ async function handle(ctx, store, dataDir, req, res) {
       const entry = await store.setActionGroups(text(body.id), body.groups);
       notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, groups: entry.groups });
+      return;
+    }
+
+    if (route === '/groups/includes') {
+      const group = await store.setGroupIncludes(text(body.id), body.includes);
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, group });
       return;
     }
 

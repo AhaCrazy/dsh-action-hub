@@ -36,10 +36,12 @@ export function installActionInvocations(ctx, store) {
     if (!hasMarker) return decision;
     let actions;
     let projects;
+    let groups;
     try {
       const snapshot = await readAll(store);
       actions = snapshot.actions;
       projects = snapshot.projects;
+      groups = snapshot.groups;
     } catch (error) {
       ctx.logger?.warn?.(`dsh-action-hub: could not read skills for an invocation: ${describe(error)}`);
       return decision;
@@ -60,7 +62,7 @@ export function installActionInvocations(ctx, store) {
         notices.set(marker, `「${action.name}」当前是 Skill 模式；请从 Action 面板插入正文，本次未注入。`);
         continue;
       }
-      if (!actionAvailable(action, profile)) {
+      if (!actionAvailable(action, profile, groups)) {
         notices.set(marker, `「${action.name}」不在当前项目的可用范围内，本次未注入正文。`);
         continue;
       }

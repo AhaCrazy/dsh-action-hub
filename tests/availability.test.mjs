@@ -26,6 +26,16 @@ test('an Action with no group is unavailable unless selected', () => {
   assert.equal(actionAvailable(actions[2], defaultProjectProfile('C:/p')), false);
 });
 
+test('nested groups contribute their Actions through the selected parent', () => {
+  const groups = [
+    { id: 'art', includes: ['figma'] },
+    { id: 'figma', includes: [] },
+  ];
+  const nested = [{ name: 'figma-1', groups: ['figma'] }];
+  assert.equal(actionAvailable(nested[0], { groups: ['art'], actions: [] }, groups), true);
+  assert.equal(actionAvailable(nested[0], { groups: ['common'], actions: [] }, groups), false);
+});
+
 test('unknown projects use the Common default and built-ins stay available', () => {
   const profile = profileFor([], null);
   assert.deepEqual(profile.groups, ['common']);
