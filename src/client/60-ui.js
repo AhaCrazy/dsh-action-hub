@@ -145,7 +145,7 @@
         props.head === undefined
           ? h('h2', { className: 'ah-modal-title' }, props.title)
           : props.head,
-        h(Button, { ghost: true, iconOnly: true, small: true, onClick: props.onClose, title: props.t('action.close') }, h(Icons.close, { size: 13 }))),
+        props.hideClose === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, onClick: props.onClose, title: props.t('action.close') }, h(Icons.close, { size: 13 }))),
       h('div', { className: 'ah-modal-body' }, props.children),
       props.footer === undefined ? null : h('div', { className: 'ah-modal-foot' }, props.footer)));
     }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 7.9.1 — 2026-10-23
+
+- Restored separate “分组” and “项目可用范围” entry buttons and dialogs instead
+  of the merged bookmark-tab modal.
+- Removed the header close X from both configuration dialogs; backdrop click,
+  Cancel, and Escape still close them.
+- Returned the footer to the normal modal footer, fixing content bleeding
+  through the bottom of the merged dialog.
+
 ## 7.9.0 — 2026-10-23
 
 - Removed the Action editor UI and the detail-page Edit button. Actions are

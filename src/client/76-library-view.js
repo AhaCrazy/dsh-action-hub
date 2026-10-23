@@ -8,8 +8,8 @@
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
         const [exporting, setExporting] = React.useState(false);
-        const [configOpen, setConfigOpen] = React.useState(false);
-        const [configTab, setConfigTab] = React.useState('groups');
+        const [groupsOpen, setGroupsOpen] = React.useState(false);
+        const [scopeOpen, setScopeOpen] = React.useState(false);
         const [menu, setMenu] = React.useState(null);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
 
@@ -101,8 +101,8 @@
             h('p', { className: 'ah-sub' }, t('app.subtitle'))),
           h('div', { className: 'ah-head-actions' },
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
-            h(Button, { onClick: () => { setConfigTab('groups'); setConfigOpen(true); } }, h(Icons.sliders, { size: 13 }), t('action.groups')),
-            h(Button, { onClick: () => { setConfigTab('scope'); setConfigOpen(true); } }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
+            h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
+            h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
@@ -152,10 +152,19 @@
                     },
                   }))))));
 
-        if (configOpen) {
-          body.push(h(ConfigDialog, {
-            key: 'config',
-            initialTab: configTab,
+        if (groupsOpen) {
+          body.push(h(GroupDialog, {
+            key: 'groups',
+            groups: snapshot.groups ?? [],
+            actions,
+            t,
+            onChanged: () => hub.refresh(true),
+            onClose: () => setGroupsOpen(false),
+          }));
+        }
+        if (scopeOpen) {
+          body.push(h(ProjectScopeDialog, {
+            key: 'scope',
             projects: snapshot.projects ?? [],
             projectScopes: snapshot.projectScopes ?? [],
             groups: snapshot.groups ?? [],
@@ -163,7 +172,7 @@
             currentProject: snapshot.currentProject ?? null,
             t,
             onChanged: () => hub.refresh(true),
-            onClose: () => setConfigOpen(false),
+            onClose: () => setScopeOpen(false),
           }));
         }
         if (detail !== null) {

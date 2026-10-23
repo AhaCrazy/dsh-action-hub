@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '7.9.0';
+    const VERSION = '7.9.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -110,15 +110,6 @@ window.__ModuleLoader__.load({
       .ah-modal-body { padding: 16px 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
       .ah-modal-foot { padding: 12px 20px 16px; border-top: 1px solid var(--dsw-alias-border-l1); display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
       .ah-modal-wide { width: min(900px, 96vw); max-height: min(90vh, 920px); }
-      .ah-config-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--dsw-alias-border-l1); margin: -4px 0 2px; }
-      .ah-modal-head .ah-config-tabs { border-bottom: 0; margin: 0; gap: 2px; }
-      .ah-modal-head .ah-config-tab { top: 0; padding: 7px 14px; }
-      .ah-config-tab { appearance: none; border: 1px solid transparent; border-bottom: 0; border-radius: 9px 9px 0 0; background: transparent; color: var(--dsw-alias-label-secondary); padding: 8px 16px; font: inherit; font-size: 12.5px; cursor: pointer; position: relative; top: 1px; }
-      .ah-config-tab:hover { color: var(--dsw-alias-label-primary); }
-      .ah-config-tab[data-active="true"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-primary); font-weight: 650; }
-      .ah-config-pane[hidden] { display: none; }
-      .ah-config-body { display: flex; flex-direction: column; gap: 10px; }
-      .ah-config-foot { margin: 8px -20px -16px; position: sticky; bottom: -1px; z-index: 3; background: var(--dsw-alias-bg-overlay); }
       .ah-group-create { display: flex; align-items: center; gap: 8px; }
       .ah-group-create .ah-input { flex: 1 1 auto; }
       .ah-group-layout { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 14px; min-height: 380px; }
@@ -1782,7 +1773,7 @@ window.__ModuleLoader__.load({
         props.head === undefined
           ? h('h2', { className: 'ah-modal-title' }, props.title)
           : props.head,
-        h(Button, { ghost: true, iconOnly: true, small: true, onClick: props.onClose, title: props.t('action.close') }, h(Icons.close, { size: 13 }))),
+        props.hideClose === true ? null : h(Button, { ghost: true, iconOnly: true, small: true, onClick: props.onClose, title: props.t('action.close') }, h(Icons.close, { size: 13 }))),
       h('div', { className: 'ah-modal-body' }, props.children),
       props.footer === undefined ? null : h('div', { className: 'ah-modal-foot' }, props.footer)));
     }
@@ -2287,8 +2278,8 @@ window.__ModuleLoader__.load({
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
         const [exporting, setExporting] = React.useState(false);
-        const [configOpen, setConfigOpen] = React.useState(false);
-        const [configTab, setConfigTab] = React.useState('groups');
+        const [groupsOpen, setGroupsOpen] = React.useState(false);
+        const [scopeOpen, setScopeOpen] = React.useState(false);
         const [menu, setMenu] = React.useState(null);
         const [notice, setNotice] = React.useState({ text: '', kind: '' });
 
@@ -2380,8 +2371,8 @@ window.__ModuleLoader__.load({
             h('p', { className: 'ah-sub' }, t('app.subtitle'))),
           h('div', { className: 'ah-head-actions' },
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
-            h(Button, { onClick: () => { setConfigTab('groups'); setConfigOpen(true); } }, h(Icons.sliders, { size: 13 }), t('action.groups')),
-            h(Button, { onClick: () => { setConfigTab('scope'); setConfigOpen(true); } }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
+            h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
+            h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
             h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
@@ -2431,10 +2422,19 @@ window.__ModuleLoader__.load({
                     },
                   }))))));
 
-        if (configOpen) {
-          body.push(h(ConfigDialog, {
-            key: 'config',
-            initialTab: configTab,
+        if (groupsOpen) {
+          body.push(h(GroupDialog, {
+            key: 'groups',
+            groups: snapshot.groups ?? [],
+            actions,
+            t,
+            onChanged: () => hub.refresh(true),
+            onClose: () => setGroupsOpen(false),
+          }));
+        }
+        if (scopeOpen) {
+          body.push(h(ProjectScopeDialog, {
+            key: 'scope',
             projects: snapshot.projects ?? [],
             projectScopes: snapshot.projectScopes ?? [],
             groups: snapshot.groups ?? [],
@@ -2442,7 +2442,7 @@ window.__ModuleLoader__.load({
             currentProject: snapshot.currentProject ?? null,
             t,
             onChanged: () => hub.refresh(true),
-            onClose: () => setConfigOpen(false),
+            onClose: () => setScopeOpen(false),
           }));
         }
         if (detail !== null) {
@@ -2902,6 +2902,7 @@ window.__ModuleLoader__.load({
         title: t('groups.title'),
         t,
         wide: true,
+        hideClose: true,
         onClose: close,
         footer,
       },
@@ -3138,45 +3139,12 @@ window.__ModuleLoader__.load({
         title: t('scope.title'),
         t,
         wide: true,
+        hideClose: true,
         onClose: close,
         footer,
       },
       layout,
       errorView);
-    }
-
-    function ConfigDialog(props) {
-      const { t } = props;
-      const [tab, setTab] = React.useState(props.initialTab === 'scope' ? 'scope' : 'groups');
-      const [dirty, setDirty] = React.useState({ groups: 0, scope: 0 });
-      const setDirtyFor = (key) => (count) => {
-        setDirty((previous) => (previous[key] === count ? previous : { ...previous, [key]: count }));
-      };
-      const dirtyCount = dirty.groups + dirty.scope;
-      const close = () => {
-        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
-        props.onClose?.();
-      };
-      const tabButton = (id, label) => h('button', {
-        type: 'button',
-        role: 'tab',
-        className: 'ah-config-tab',
-        'aria-selected': tab === id,
-        'data-active': tab === id,
-        onClick: () => setTab(id),
-      }, label);
-
-      return h(Modal, {
-        title: t('config.title'),
-        t,
-        wide: true,
-        onClose: close,
-        head: h('div', { className: 'ah-config-tabs', role: 'tablist' }, tabButton('groups', t('groups.title')), tabButton('scope', t('scope.title'))),
-      },
-      h('div', { className: 'ah-config-pane', hidden: tab !== 'groups' },
-        h(GroupDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('groups') })),
-      h('div', { className: 'ah-config-pane', hidden: tab !== 'scope' },
-        h(ProjectScopeDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('scope') })));
     }
 
     // --------------------------------------------------------------- palette

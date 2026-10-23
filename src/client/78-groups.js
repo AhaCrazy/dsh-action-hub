@@ -366,6 +366,7 @@
         title: t('groups.title'),
         t,
         wide: true,
+        hideClose: true,
         onClose: close,
         footer,
       },
@@ -602,43 +603,10 @@
         title: t('scope.title'),
         t,
         wide: true,
+        hideClose: true,
         onClose: close,
         footer,
       },
       layout,
       errorView);
-    }
-
-    function ConfigDialog(props) {
-      const { t } = props;
-      const [tab, setTab] = React.useState(props.initialTab === 'scope' ? 'scope' : 'groups');
-      const [dirty, setDirty] = React.useState({ groups: 0, scope: 0 });
-      const setDirtyFor = (key) => (count) => {
-        setDirty((previous) => (previous[key] === count ? previous : { ...previous, [key]: count }));
-      };
-      const dirtyCount = dirty.groups + dirty.scope;
-      const close = () => {
-        if (dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
-        props.onClose?.();
-      };
-      const tabButton = (id, label) => h('button', {
-        type: 'button',
-        role: 'tab',
-        className: 'ah-config-tab',
-        'aria-selected': tab === id,
-        'data-active': tab === id,
-        onClick: () => setTab(id),
-      }, label);
-
-      return h(Modal, {
-        title: t('config.title'),
-        t,
-        wide: true,
-        onClose: close,
-        head: h('div', { className: 'ah-config-tabs', role: 'tablist' }, tabButton('groups', t('groups.title')), tabButton('scope', t('scope.title'))),
-      },
-      h('div', { className: 'ah-config-pane', hidden: tab !== 'groups' },
-        h(GroupDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('groups') })),
-      h('div', { className: 'ah-config-pane', hidden: tab !== 'scope' },
-        h(ProjectScopeDialog, { ...props, embedded: true, onClose: close, onDirtyChange: setDirtyFor('scope') })));
     }
