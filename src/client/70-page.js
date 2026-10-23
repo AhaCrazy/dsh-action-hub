@@ -3,35 +3,56 @@
     function ActionRow(props) {
       const { action, t } = props;
       const used = action.usage?.count ?? 0;
+      const selectMode = props.selectMode === true;
+      const selected = props.selected === true;
+      const activate = () => {
+        if (selectMode) props.onToggle();
+        else props.onOpen(action);
+      };
       return h('div', {
         className: 'ah-row',
-        role: 'button',
+        'data-selected': selectMode ? selected : undefined,
+        role: selectMode ? 'checkbox' : 'button',
+        'aria-checked': selectMode ? selected : undefined,
         tabIndex: 0,
         'aria-label': action.name,
-        onClick: () => props.onOpen(action),
+        onClick: activate,
         onContextMenu: (event) => {
+          if (selectMode) {
+            event.preventDefault();
+            return;
+          }
           event.preventDefault();
           props.onContextMenu(action, event);
         },
         onKeyDown: (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            props.onOpen(action);
+            activate();
           }
         },
       },
-      h('button', {
-        type: 'button',
-        className: 'ah-row-star',
-        'data-on': action.pinned === true,
-        title: action.pinned ? t('action.unpin') : t('action.pin'),
-        'aria-label': action.pinned ? t('action.unpin') : t('action.pin'),
-        'aria-pressed': action.pinned === true,
-        onClick: (event) => {
-          event.stopPropagation();
-          props.onPin(action);
-        },
-      }, h(Icons.star, { size: 14, filled: action.pinned === true })),
+      selectMode
+        ? h('input', {
+          type: 'checkbox',
+          className: 'ah-row-check',
+          checked: selected,
+          'aria-label': action.name,
+          onClick: (event) => event.stopPropagation(),
+          onChange: () => props.onToggle(),
+        })
+        : h('button', {
+          type: 'button',
+          className: 'ah-row-star',
+          'data-on': action.pinned === true,
+          title: action.pinned ? t('action.unpin') : t('action.pin'),
+          'aria-label': action.pinned ? t('action.unpin') : t('action.pin'),
+          'aria-pressed': action.pinned === true,
+          onClick: (event) => {
+            event.stopPropagation();
+            props.onPin(action);
+          },
+        }, h(Icons.star, { size: 14, filled: action.pinned === true })),
       h('div', { className: 'ah-row-main' },
         h('div', { className: 'ah-row-title' },
           h('span', { className: 'ah-name' }, action.name),

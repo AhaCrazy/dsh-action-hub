@@ -11,7 +11,9 @@
         const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
-        const [exporting, setExporting] = React.useState(false);
+        const [exportMode, setExportMode] = React.useState(false);
+        const [exportSelected, setExportSelected] = React.useState(() => new Set());
+        const [exportBusy, setExportBusy] = React.useState(false);
         const [groupsOpen, setGroupsOpen] = React.useState(false);
         const [scopeOpen, setScopeOpen] = React.useState(false);
         const [menu, setMenu] = React.useState(null);
@@ -81,6 +83,33 @@
           try { localStorage.setItem('action-hub.showGroupBar', next ? '1' : '0'); } catch { /* ignore */ }
         };
 
+        const toggleExportMode = () => {
+          setExportMode((previous) => !previous);
+          setExportSelected(new Set());
+        };
+        const toggleExportItem = (id) => {
+          setExportSelected((previous) => {
+            const next = new Set(previous);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          });
+        };
+        const runExport = async () => {
+          if (exportSelected.size === 0 || exportBusy) return;
+          setExportBusy(true);
+          try {
+            await downloadZip([...exportSelected]);
+            notify(t('lib.exported'), 'ok');
+            setExportMode(false);
+            setExportSelected(new Set());
+          } catch (failure) {
+            notify(describeError(failure), 'error');
+          } finally {
+            setExportBusy(false);
+          }
+        };
+
         const remove = async () => {
           if (deleting === null) return;
           try {
@@ -135,7 +164,7 @@
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
             h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
             h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
-            h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
+            h(Button, { primary: exportMode, onClick: toggleExportMode }, h(exportMode ? Icons.close : Icons.download, { size: 13 }), exportMode ? t('export.exit') : t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
         const groupNav = h('nav', { className: 'ah-nav', 'aria-label': t('lib.groupBar') },
@@ -158,20 +187,31 @@
         body.push(h('div', { key: 'body', className: showGroupBar ? 'ah-body' : 'ah-body ah-body-plain' },
           showGroupBar ? groupNav : null,
           h('div', { className: 'ah-main' },
-            h('div', { className: 'ah-main-bar' },
-              h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
-              h('div', { className: 'ah-sort' },
-                h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
-                Object.entries(sortLabels).map(([value, label]) => h('button', {
-                  key: value,
-                  type: 'button',
-                  className: 'ah-chip',
-                  'data-active': sortBy === value,
-                  onClick: () => setSortBy(value),
-                }, label))),
-              h('span', { className: 'ah-count' }, query === '' && (!showGroupBar || groupFilter === '')
-                ? t('lib.count', { count: actions.length })
-                : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
+            exportMode
+              ? h('div', { className: 'ah-export-mode' },
+                h('div', { className: 'ah-export-mode-head' },
+                  h('span', { className: 'ah-export-mode-title' }, t('export.modeTitle')),
+                  h('span', { className: 'ah-hint' }, t('export.selected', { count: exportSelected.size, total: visible.length }))),
+                h('div', { className: 'ah-export-mode-actions' },
+                  h(Button, { small: true, onClick: () => setExportSelected(new Set(visible.map((action) => action.id))) }, t('export.selectAll')),
+                  h(Button, { small: true, onClick: () => setExportSelected(new Set()) }, t('export.clear')),
+                  h(Button, { onClick: () => { setExportMode(false); setExportSelected(new Set()); } }, t('action.cancel')),
+                  h(Button, { primary: true, disabled: exportBusy || exportSelected.size === 0, onClick: () => { void runExport(); } },
+                    exportBusy ? t('export.running') : t('export.run'))))
+              : h('div', { className: 'ah-main-bar' },
+                h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
+                h('div', { className: 'ah-sort' },
+                  h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
+                  Object.entries(sortLabels).map(([value, label]) => h('button', {
+                    key: value,
+                    type: 'button',
+                    className: 'ah-chip',
+                    'data-active': sortBy === value,
+                    onClick: () => setSortBy(value),
+                  }, label))),
+                h('span', { className: 'ah-count' }, query === '' && (!showGroupBar || groupFilter === '')
+                  ? t('lib.count', { count: actions.length })
+                  : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
             snapshot.status === 'loading' && actions.length === 0
               ? h('div', { className: 'ah-empty' }, h('div', { className: 'ah-empty-title' }, t('lib.loading')))
               : snapshot.status === 'error' && actions.length === 0
@@ -190,6 +230,9 @@
                     key: action.id,
                     action,
                     t,
+                    selectMode: exportMode,
+                    selected: exportSelected.has(action.id),
+                    onToggle: () => toggleExportItem(action.id),
                     onOpen: setDetail,
                     onPin: togglePin,
                     onDelete: setDeleting,
@@ -269,15 +312,6 @@
               h(Button, { onClick: () => setDeleting(null) }, t('action.cancel')),
               h(Button, { danger: true, onClick: remove }, t('action.deleteForever'))),
           }, h('p', { className: 'ah-desc' }, t('delete.copy', { name: deleting.name }))));
-        }
-        if (exporting) {
-          body.push(h(ExportDialog, {
-            key: 'export',
-            t,
-            actions: actions.filter((action) => action.builtin !== true),
-            notify,
-            onClose: () => setExporting(false),
-          }));
         }
         if (importing) {
           body.push(h(ImportDialog, {

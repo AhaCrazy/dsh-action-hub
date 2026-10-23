@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.0.1';
+    const VERSION = '8.1.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -72,9 +72,15 @@ window.__ModuleLoader__.load({
       .ah-main { display: flex; flex-direction: column; min-height: 0; gap: 10px; }
       .ah-main-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
       .ah-main-bar .ah-search { flex: 1 1 220px; }
+      .ah-export-mode { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 9px 11px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-2); }
+      .ah-export-mode-head { display: flex; align-items: center; gap: 10px; min-width: 0; flex-wrap: wrap; }
+      .ah-export-mode-title { font-size: 13px; font-weight: 650; }
+      .ah-export-mode-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
       .ah-sort { display: flex; align-items: center; gap: 4px; }
       .ah-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
       .ah-row { border: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-layer-1); border-radius: 10px; padding: 10px 12px; display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+      .ah-row[data-selected="true"] { border-color: var(--dsw-alias-state-accent-primary); background: var(--dsw-alias-bg-layer-2); }
+      .ah-row-check { width: 24px; height: 24px; flex: 0 0 auto; margin: 1px 0 0; accent-color: var(--dsw-alias-state-accent-primary); cursor: pointer; }
       .ah-row:hover { border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
       .ah-row[data-selected="true"] { border-color: var(--dsw-alias-brand-primary); }
       .ah-row-star { appearance: none; border: 0; background: transparent; color: var(--dsw-alias-label-secondary); width: 24px; height: 24px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 6px; cursor: pointer; flex: 0 0 auto; }
@@ -328,6 +334,9 @@ window.__ModuleLoader__.load({
         'lib.exported': '已导出',
         'lib.exportOne': '导出 ZIP',
         'export.title': '选择要导出的 Action',
+        'export.modeTitle': '导出模式',
+        'export.exit': '退出导出',
+        'export.running': '导出中…',
         'export.hint': '勾选要一起导出的 Action；ZIP 解压后每条 Action 都是一个自包含目录。',
         'export.selectAll': '全选',
         'export.clear': '清空',
@@ -580,6 +589,9 @@ window.__ModuleLoader__.load({
         'lib.exported': 'Exported',
         'lib.exportOne': 'Export ZIP',
         'export.title': 'Choose Actions to export',
+        'export.modeTitle': 'Export mode',
+        'export.exit': 'Exit export',
+        'export.running': 'Exporting…',
         'export.hint': 'Tick the Actions to bundle together; each one becomes a self-contained directory in the ZIP.',
         'export.selectAll': 'Select all',
         'export.clear': 'Clear',
@@ -1807,35 +1819,56 @@ window.__ModuleLoader__.load({
     function ActionRow(props) {
       const { action, t } = props;
       const used = action.usage?.count ?? 0;
+      const selectMode = props.selectMode === true;
+      const selected = props.selected === true;
+      const activate = () => {
+        if (selectMode) props.onToggle();
+        else props.onOpen(action);
+      };
       return h('div', {
         className: 'ah-row',
-        role: 'button',
+        'data-selected': selectMode ? selected : undefined,
+        role: selectMode ? 'checkbox' : 'button',
+        'aria-checked': selectMode ? selected : undefined,
         tabIndex: 0,
         'aria-label': action.name,
-        onClick: () => props.onOpen(action),
+        onClick: activate,
         onContextMenu: (event) => {
+          if (selectMode) {
+            event.preventDefault();
+            return;
+          }
           event.preventDefault();
           props.onContextMenu(action, event);
         },
         onKeyDown: (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
-            props.onOpen(action);
+            activate();
           }
         },
       },
-      h('button', {
-        type: 'button',
-        className: 'ah-row-star',
-        'data-on': action.pinned === true,
-        title: action.pinned ? t('action.unpin') : t('action.pin'),
-        'aria-label': action.pinned ? t('action.unpin') : t('action.pin'),
-        'aria-pressed': action.pinned === true,
-        onClick: (event) => {
-          event.stopPropagation();
-          props.onPin(action);
-        },
-      }, h(Icons.star, { size: 14, filled: action.pinned === true })),
+      selectMode
+        ? h('input', {
+          type: 'checkbox',
+          className: 'ah-row-check',
+          checked: selected,
+          'aria-label': action.name,
+          onClick: (event) => event.stopPropagation(),
+          onChange: () => props.onToggle(),
+        })
+        : h('button', {
+          type: 'button',
+          className: 'ah-row-star',
+          'data-on': action.pinned === true,
+          title: action.pinned ? t('action.unpin') : t('action.pin'),
+          'aria-label': action.pinned ? t('action.unpin') : t('action.pin'),
+          'aria-pressed': action.pinned === true,
+          onClick: (event) => {
+            event.stopPropagation();
+            props.onPin(action);
+          },
+        }, h(Icons.star, { size: 14, filled: action.pinned === true })),
       h('div', { className: 'ah-row-main' },
         h('div', { className: 'ah-row-title' },
           h('span', { className: 'ah-name' }, action.name),
@@ -2290,7 +2323,9 @@ window.__ModuleLoader__.load({
         const [detail, setDetail] = React.useState(null);
         const [deleting, setDeleting] = React.useState(null);
         const [importing, setImporting] = React.useState(false);
-        const [exporting, setExporting] = React.useState(false);
+        const [exportMode, setExportMode] = React.useState(false);
+        const [exportSelected, setExportSelected] = React.useState(() => new Set());
+        const [exportBusy, setExportBusy] = React.useState(false);
         const [groupsOpen, setGroupsOpen] = React.useState(false);
         const [scopeOpen, setScopeOpen] = React.useState(false);
         const [menu, setMenu] = React.useState(null);
@@ -2360,6 +2395,33 @@ window.__ModuleLoader__.load({
           try { localStorage.setItem('action-hub.showGroupBar', next ? '1' : '0'); } catch { /* ignore */ }
         };
 
+        const toggleExportMode = () => {
+          setExportMode((previous) => !previous);
+          setExportSelected(new Set());
+        };
+        const toggleExportItem = (id) => {
+          setExportSelected((previous) => {
+            const next = new Set(previous);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+          });
+        };
+        const runExport = async () => {
+          if (exportSelected.size === 0 || exportBusy) return;
+          setExportBusy(true);
+          try {
+            await downloadZip([...exportSelected]);
+            notify(t('lib.exported'), 'ok');
+            setExportMode(false);
+            setExportSelected(new Set());
+          } catch (failure) {
+            notify(describeError(failure), 'error');
+          } finally {
+            setExportBusy(false);
+          }
+        };
+
         const remove = async () => {
           if (deleting === null) return;
           try {
@@ -2414,7 +2476,7 @@ window.__ModuleLoader__.load({
             h(Button, { onClick: () => setImporting(true) }, h(Icons.upload, { size: 13 }), t('action.import')),
             h(Button, { onClick: () => setGroupsOpen(true) }, h(Icons.sliders, { size: 13 }), t('action.groups')),
             h(Button, { onClick: () => setScopeOpen(true) }, h(Icons.shelf, { size: 13 }), t('action.scopes')),
-            h(Button, { onClick: () => setExporting(true) }, h(Icons.download, { size: 13 }), t('action.export')),
+            h(Button, { primary: exportMode, onClick: toggleExportMode }, h(exportMode ? Icons.close : Icons.download, { size: 13 }), exportMode ? t('export.exit') : t('action.export')),
             h(Button, { ghost: true, iconOnly: true, title: t('action.refresh'), onClick: () => { void hub.refresh(true).catch(() => {}); } }, h(Icons.refresh, { size: 14 })))));
 
         const groupNav = h('nav', { className: 'ah-nav', 'aria-label': t('lib.groupBar') },
@@ -2437,20 +2499,31 @@ window.__ModuleLoader__.load({
         body.push(h('div', { key: 'body', className: showGroupBar ? 'ah-body' : 'ah-body ah-body-plain' },
           showGroupBar ? groupNav : null,
           h('div', { className: 'ah-main' },
-            h('div', { className: 'ah-main-bar' },
-              h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
-              h('div', { className: 'ah-sort' },
-                h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
-                Object.entries(sortLabels).map(([value, label]) => h('button', {
-                  key: value,
-                  type: 'button',
-                  className: 'ah-chip',
-                  'data-active': sortBy === value,
-                  onClick: () => setSortBy(value),
-                }, label))),
-              h('span', { className: 'ah-count' }, query === '' && (!showGroupBar || groupFilter === '')
-                ? t('lib.count', { count: actions.length })
-                : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
+            exportMode
+              ? h('div', { className: 'ah-export-mode' },
+                h('div', { className: 'ah-export-mode-head' },
+                  h('span', { className: 'ah-export-mode-title' }, t('export.modeTitle')),
+                  h('span', { className: 'ah-hint' }, t('export.selected', { count: exportSelected.size, total: visible.length }))),
+                h('div', { className: 'ah-export-mode-actions' },
+                  h(Button, { small: true, onClick: () => setExportSelected(new Set(visible.map((action) => action.id))) }, t('export.selectAll')),
+                  h(Button, { small: true, onClick: () => setExportSelected(new Set()) }, t('export.clear')),
+                  h(Button, { onClick: () => { setExportMode(false); setExportSelected(new Set()); } }, t('action.cancel')),
+                  h(Button, { primary: true, disabled: exportBusy || exportSelected.size === 0, onClick: () => { void runExport(); } },
+                    exportBusy ? t('export.running') : t('export.run'))))
+              : h('div', { className: 'ah-main-bar' },
+                h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
+                h('div', { className: 'ah-sort' },
+                  h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
+                  Object.entries(sortLabels).map(([value, label]) => h('button', {
+                    key: value,
+                    type: 'button',
+                    className: 'ah-chip',
+                    'data-active': sortBy === value,
+                    onClick: () => setSortBy(value),
+                  }, label))),
+                h('span', { className: 'ah-count' }, query === '' && (!showGroupBar || groupFilter === '')
+                  ? t('lib.count', { count: actions.length })
+                  : t('lib.countFiltered', { count: visible.length, total: actions.length }))),
             snapshot.status === 'loading' && actions.length === 0
               ? h('div', { className: 'ah-empty' }, h('div', { className: 'ah-empty-title' }, t('lib.loading')))
               : snapshot.status === 'error' && actions.length === 0
@@ -2469,6 +2542,9 @@ window.__ModuleLoader__.load({
                     key: action.id,
                     action,
                     t,
+                    selectMode: exportMode,
+                    selected: exportSelected.has(action.id),
+                    onToggle: () => toggleExportItem(action.id),
                     onOpen: setDetail,
                     onPin: togglePin,
                     onDelete: setDeleting,
@@ -2548,15 +2624,6 @@ window.__ModuleLoader__.load({
               h(Button, { onClick: () => setDeleting(null) }, t('action.cancel')),
               h(Button, { danger: true, onClick: remove }, t('action.deleteForever'))),
           }, h('p', { className: 'ah-desc' }, t('delete.copy', { name: deleting.name }))));
-        }
-        if (exporting) {
-          body.push(h(ExportDialog, {
-            key: 'export',
-            t,
-            actions: actions.filter((action) => action.builtin !== true),
-            notify,
-            onClose: () => setExporting(false),
-          }));
         }
         if (importing) {
           body.push(h(ImportDialog, {

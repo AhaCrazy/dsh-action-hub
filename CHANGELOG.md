@@ -1,5 +1,12 @@
 # Changelog
 
+## 8.1.0 — 2026-10-23
+
+- Replaced the separate export dialog with an inline export mode on the main
+  library screen. The header Export button toggles the mode; Action rows gain
+  checkboxes and clicking a row selects it. A toolbar selects all visible
+  Actions, clears the selection, cancels, or downloads the selected ZIP.
+
 ## 8.0.1 — 2026-10-23
 
 - Removed the automatic **未分组 / Ungrouped** group entirely. Initial state now
