@@ -537,7 +537,6 @@
 
       const selectProject = (path) => {
         setProjectPath(path);
-        setQuery('');
       };
       const toggleGroup = (id) => {
         const state = groupState(id);

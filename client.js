@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.7.0';
+    const VERSION = '8.7.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -3230,7 +3230,6 @@ window.__ModuleLoader__.load({
 
       const selectProject = (path) => {
         setProjectPath(path);
-        setQuery('');
       };
       const toggleGroup = (id) => {
         const state = groupState(id);

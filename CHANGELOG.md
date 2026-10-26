@@ -1,5 +1,10 @@
 # Changelog
 
+## 8.7.1 — 2026-10-26
+
+- Switching projects in **Project scope** now keeps the current Action search
+  filter instead of clearing it.
+
 ## 8.7.0 — 2026-10-26
 
 - New items in the import preview now offer **Import as new Command** and
