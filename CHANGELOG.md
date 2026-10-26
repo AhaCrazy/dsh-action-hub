@@ -1,5 +1,10 @@
 # Changelog
 
+## 8.4.1 — 2026-10-26
+
+- The project scope dialog now counts global groups and marks Actions covered
+  by them as inherited, instead of showing zero groups and no Actions.
+
 ## 8.4.0 — 2026-10-26
 
 - Groups can be marked **global**: every Action in a global group (including

@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.4.0';
+    const VERSION = '8.4.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -3171,8 +3171,10 @@ window.__ModuleLoader__.load({
         for (const id of selected) visit(id);
         return seen;
       };
+      const globalGroupIds = groups.filter((group) => group.global === true).map((group) => group.id);
+      const effectiveGroupIds = (selected) => expandGroups([...selected, ...globalGroupIds]);
       const covered = (action) => {
-        const selected = expandGroups(profile.groups);
+        const selected = effectiveGroupIds(profile.groups);
         return (action.groups ?? []).some((id) => selected.has(id));
       };
       const collectGroupActions = (groupId, seen = new Set(), out = new Set()) => {
@@ -3240,7 +3242,7 @@ window.__ModuleLoader__.load({
       h('div', { className: 'ah-group-item-main' },
         h('span', { className: 'ah-group-name' }, project.label || project.path),
         project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null),
-      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: draftFor(project.path).groups.length }))));
+      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: new Set([...draftFor(project.path).groups, ...globalGroupIds]).size }))));
 
       const projectHead = h('header', { className: 'ah-group-detail-head' },
         h('div', { className: 'ah-scope-project-head' },
