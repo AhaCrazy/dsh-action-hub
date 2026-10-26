@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.4.1';
+    const VERSION = '8.5.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -164,6 +164,7 @@ window.__ModuleLoader__.load({
       .ah-action-check { width: 14px; height: 14px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--dsw-alias-border-l2); border-radius: 4px; color: transparent; background: transparent; }
       .ah-action-check[data-state="on"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-overlay); }
       .ah-action-check[data-state="inherited"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); }
+      .ah-action-check[data-state="blocked"] { background: var(--dsw-alias-bg-layer-2); border-color: var(--dsw-alias-border-l2); border-style: dashed; color: var(--dsw-alias-label-tertiary); }
       .ah-action-input:focus-visible + .ah-action-check { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
       .ah-group-action-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
       .ah-group-action-name { font-size: 12.5px; font-weight: 600; }
@@ -503,10 +504,11 @@ window.__ModuleLoader__.load({
         'scope.groups': '可用分组',
         'scope.extraActions': '单独追加的 Action',
         'scope.searchActions': '搜索 Action',
-        'scope.viaGroup': '已由分组覆盖',
+        'scope.viaGroup': '继承可用',
+        'scope.blocked': '本工作区已屏蔽',
         'scope.projects': '项目列表',
-        'scope.groupsHint': '勾选分组后自动包含子分组 Action；灰色勾表示由父分组间接覆盖，点击可切换为蓝色直接选择。标记为“全局”的分组始终对所有工作区生效。',
-        'scope.extraHint': '灰色勾表示由已选分组覆盖，点击可切换为蓝色单独选中；无需重复追加。',
+        'scope.groupsHint': '蓝勾为直接选中，灰勾为继承可用，灰叉为在本工作区主动屏蔽。点击灰勾可屏蔽，点击灰叉可恢复；全局分组始终对所有工作区生效。',
+        'scope.extraHint': '蓝勾为单独选中，灰勾为分组继承可用，灰叉为已屏蔽。点击灰勾可屏蔽，点击灰叉可恢复或改为单独选中。',
         'scope.groupCount': '{count} 个分组',
         'scope.noProjects': '没有可配置的项目',
         'palette.refArgsHint': '已填参数，将以完整文本插入',
@@ -762,10 +764,11 @@ window.__ModuleLoader__.load({
         'scope.groups': 'Available groups',
         'scope.extraActions': 'Additional individual Actions',
         'scope.searchActions': 'Search Actions',
-        'scope.viaGroup': 'Covered by a group',
+        'scope.viaGroup': 'Inherited',
+        'scope.blocked': 'Blocked in this workspace',
         'scope.projects': 'Projects',
-        'scope.groupsHint': 'Selecting a group automatically includes its child groups. A grey check is covered by a parent group; click it to switch to a blue direct selection. Groups marked Global always apply to every workspace.',
-        'scope.extraHint': 'A grey check means the Action is covered by a selected group; click it to switch to a blue individual selection.',
+        'scope.groupsHint': 'Blue means directly selected, grey check means inherited, grey cross means blocked in this workspace. Click a grey check to block or a grey cross to restore. Global groups always apply to every workspace.',
+        'scope.extraHint': 'Blue means individually selected, grey check means inherited from a group, grey cross means blocked. Click a grey check to block or a grey cross to restore or select directly.',
         'scope.groupCount': '{count} groups',
         'scope.noProjects': 'No projects to configure',
         'palette.refArgsHint': 'Arguments are filled, so the full text is inserted',
@@ -2699,7 +2702,9 @@ window.__ModuleLoader__.load({
           onChange: props.onChange,
         }),
         h('span', { className: 'ah-action-check', 'data-state': props.state, 'aria-hidden': true },
-          props.state === 'off' ? null : h(Icons.check, { size: 10 })));
+          props.state === 'off'
+            ? null
+            : h(props.state === 'blocked' ? Icons.close : Icons.check, { size: 10 })));
     }
 
     function GroupDialog(props) {
@@ -3118,6 +3123,8 @@ window.__ModuleLoader__.load({
         label: typeof raw?.label === 'string' ? raw.label : '',
         groups: Array.isArray(raw?.groups) ? raw.groups : (defaultGroup === '' ? [] : [defaultGroup]),
         actions: Array.isArray(raw?.actions) ? raw.actions : [],
+        excludeGroups: Array.isArray(raw?.excludeGroups) ? raw.excludeGroups : [],
+        excludeActions: Array.isArray(raw?.excludeActions) ? raw.excludeActions : [],
       });
       const originalFor = (path) => {
         const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
@@ -3146,7 +3153,10 @@ window.__ModuleLoader__.load({
       const dirtyProjects = maybeStaleProjects.filter((project) => {
         const before = originalFor(project.path);
         const after = draftFor(project.path);
-        return differs(before.groups, after.groups) || differs(before.actions, after.actions);
+        return differs(before.groups, after.groups)
+          || differs(before.actions, after.actions)
+          || differs(before.excludeGroups, after.excludeGroups)
+          || differs(before.excludeActions, after.excludeActions);
       });
       const dirtyCount = dirtyProjects.reduce((sum, project) => {
         const before = originalFor(project.path);
@@ -3155,7 +3165,8 @@ window.__ModuleLoader__.load({
         const groupsRemoved = before.groups.filter((entry) => !after.groups.includes(entry)).length;
         const actionsAdded = after.actions.filter((entry) => !before.actions.includes(entry)).length;
         const actionsRemoved = before.actions.filter((entry) => !after.actions.includes(entry)).length;
-        return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved;
+        const excludedChanged = differs(before.excludeGroups, after.excludeGroups) || differs(before.excludeActions, after.excludeActions) ? 1 : 0;
+        return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved + excludedChanged;
       }, 0);
       React.useEffect(() => {
         props.onDirtyChange?.(dirtyCount);
@@ -3172,10 +3183,34 @@ window.__ModuleLoader__.load({
         return seen;
       };
       const globalGroupIds = groups.filter((group) => group.global === true).map((group) => group.id);
-      const effectiveGroupIds = (selected) => expandGroups([...selected, ...globalGroupIds]);
-      const covered = (action) => {
-        const selected = effectiveGroupIds(profile.groups);
-        return (action.groups ?? []).some((id) => selected.has(id));
+      const grantedGroups = expandGroups([...profile.groups, ...globalGroupIds]);
+      const directGroups = expandGroups(profile.groups);
+      const blockedGroups = new Set([...expandGroups(profile.excludeGroups)].filter((id) => !directGroups.has(id)));
+      const groupState = (id) => {
+        if (profile.groups.includes(id)) return 'on';
+        if (blockedGroups.has(id)) return 'blocked';
+        if (grantedGroups.has(id)) return 'inherited';
+        return 'off';
+      };
+      const groupCountForProfile = (target) => {
+        const direct = expandGroups(target.groups);
+        const roots = new Set([...target.groups, ...globalGroupIds]);
+        const blocked = new Set([...expandGroups(target.excludeGroups)].filter((id) => !direct.has(id)));
+        return [...roots].filter((id) => !blocked.has(id)).length;
+      };
+      const actionState = (action) => {
+        if (profile.actions.includes(action.name)) return 'on';
+        if (profile.excludeActions.includes(action.name)) return 'blocked';
+        const inGrant = (action.groups ?? []).some((id) => grantedGroups.has(id));
+        if (action.builtin === true) return inGrant ? 'inherited' : 'off';
+        const activeGrant = (action.groups ?? []).some((id) => grantedGroups.has(id) && !blockedGroups.has(id));
+        return inGrant && activeGrant ? 'inherited' : inGrant ? 'blocked' : 'off';
+      };
+      const actionAvailableNow = (action) => {
+        if (profile.actions.includes(action.name)) return true;
+        if (profile.excludeActions.includes(action.name)) return false;
+        if (action.builtin === true) return true;
+        return (action.groups ?? []).some((id) => grantedGroups.has(id) && !blockedGroups.has(id));
       };
       const collectGroupActions = (groupId, seen = new Set(), out = new Set()) => {
         if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return out;
@@ -3186,7 +3221,7 @@ window.__ModuleLoader__.load({
         return out;
       };
       const groupActionCount = (groupId) => collectGroupActions(groupId).size;
-      const selectedActionCount = actions.filter((action) => covered(action) || profile.actions.includes(action.name)).length;
+      const selectedActionCount = actions.filter((action) => actionAvailableNow(action)).length;
       const filtered = query.trim() === ''
         ? actions
         : actions.filter((action) => `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase()));
@@ -3195,17 +3230,57 @@ window.__ModuleLoader__.load({
         setProjectPath(path);
         setQuery('');
       };
-      const toggleGroup = (id, checked) => {
-        updateProfile((previous) => ({
-          ...previous,
-          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
-        }));
+      const toggleGroup = (id) => {
+        const state = groupState(id);
+        updateProfile((previous) => {
+          if (state === 'on') {
+            return { ...previous, groups: previous.groups.filter((entry) => entry !== id) };
+          }
+          if (state === 'blocked') {
+            if (previous.excludeGroups.includes(id)) {
+              return { ...previous, excludeGroups: previous.excludeGroups.filter((entry) => entry !== id) };
+            }
+            return {
+              ...previous,
+              groups: [...new Set([...previous.groups, id])],
+              excludeGroups: previous.excludeGroups.filter((entry) => entry !== id),
+            };
+          }
+          if (state === 'inherited') {
+            return { ...previous, excludeGroups: [...new Set([...previous.excludeGroups, id])] };
+          }
+          return {
+            ...previous,
+            groups: [...new Set([...previous.groups, id])],
+            excludeGroups: previous.excludeGroups.filter((entry) => entry !== id),
+          };
+        });
       };
-      const toggleAction = (name, checked) => {
-        updateProfile((previous) => ({
-          ...previous,
-          actions: checked ? [...new Set([...previous.actions, name])] : previous.actions.filter((entry) => entry !== name),
-        }));
+      const toggleAction = (action) => {
+        const state = actionState(action);
+        updateProfile((previous) => {
+          if (state === 'on') {
+            return { ...previous, actions: previous.actions.filter((entry) => entry !== action.name) };
+          }
+          if (state === 'blocked') {
+            if (previous.excludeActions.includes(action.name)) {
+              return { ...previous, excludeActions: previous.excludeActions.filter((entry) => entry !== action.name) };
+            }
+            return {
+              ...previous,
+              actions: [...new Set([...previous.actions, action.name])],
+              excludeActions: previous.excludeActions.filter((entry) => entry !== action.name),
+            };
+          }
+          if (state === 'inherited') {
+            return { ...previous, excludeActions: [...new Set([...previous.excludeActions, action.name])] };
+          }
+          return {
+            ...previous,
+            actions: [...new Set([...previous.actions, action.name])],
+            excludeActions: previous.excludeActions.filter((entry) => entry !== action.name),
+          };
+        });
       };
       const close = () => {
         if (!props.embedded && dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
@@ -3222,6 +3297,8 @@ window.__ModuleLoader__.load({
               label: project.label,
               groups: draft.groups,
               actions: draft.actions,
+              excludeGroups: draft.excludeGroups,
+              excludeActions: draft.excludeActions,
             });
           }
           await props.onChanged?.();
@@ -3242,7 +3319,7 @@ window.__ModuleLoader__.load({
       h('div', { className: 'ah-group-item-main' },
         h('span', { className: 'ah-group-name' }, project.label || project.path),
         project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null),
-      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: new Set([...draftFor(project.path).groups, ...globalGroupIds]).size }))));
+      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: groupCountForProfile(draftFor(project.path)) }))));
 
       const projectHead = h('header', { className: 'ah-group-detail-head' },
         h('div', { className: 'ah-scope-project-head' },
@@ -3254,22 +3331,21 @@ window.__ModuleLoader__.load({
         h('div', { className: 'ah-group-section-label' }, t('scope.groups')),
         h('p', { className: 'ah-hint' }, t('scope.groupsHint')),
         h('div', { className: 'ah-group-include-list' }, groups.map((group) => {
-          const checked = profile.groups.includes(group.id);
+          const state = groupState(group.id);
+          const checked = state === 'on';
           const global = group.global === true;
-          const effective = global || (!checked && expandGroups(profile.groups).has(group.id));
-          const state = global ? (checked ? 'on' : 'inherited') : checked ? 'on' : effective ? 'inherited' : 'off';
           return h('label', {
             key: group.id,
             className: 'ah-group-include',
             'data-checked': checked,
-            'data-effective': effective,
+            'data-effective': state !== 'off',
             'data-state': state,
           },
           h(ActionCheck, {
             checked,
             state,
             disabled: busy,
-            onChange: (event) => toggleGroup(group.id, event.target.checked),
+            onChange: () => toggleGroup(group.id),
           }),
           h('span', { className: 'ah-group-include-name' }, group.name),
           global ? h('span', { className: 'ah-badge' }, t('groups.globalBadge')) : null,
@@ -3284,9 +3360,10 @@ window.__ModuleLoader__.load({
         filtered.length === 0
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
-            const inherited = covered(action);
-            const direct = profile.actions.includes(action.name);
-            const state = direct ? 'on' : inherited ? 'inherited' : 'off';
+            const state = actionState(action);
+            const direct = state === 'on';
+            const inherited = state === 'inherited';
+            const blocked = state === 'blocked';
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
@@ -3298,13 +3375,14 @@ window.__ModuleLoader__.load({
               checked: direct,
               state,
               disabled: busy,
-              onChange: (event) => toggleAction(action.name, event.target.checked),
+              onChange: () => toggleAction(action),
             }),
             h('span', { className: 'ah-group-action-main' },
               h('span', { className: 'ah-group-action-name' }, action.name),
               h('span', { className: 'ah-group-action-desc' }, action.description || '')),
             h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')),
-            inherited ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null);
+            inherited ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null,
+            blocked ? h('span', { className: 'ah-badge' }, t('scope.blocked')) : null);
           }));
 
       const detail = h(React.Fragment, null, projectHead, groupBlock, actionTools, actionRows);

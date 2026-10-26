@@ -7,7 +7,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.4.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.5.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -83,6 +83,7 @@ description: 一句话说明何时使用
 - 项目在“项目范围”里勾选分组，并可单独追加个别 Action；
 - 新 Action 默认不属于任何分组，需要手动加入；可在分组右键菜单中把任意分组设为新工作区默认分组；
 - 任意分组可标记为“全局”：该分组及其子分组的 Action 对所有工作区生效，无需逐个配置，新增工作区也会直接可用；
+- 项目可以屏蔽继承来的分组或 Action（灰叉），不必取消全局；直接勾选的分组/Action 优先于屏蔽；
 - 未配置的新项目默认只使用已设置的“新工作区默认分组”；未设置时没有任何分组可用；
 - 面板会识别当前项目，当前不可用的 Action 会标灰并拒绝插入；
 - 会话 cwd 在项目子目录时，按最近的已登记项目根匹配；

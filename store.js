@@ -158,7 +158,14 @@ export function normalizeGroups(raw) {
 }
 
 export function defaultProjectProfile(path = '', label = '', groupId = '') {
-  return { path, label, groups: groupId === '' ? [] : [groupId], actions: [] };
+  return {
+    path,
+    label,
+    groups: groupId === '' ? [] : [groupId],
+    actions: [],
+    excludeGroups: [],
+    excludeActions: [],
+  };
 }
 
 export function normalizeProjectProfiles(raw, groups = defaultGroups()) {
@@ -177,6 +184,8 @@ export function normalizeProjectProfiles(raw, groups = defaultGroups()) {
       label: typeof item.label === 'string' && item.label.trim() !== '' ? item.label.trim() : path.basename(projectPath) || projectPath,
       groups: normalizeGroupIds(item.groups).filter((id) => validGroups.has(id)),
       actions: [...new Set((Array.isArray(item.actions) ? item.actions : []).filter((name) => typeof name === 'string' && name.trim() !== '').map((name) => name.trim()))],
+      excludeGroups: normalizeGroupIds(item.excludeGroups).filter((id) => validGroups.has(id)),
+      excludeActions: [...new Set((Array.isArray(item.excludeActions) ? item.excludeActions : []).filter((name) => typeof name === 'string' && name.trim() !== '').map((name) => name.trim()))],
     });
   }
   return out;
@@ -633,6 +642,8 @@ export function createStore(options = {}) {
           label: typeof profile.label === 'string' && profile.label.trim() !== '' ? profile.label.trim() : (existing?.label ?? path.basename(raw)) || raw,
           groups: normalizeGroupIds(profile.groups).filter((id) => valid.has(id)),
           actions: [...new Set((Array.isArray(profile.actions) ? profile.actions : []).filter((name) => typeof name === 'string' && name.trim() !== '').map((name) => name.trim()))],
+          excludeGroups: normalizeGroupIds(profile.excludeGroups).filter((id) => valid.has(id)),
+          excludeActions: [...new Set((Array.isArray(profile.excludeActions) ? profile.excludeActions : []).filter((name) => typeof name === 'string' && name.trim() !== '').map((name) => name.trim()))],
         };
         state.projects = state.projects.filter((project) => project !== existing);
         state.projects.push(entry);

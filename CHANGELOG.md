@@ -1,5 +1,13 @@
 # Changelog
 
+## 8.5.0 — 2026-10-26
+
+- A project can now block inherited groups or Actions without removing the
+  direct selections. Blocked entries show a dashed grey cross in the project
+  scope dialog and can be restored from the same checkbox.
+- Directly selected groups/Actions still override exclusions, so a project can
+  re-enable one item without re-enabling its whole parent group.
+
 ## 8.4.1 — 2026-10-26
 
 - The project scope dialog now counts global groups and marks Actions covered

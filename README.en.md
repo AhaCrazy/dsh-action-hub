@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.4.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.5.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -83,6 +83,7 @@ Imported skills start as **Command**. Switch to **Skill** from the Action row's 
 - A project selects groups and can add individual Actions;
 - New Actions start in no group and must be added manually; right-click any group to make it the new-workspace default group;
 - Any group can be marked Global: its Actions, including nested groups, apply to every workspace without per-project configuration, and newly created workspaces get them automatically;
+- A project can block inherited groups or Actions (grey cross) without unsetting the global group; direct selections override the block;
 - A new or unconfigured project defaults to the configured new-workspace default group; with none configured, no groups are available;
 - The palette detects the current project and dims Actions unavailable there;
 - A session opened in a project sub-directory matches the nearest registered project root;

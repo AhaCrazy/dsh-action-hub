@@ -51,6 +51,19 @@ test('global groups apply to every project, including nested actions', () => {
   assert.equal(actionAvailable(scoped[0], { groups: ['private'], actions: [] }, groups), true);
 });
 
+test('project exclusions remove inherited grants but not direct grants', () => {
+  const groups = [
+    { id: 'global', global: true, includes: ['child'] },
+    { id: 'child', includes: [] },
+  ];
+  const action = { name: 'inherited', groups: ['child'] };
+  assert.equal(actionAvailable(action, { groups: [], excludeGroups: ['global'] }, groups), false);
+  assert.equal(actionAvailable(action, { groups: [], excludeGroups: ['child'] }, groups), false);
+  assert.equal(actionAvailable(action, { groups: [], excludeGroups: ['global'], actions: ['inherited'] }, groups), true);
+  assert.equal(actionAvailable(action, { groups: [], actions: [], excludeActions: ['inherited'] }, groups), false);
+  assert.equal(actionAvailable(action, { groups: ['child'], excludeGroups: ['global'] }, groups), true);
+});
+
 test('cycles contribute the union of the connected groups', () => {
   const groups = [
     { id: 'art', includes: ['figma'] },

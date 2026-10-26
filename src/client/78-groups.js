@@ -11,7 +11,9 @@
           onChange: props.onChange,
         }),
         h('span', { className: 'ah-action-check', 'data-state': props.state, 'aria-hidden': true },
-          props.state === 'off' ? null : h(Icons.check, { size: 10 })));
+          props.state === 'off'
+            ? null
+            : h(props.state === 'blocked' ? Icons.close : Icons.check, { size: 10 })));
     }
 
     function GroupDialog(props) {
@@ -430,6 +432,8 @@
         label: typeof raw?.label === 'string' ? raw.label : '',
         groups: Array.isArray(raw?.groups) ? raw.groups : (defaultGroup === '' ? [] : [defaultGroup]),
         actions: Array.isArray(raw?.actions) ? raw.actions : [],
+        excludeGroups: Array.isArray(raw?.excludeGroups) ? raw.excludeGroups : [],
+        excludeActions: Array.isArray(raw?.excludeActions) ? raw.excludeActions : [],
       });
       const originalFor = (path) => {
         const found = scopes.find((entry) => keyOf(entry.path) === keyOf(path));
@@ -458,7 +462,10 @@
       const dirtyProjects = maybeStaleProjects.filter((project) => {
         const before = originalFor(project.path);
         const after = draftFor(project.path);
-        return differs(before.groups, after.groups) || differs(before.actions, after.actions);
+        return differs(before.groups, after.groups)
+          || differs(before.actions, after.actions)
+          || differs(before.excludeGroups, after.excludeGroups)
+          || differs(before.excludeActions, after.excludeActions);
       });
       const dirtyCount = dirtyProjects.reduce((sum, project) => {
         const before = originalFor(project.path);
@@ -467,7 +474,8 @@
         const groupsRemoved = before.groups.filter((entry) => !after.groups.includes(entry)).length;
         const actionsAdded = after.actions.filter((entry) => !before.actions.includes(entry)).length;
         const actionsRemoved = before.actions.filter((entry) => !after.actions.includes(entry)).length;
-        return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved;
+        const excludedChanged = differs(before.excludeGroups, after.excludeGroups) || differs(before.excludeActions, after.excludeActions) ? 1 : 0;
+        return sum + groupsAdded + groupsRemoved + actionsAdded + actionsRemoved + excludedChanged;
       }, 0);
       React.useEffect(() => {
         props.onDirtyChange?.(dirtyCount);
@@ -484,10 +492,34 @@
         return seen;
       };
       const globalGroupIds = groups.filter((group) => group.global === true).map((group) => group.id);
-      const effectiveGroupIds = (selected) => expandGroups([...selected, ...globalGroupIds]);
-      const covered = (action) => {
-        const selected = effectiveGroupIds(profile.groups);
-        return (action.groups ?? []).some((id) => selected.has(id));
+      const grantedGroups = expandGroups([...profile.groups, ...globalGroupIds]);
+      const directGroups = expandGroups(profile.groups);
+      const blockedGroups = new Set([...expandGroups(profile.excludeGroups)].filter((id) => !directGroups.has(id)));
+      const groupState = (id) => {
+        if (profile.groups.includes(id)) return 'on';
+        if (blockedGroups.has(id)) return 'blocked';
+        if (grantedGroups.has(id)) return 'inherited';
+        return 'off';
+      };
+      const groupCountForProfile = (target) => {
+        const direct = expandGroups(target.groups);
+        const roots = new Set([...target.groups, ...globalGroupIds]);
+        const blocked = new Set([...expandGroups(target.excludeGroups)].filter((id) => !direct.has(id)));
+        return [...roots].filter((id) => !blocked.has(id)).length;
+      };
+      const actionState = (action) => {
+        if (profile.actions.includes(action.name)) return 'on';
+        if (profile.excludeActions.includes(action.name)) return 'blocked';
+        const inGrant = (action.groups ?? []).some((id) => grantedGroups.has(id));
+        if (action.builtin === true) return inGrant ? 'inherited' : 'off';
+        const activeGrant = (action.groups ?? []).some((id) => grantedGroups.has(id) && !blockedGroups.has(id));
+        return inGrant && activeGrant ? 'inherited' : inGrant ? 'blocked' : 'off';
+      };
+      const actionAvailableNow = (action) => {
+        if (profile.actions.includes(action.name)) return true;
+        if (profile.excludeActions.includes(action.name)) return false;
+        if (action.builtin === true) return true;
+        return (action.groups ?? []).some((id) => grantedGroups.has(id) && !blockedGroups.has(id));
       };
       const collectGroupActions = (groupId, seen = new Set(), out = new Set()) => {
         if (typeof groupId !== 'string' || groupId === '' || seen.has(groupId)) return out;
@@ -498,7 +530,7 @@
         return out;
       };
       const groupActionCount = (groupId) => collectGroupActions(groupId).size;
-      const selectedActionCount = actions.filter((action) => covered(action) || profile.actions.includes(action.name)).length;
+      const selectedActionCount = actions.filter((action) => actionAvailableNow(action)).length;
       const filtered = query.trim() === ''
         ? actions
         : actions.filter((action) => `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase()));
@@ -507,17 +539,57 @@
         setProjectPath(path);
         setQuery('');
       };
-      const toggleGroup = (id, checked) => {
-        updateProfile((previous) => ({
-          ...previous,
-          groups: checked ? [...new Set([...previous.groups, id])] : previous.groups.filter((entry) => entry !== id),
-        }));
+      const toggleGroup = (id) => {
+        const state = groupState(id);
+        updateProfile((previous) => {
+          if (state === 'on') {
+            return { ...previous, groups: previous.groups.filter((entry) => entry !== id) };
+          }
+          if (state === 'blocked') {
+            if (previous.excludeGroups.includes(id)) {
+              return { ...previous, excludeGroups: previous.excludeGroups.filter((entry) => entry !== id) };
+            }
+            return {
+              ...previous,
+              groups: [...new Set([...previous.groups, id])],
+              excludeGroups: previous.excludeGroups.filter((entry) => entry !== id),
+            };
+          }
+          if (state === 'inherited') {
+            return { ...previous, excludeGroups: [...new Set([...previous.excludeGroups, id])] };
+          }
+          return {
+            ...previous,
+            groups: [...new Set([...previous.groups, id])],
+            excludeGroups: previous.excludeGroups.filter((entry) => entry !== id),
+          };
+        });
       };
-      const toggleAction = (name, checked) => {
-        updateProfile((previous) => ({
-          ...previous,
-          actions: checked ? [...new Set([...previous.actions, name])] : previous.actions.filter((entry) => entry !== name),
-        }));
+      const toggleAction = (action) => {
+        const state = actionState(action);
+        updateProfile((previous) => {
+          if (state === 'on') {
+            return { ...previous, actions: previous.actions.filter((entry) => entry !== action.name) };
+          }
+          if (state === 'blocked') {
+            if (previous.excludeActions.includes(action.name)) {
+              return { ...previous, excludeActions: previous.excludeActions.filter((entry) => entry !== action.name) };
+            }
+            return {
+              ...previous,
+              actions: [...new Set([...previous.actions, action.name])],
+              excludeActions: previous.excludeActions.filter((entry) => entry !== action.name),
+            };
+          }
+          if (state === 'inherited') {
+            return { ...previous, excludeActions: [...new Set([...previous.excludeActions, action.name])] };
+          }
+          return {
+            ...previous,
+            actions: [...new Set([...previous.actions, action.name])],
+            excludeActions: previous.excludeActions.filter((entry) => entry !== action.name),
+          };
+        });
       };
       const close = () => {
         if (!props.embedded && dirtyCount > 0 && !window.confirm(t('groups.discard', { count: dirtyCount }))) return;
@@ -534,6 +606,8 @@
               label: project.label,
               groups: draft.groups,
               actions: draft.actions,
+              excludeGroups: draft.excludeGroups,
+              excludeActions: draft.excludeActions,
             });
           }
           await props.onChanged?.();
@@ -554,7 +628,7 @@
       h('div', { className: 'ah-group-item-main' },
         h('span', { className: 'ah-group-name' }, project.label || project.path),
         project.stale ? h('span', { className: 'ah-badge' }, t('editor.scopeStale')) : null),
-      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: new Set([...draftFor(project.path).groups, ...globalGroupIds]).size }))));
+      h('span', { className: 'ah-group-count' }, t('scope.groupCount', { count: groupCountForProfile(draftFor(project.path)) }))));
 
       const projectHead = h('header', { className: 'ah-group-detail-head' },
         h('div', { className: 'ah-scope-project-head' },
@@ -566,22 +640,21 @@
         h('div', { className: 'ah-group-section-label' }, t('scope.groups')),
         h('p', { className: 'ah-hint' }, t('scope.groupsHint')),
         h('div', { className: 'ah-group-include-list' }, groups.map((group) => {
-          const checked = profile.groups.includes(group.id);
+          const state = groupState(group.id);
+          const checked = state === 'on';
           const global = group.global === true;
-          const effective = global || (!checked && expandGroups(profile.groups).has(group.id));
-          const state = global ? (checked ? 'on' : 'inherited') : checked ? 'on' : effective ? 'inherited' : 'off';
           return h('label', {
             key: group.id,
             className: 'ah-group-include',
             'data-checked': checked,
-            'data-effective': effective,
+            'data-effective': state !== 'off',
             'data-state': state,
           },
           h(ActionCheck, {
             checked,
             state,
             disabled: busy,
-            onChange: (event) => toggleGroup(group.id, event.target.checked),
+            onChange: () => toggleGroup(group.id),
           }),
           h('span', { className: 'ah-group-include-name' }, group.name),
           global ? h('span', { className: 'ah-badge' }, t('groups.globalBadge')) : null,
@@ -596,9 +669,10 @@
         filtered.length === 0
           ? h('div', { className: 'ah-group-empty' }, t('groups.noMatch'))
           : filtered.map((action) => {
-            const inherited = covered(action);
-            const direct = profile.actions.includes(action.name);
-            const state = direct ? 'on' : inherited ? 'inherited' : 'off';
+            const state = actionState(action);
+            const direct = state === 'on';
+            const inherited = state === 'inherited';
+            const blocked = state === 'blocked';
             return h('label', {
               key: action.id,
               className: 'ah-group-action',
@@ -610,13 +684,14 @@
               checked: direct,
               state,
               disabled: busy,
-              onChange: (event) => toggleAction(action.name, event.target.checked),
+              onChange: () => toggleAction(action),
             }),
             h('span', { className: 'ah-group-action-main' },
               h('span', { className: 'ah-group-action-name' }, action.name),
               h('span', { className: 'ah-group-action-desc' }, action.description || '')),
             h('span', { className: 'ah-badge' }, action.mode === 'skill' ? t('lib.skill') : t('lib.command')),
-            inherited ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null);
+            inherited ? h('span', { className: 'ah-badge' }, t('scope.viaGroup')) : null,
+            blocked ? h('span', { className: 'ah-badge' }, t('scope.blocked')) : null);
           }));
 
       const detail = h(React.Fragment, null, projectHead, groupBlock, actionTools, actionRows);

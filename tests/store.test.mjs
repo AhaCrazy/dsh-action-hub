@@ -142,6 +142,23 @@ test('drops the legacy ungrouped group and its references', async () => {
   assert.equal(persisted.defaultGroup, '');
 });
 
+test('stores project-level exclusions', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  const group = await store.createGroup('Scoped');
+  await store.setProjectScope(path.join(dataDir, 'workspace'), {
+    label: 'workspace',
+    groups: [group.id],
+    actions: [],
+    excludeGroups: [group.id],
+    excludeActions: ['blocked-action'],
+  });
+  const state = await store.readState();
+  const project = state.projects.find((entry) => entry.label === 'workspace');
+  assert.deepEqual(project.excludeGroups, [group.id]);
+  assert.deepEqual(project.excludeActions, ['blocked-action']);
+});
+
 test('persists the global group flag', async () => {
   const dataDir = await tempData();
   const store = createStore({ dataDir });

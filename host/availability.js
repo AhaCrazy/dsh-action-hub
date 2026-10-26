@@ -45,12 +45,28 @@ export function selectedGroupIds(profile, groups = []) {
   return expandGroupIds(groups, [...selected]);
 }
 
+/** Groups granted directly by the project; their subtree overrides exclusions. */
+export function directGroupIds(profile, groups = []) {
+  return expandGroupIds(groups, Array.isArray(profile?.groups) ? profile.groups : []);
+}
+
+/** Groups removed from the inherited grant set for this project. */
+export function blockedGroupIds(profile, groups = []) {
+  const blocked = expandGroupIds(groups, Array.isArray(profile?.excludeGroups) ? profile.excludeGroups : []);
+  const direct = directGroupIds(profile, groups);
+  for (const id of direct) blocked.delete(id);
+  return blocked;
+}
+
 export function actionAvailable(action, profile, groups = []) {
   if (action === null || typeof action !== 'object') return false;
+  const excludedActions = Array.isArray(profile?.excludeActions) ? profile.excludeActions : [];
+  if (Array.isArray(profile?.actions) && profile.actions.includes(action.name)) return true;
+  if (excludedActions.includes(action.name)) return false;
   if (action.builtin === true) return true;
   const selected = selectedGroupIds(profile, groups);
-  if (Array.isArray(profile?.actions) && profile.actions.includes(action.name)) return true;
-  return Array.isArray(action.groups) && action.groups.some((id) => selected.has(id));
+  const blocked = blockedGroupIds(profile, groups);
+  return Array.isArray(action.groups) && action.groups.some((id) => selected.has(id) && !blocked.has(id));
 }
 
 export function availableActions(actions, profile, groups = []) {
