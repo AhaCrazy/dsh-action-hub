@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.3.3';
+    const VERSION = '8.3.4';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -3328,6 +3328,16 @@ window.__ModuleLoader__.load({
           const current = Object.values(byId).find((row) => (row?.retainedBy?.mainView ?? 0) > 0);
           return typeof current?.id === 'string' ? current.id : '';
         }, [sessions]);
+        const storedSessionId = () => {
+          try {
+            const raw = localStorage.getItem('dsh.sessions.current');
+            if (raw === null) return '';
+            const parsed = JSON.parse(raw);
+            return typeof parsed?.sessionId === 'string' ? parsed.sessionId : '';
+          } catch {
+            return '';
+          }
+        };
         const prefs = usePrefs(prefsRef);
         const shortcutState = useShortcutStore(shortcutStore);
         const searchRef = React.useRef(null);
@@ -3364,9 +3374,8 @@ window.__ModuleLoader__.load({
           setSelectedId(null);
           setArgs('');
           setToast({ text: '', kind: 'ok' });
-          if (mainSessionId !== '' || state.bridge?.sessionId) {
-            hub.setSession(mainSessionId !== '' ? mainSessionId : state.bridge.sessionId);
-          }
+          const activeSessionId = mainSessionId || storedSessionId() || state.bridge?.sessionId || '';
+          if (activeSessionId !== '') hub.setSession(activeSessionId);
           void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
           return () => {

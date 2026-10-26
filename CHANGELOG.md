@@ -1,5 +1,12 @@
 # Changelog
 
+## 8.3.4 — 2026-10-26
+
+- When no conversation is retained in the main view (for example while the
+  Action Hub panel is open), the palette now falls back to the persisted
+  `dsh.sessions.current` selection before the stale composer bridge. This keeps
+  the active workspace's project scope instead of another workspace's default.
+
 ## 8.3.3 — 2026-10-23
 
 - The palette now resolves availability from the main-view Session snapshot

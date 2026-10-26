@@ -12,6 +12,16 @@
           const current = Object.values(byId).find((row) => (row?.retainedBy?.mainView ?? 0) > 0);
           return typeof current?.id === 'string' ? current.id : '';
         }, [sessions]);
+        const storedSessionId = () => {
+          try {
+            const raw = localStorage.getItem('dsh.sessions.current');
+            if (raw === null) return '';
+            const parsed = JSON.parse(raw);
+            return typeof parsed?.sessionId === 'string' ? parsed.sessionId : '';
+          } catch {
+            return '';
+          }
+        };
         const prefs = usePrefs(prefsRef);
         const shortcutState = useShortcutStore(shortcutStore);
         const searchRef = React.useRef(null);
@@ -48,9 +58,8 @@
           setSelectedId(null);
           setArgs('');
           setToast({ text: '', kind: 'ok' });
-          if (mainSessionId !== '' || state.bridge?.sessionId) {
-            hub.setSession(mainSessionId !== '' ? mainSessionId : state.bridge.sessionId);
-          }
+          const activeSessionId = mainSessionId || storedSessionId() || state.bridge?.sessionId || '';
+          if (activeSessionId !== '') hub.setSession(activeSessionId);
           void hub.refresh().catch(() => {});
           const timer = setTimeout(() => searchRef.current?.focus(), 20);
           return () => {
