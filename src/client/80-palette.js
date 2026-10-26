@@ -347,7 +347,6 @@
               h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.send, { size: 13 }), t('palette.send')))),
           h('div', { className: 'ah-hints' },
             h('span', null, currentProject === null ? t('palette.noCurrentProject') : t('palette.currentProject', { name: currentProject.label })),
-            h('span', null, h(Kbd, null, '←→'), ` ${t('palette.hintTab')}`),
             h('span', null, h(Kbd, null, '↑↓'), ` ${t('palette.hintNav')}`),
             h('span', null, h(Kbd, null, 'Tab'), ' / ', h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),
             h('span', null, h(Kbd, null, 'Ctrl+↵'), ` ${t('palette.hintSend')}`),

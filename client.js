@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.6.0';
+    const VERSION = '8.6.1';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -448,7 +448,6 @@ window.__ModuleLoader__.load({
         'palette.hintNav': '选择',
         'palette.hintInsert': '插入',
         'palette.hintSend': '发送',
-        'palette.hintTab': '切换分组',
         'palette.refHint': '将以引用方式插入：对话中只显示「{name}」',
         'palette.skillHint': '将插入技能正文；Agent 仍可自行调用，但不进入 / 菜单',
         'palette.scope': '可用范围',
@@ -708,7 +707,6 @@ window.__ModuleLoader__.load({
         'palette.hintNav': 'navigate',
         'palette.hintInsert': 'insert',
         'palette.hintSend': 'send',
-        'palette.hintTab': 'switch group',
         'palette.refHint': 'Inserts a reference: the transcript shows “{name}” only',
         'palette.skillHint': 'Inserts the skill body; the agent can still invoke it, but it is hidden from /',
         'palette.scope': 'Availability',
@@ -3764,7 +3762,6 @@ window.__ModuleLoader__.load({
               h(Button, { small: true, onClick: () => { if (selected) doInsert(selected, 'send'); }, disabled: !canWrite || selected === null || selected.available === false }, h(Icons.send, { size: 13 }), t('palette.send')))),
           h('div', { className: 'ah-hints' },
             h('span', null, currentProject === null ? t('palette.noCurrentProject') : t('palette.currentProject', { name: currentProject.label })),
-            h('span', null, h(Kbd, null, '←→'), ` ${t('palette.hintTab')}`),
             h('span', null, h(Kbd, null, '↑↓'), ` ${t('palette.hintNav')}`),
             h('span', null, h(Kbd, null, 'Tab'), ' / ', h(Kbd, null, '↵'), ` ${t('palette.hintInsert')}`),
             h('span', null, h(Kbd, null, 'Ctrl+↵'), ` ${t('palette.hintSend')}`),

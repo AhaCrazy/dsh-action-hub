@@ -186,7 +186,7 @@ test('relativeTime renders a non-empty label for a past timestamp', () => {
 test('palette closes on Escape and keeps Tab insertion', () => {
   assert.match(source, /event\.key !== 'Escape'/);
   assert.doesNotMatch(source, /cycleCategory/);
-  assert.match(source, /palette\.hintTab/);
+  assert.doesNotMatch(source, /palette\.hintTab/);
 });
 
 test('sidebar entry and library shortcut are configurable', () => {

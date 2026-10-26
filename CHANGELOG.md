@@ -1,5 +1,10 @@
 # Changelog
 
+## 8.6.1 — 2026-10-26
+
+- Removed the stale `←/→` switch-group hint from the palette footer; group
+  switching is configured through the palette/library UI, not arrow keys.
+
 ## 8.6.0 — 2026-10-26
 
 - A fresh install now starts with a **Common** group marked global, and the
