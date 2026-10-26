@@ -142,6 +142,17 @@ test('drops the legacy ungrouped group and its references', async () => {
   assert.equal(persisted.defaultGroup, '');
 });
 
+test('persists the global group flag', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  const group = await store.createGroup('Common tools');
+  assert.equal(group.global, false);
+  await store.setGroupGlobal(group.id, true);
+  assert.equal((await store.readState()).groups.find((entry) => entry.id === group.id).global, true);
+  await store.setGroupGlobal(group.id, false);
+  assert.equal((await store.readState()).groups.find((entry) => entry.id === group.id).global, false);
+});
+
 test('assigns built-in Action names to a group through extraNames', async () => {
   const dataDir = await tempData();
   const store = createStore({ dataDir });

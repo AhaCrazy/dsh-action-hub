@@ -36,6 +36,21 @@ test('nested groups contribute their Actions through the selected parent', () =>
   assert.equal(actionAvailable(nested[0], { groups: ['common'], actions: [] }, groups), false);
 });
 
+test('global groups apply to every project, including nested actions', () => {
+  const groups = [
+    { id: 'global', global: true, includes: ['child'] },
+    { id: 'child', includes: [] },
+    { id: 'private', includes: [] },
+  ];
+  const scoped = [
+    { name: 'global-action', groups: ['child'] },
+    { name: 'private-action', groups: ['private'] },
+  ];
+  assert.equal(actionAvailable(scoped[0], { groups: [], actions: [] }, groups), true);
+  assert.equal(actionAvailable(scoped[1], { groups: [], actions: [] }, groups), false);
+  assert.equal(actionAvailable(scoped[0], { groups: ['private'], actions: [] }, groups), true);
+});
+
 test('cycles contribute the union of the connected groups', () => {
   const groups = [
     { id: 'art', includes: ['figma'] },

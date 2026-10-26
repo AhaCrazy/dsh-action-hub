@@ -144,6 +144,7 @@ export function normalizeGroups(raw) {
       id,
       name,
       builtin: false,
+      global: item.global === true,
       includes: normalizeGroupIds(item.includes),
     });
   }
@@ -649,7 +650,7 @@ export function createStore(options = {}) {
         if (state.groups.some((group) => group.name.toLowerCase() === display.toLowerCase())) throw new Error('分组已存在');
         let id = display.toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/gu, '-').replace(/^-+|-+$/gu, '');
         if (id === '' || state.groups.some((group) => group.id === id)) id = `g-${randomUUID().slice(0, 8)}`;
-        const group = { id, name: display, builtin: false, includes: [] };
+        const group = { id, name: display, builtin: false, global: false, includes: [] };
         state.groups.push(group);
         await writeStateFile(dataDir, state);
         return group;
@@ -676,6 +677,17 @@ export function createStore(options = {}) {
         const group = state.groups.find((entry) => entry.id === id);
         if (group === undefined) throw new Error('分组不存在');
         state.defaultGroup = group.id;
+        await writeStateFile(dataDir, state);
+        return group;
+      });
+    },
+    async setGroupGlobal(id, global) {
+      return serialize(async () => {
+        const state = await readState();
+        state.groups = normalizeGroups(state.groups);
+        const group = state.groups.find((entry) => entry.id === id);
+        if (group === undefined) throw new Error('分组不存在');
+        group.global = global === true;
         await writeStateFile(dataDir, state);
         return group;
       });

@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.3.5';
+    const VERSION = '8.4.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -475,6 +475,9 @@ window.__ModuleLoader__.load({
         'groups.actionSearch': '搜索要加入分组的 Action',
         'groups.defaultBadge': '默认',
         'groups.workspaceDefault': '工作区默认',
+        'groups.globalBadge': '全局',
+        'groups.makeGlobal': '设为所有工作区通用',
+        'groups.clearGlobal': '取消所有工作区通用',
         'groups.setDefault': '设为新工作区默认',
         'groups.save': '保存修改',
         'groups.unsaved': '已修改 {count} 项',
@@ -502,7 +505,7 @@ window.__ModuleLoader__.load({
         'scope.searchActions': '搜索 Action',
         'scope.viaGroup': '已由分组覆盖',
         'scope.projects': '项目列表',
-        'scope.groupsHint': '勾选分组后自动包含子分组 Action；灰色勾表示由父分组间接覆盖，点击可切换为蓝色直接选择。',
+        'scope.groupsHint': '勾选分组后自动包含子分组 Action；灰色勾表示由父分组间接覆盖，点击可切换为蓝色直接选择。标记为“全局”的分组始终对所有工作区生效。',
         'scope.extraHint': '灰色勾表示由已选分组覆盖，点击可切换为蓝色单独选中；无需重复追加。',
         'scope.groupCount': '{count} 个分组',
         'scope.noProjects': '没有可配置的项目',
@@ -731,6 +734,9 @@ window.__ModuleLoader__.load({
         'groups.actionSearch': 'Search Actions to add',
         'groups.defaultBadge': 'Default',
         'groups.workspaceDefault': 'Workspace default',
+        'groups.globalBadge': 'Global',
+        'groups.makeGlobal': 'Make available in all workspaces',
+        'groups.clearGlobal': 'Stop using in all workspaces',
         'groups.setDefault': 'Set as new-workspace default',
         'groups.save': 'Save changes',
         'groups.unsaved': '{count} unsaved changes',
@@ -758,7 +764,7 @@ window.__ModuleLoader__.load({
         'scope.searchActions': 'Search Actions',
         'scope.viaGroup': 'Covered by a group',
         'scope.projects': 'Projects',
-        'scope.groupsHint': 'Selecting a group automatically includes its child groups. A grey check is covered by a parent group; click it to switch to a blue direct selection.',
+        'scope.groupsHint': 'Selecting a group automatically includes its child groups. A grey check is covered by a parent group; click it to switch to a blue direct selection. Groups marked Global always apply to every workspace.',
         'scope.extraHint': 'A grey check means the Action is covered by a selected group; click it to switch to a blue individual selection.',
         'scope.groupCount': '{count} groups',
         'scope.noProjects': 'No projects to configure',
@@ -2879,11 +2885,18 @@ window.__ModuleLoader__.load({
           setMenu(null);
         });
       };
+      const setGlobal = async (group, global) => {
+        await run(async () => {
+          await api('/groups/global', { id: group.id, global });
+          setMenu(null);
+        });
+      };
 
       const groupRows = groups.map((group) => {
         const renaming = renamingId === group.id;
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
+          group.global === true ? h('span', { className: 'ah-badge' }, t('groups.globalBadge')) : null,
           defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null);
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
@@ -3020,6 +3033,12 @@ window.__ModuleLoader__.load({
         }, t('groups.setDefault')));
       }
       if (menuGroup !== null) {
+        menuItems.push(h('button', {
+          key: 'global',
+          type: 'button',
+          className: 'ah-group-context-item',
+          onClick: () => { setMenu(null); void setGlobal(menuGroup, menuGroup.global !== true); },
+        }, menuGroup.global === true ? t('groups.clearGlobal') : t('groups.makeGlobal')));
         menuItems.push(h('button', {
           key: 'rename',
           type: 'button',
@@ -3234,8 +3253,9 @@ window.__ModuleLoader__.load({
         h('p', { className: 'ah-hint' }, t('scope.groupsHint')),
         h('div', { className: 'ah-group-include-list' }, groups.map((group) => {
           const checked = profile.groups.includes(group.id);
-          const effective = !checked && expandGroups(profile.groups).has(group.id);
-          const state = checked ? 'on' : effective ? 'inherited' : 'off';
+          const global = group.global === true;
+          const effective = global || (!checked && expandGroups(profile.groups).has(group.id));
+          const state = global ? (checked ? 'on' : 'inherited') : checked ? 'on' : effective ? 'inherited' : 'off';
           return h('label', {
             key: group.id,
             className: 'ah-group-include',
@@ -3250,6 +3270,7 @@ window.__ModuleLoader__.load({
             onChange: (event) => toggleGroup(group.id, event.target.checked),
           }),
           h('span', { className: 'ah-group-include-name' }, group.name),
+          global ? h('span', { className: 'ah-badge' }, t('groups.globalBadge')) : null,
           h('span', { className: 'ah-count' }, t('groups.actionCount', { count: groupActionCount(group.id) })));
         })));
 

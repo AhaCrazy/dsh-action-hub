@@ -279,6 +279,13 @@ async function handle(ctx, store, dataDir, req, res) {
       return;
     }
 
+    if (route === '/groups/global') {
+      const group = await store.setGroupGlobal(text(body.id), body.global === true);
+      notifySkillCatalog(ctx);
+      sendJson(res, 200, { ok: true, group });
+      return;
+    }
+
     if (route === '/groups/delete') {
       const groups = await store.deleteGroup(text(body.id));
       notifySkillCatalog(ctx);

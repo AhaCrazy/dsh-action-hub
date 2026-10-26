@@ -38,8 +38,11 @@ export function expandGroupIds(groups, selectedIds) {
 }
 
 export function selectedGroupIds(profile, groups = []) {
-  const selected = Array.isArray(profile?.groups) ? profile.groups : [];
-  return expandGroupIds(groups, selected);
+  const selected = new Set(Array.isArray(profile?.groups) ? profile.groups : []);
+  for (const group of Array.isArray(groups) ? groups : []) {
+    if (group !== null && group.global === true && typeof group.id === 'string') selected.add(group.id);
+  }
+  return expandGroupIds(groups, [...selected]);
 }
 
 export function actionAvailable(action, profile, groups = []) {

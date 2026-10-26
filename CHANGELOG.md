@@ -1,5 +1,13 @@
 # Changelog
 
+## 8.4.0 — 2026-10-26
+
+- Groups can be marked **global**: every Action in a global group (including
+  nested groups) is available in every workspace, including newly created ones
+  and projects with an explicit scope.
+- Mark or unmark a group from its context menu; global groups carry a badge in
+  the group manager and project scope dialog.
+
 ## 8.3.5 — 2026-10-26
 
 - Built-in Actions can now be assigned to groups; memberships persist in

@@ -197,11 +197,18 @@
           setMenu(null);
         });
       };
+      const setGlobal = async (group, global) => {
+        await run(async () => {
+          await api('/groups/global', { id: group.id, global });
+          setMenu(null);
+        });
+      };
 
       const groupRows = groups.map((group) => {
         const renaming = renamingId === group.id;
         const titleRow = h('div', { className: 'ah-group-item-main' },
           h('span', { className: 'ah-group-name' }, group.name),
+          group.global === true ? h('span', { className: 'ah-badge' }, t('groups.globalBadge')) : null,
           defaultGroup === group.id ? h('span', { className: 'ah-badge' }, t('groups.workspaceDefault')) : null);
         const body = renaming
           ? h('div', { className: 'ah-group-rename' },
@@ -338,6 +345,12 @@
         }, t('groups.setDefault')));
       }
       if (menuGroup !== null) {
+        menuItems.push(h('button', {
+          key: 'global',
+          type: 'button',
+          className: 'ah-group-context-item',
+          onClick: () => { setMenu(null); void setGlobal(menuGroup, menuGroup.global !== true); },
+        }, menuGroup.global === true ? t('groups.clearGlobal') : t('groups.makeGlobal')));
         menuItems.push(h('button', {
           key: 'rename',
           type: 'button',
@@ -552,8 +565,9 @@
         h('p', { className: 'ah-hint' }, t('scope.groupsHint')),
         h('div', { className: 'ah-group-include-list' }, groups.map((group) => {
           const checked = profile.groups.includes(group.id);
-          const effective = !checked && expandGroups(profile.groups).has(group.id);
-          const state = checked ? 'on' : effective ? 'inherited' : 'off';
+          const global = group.global === true;
+          const effective = global || (!checked && expandGroups(profile.groups).has(group.id));
+          const state = global ? (checked ? 'on' : 'inherited') : checked ? 'on' : effective ? 'inherited' : 'off';
           return h('label', {
             key: group.id,
             className: 'ah-group-include',
@@ -568,6 +582,7 @@
             onChange: (event) => toggleGroup(group.id, event.target.checked),
           }),
           h('span', { className: 'ah-group-include-name' }, group.name),
+          global ? h('span', { className: 'ah-badge' }, t('groups.globalBadge')) : null,
           h('span', { className: 'ah-count' }, t('groups.actionCount', { count: groupActionCount(group.id) })));
         })));
 
