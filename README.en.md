@@ -17,6 +17,8 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 - **Commands cost zero context**: not registered for the model, invoked only by you from the palette.
 - **Skills are explicit**: enter the model catalog only after you switch them on; cost is shown at switch time.
 - **Project scope**: an entry can be limited to selected projects. Scope is local and never exported.
+- **Global groups**: mark any group as shared by every workspace; new workspaces inherit it without configuration.
+- **Per-project blocks**: a project can block inherited groups or Actions without affecting other workspaces.
 - **Zero-conversion import**: import a downloaded SKILL.md directory/ZIP as-is; export the same standard directory.
 
 ## Usage
@@ -68,7 +70,7 @@ Imported skills start as **Command**. Switch to **Skill** from the Action row's 
   library/<skill-name>/
     SKILL.md       # the single standard source
     ...resources
-  state.json       # local mode / scope / category / pin / usage
+  state.json       # local mode / scope / category / pin / usage / global groups / project blocks
 ```
 
 - No `action.json`;
@@ -89,6 +91,42 @@ Imported skills start as **Command**. Switch to **Skill** from the Action row's 
 - A session opened in a project sub-directory matches the nearest registered project root;
 - The provider, Command injection, and palette share one availability check;
 - Unknown projects or corrupt state fall back to the configured new-workspace default group; with none configured, only built-in Actions are available.
+
+### Global groups
+
+In **Action groups**, right-click any group and choose **Make available in all workspaces**. A **Global** badge appears next to the name.
+
+- Every Action in the group and its nested groups becomes available to every workspace;
+- New and unconfigured workspaces inherit it automatically — no per-project setup;
+- Choose **Stop using in all workspaces** from the same menu to undo it;
+- Projects can still add their own groups and Actions; a global group is a baseline grant, not an exclusive scope.
+
+### Per-project blocks
+
+In **Project scope**, groups and Actions have three states:
+
+| State | Meaning | Click result |
+| --- | --- | --- |
+| Blue check | Directly selected by this project | Remove the direct selection |
+| Grey check | Available through a global/parent group | Block it in this project (grey cross) |
+| Grey cross | Blocked in this project | Restore the inherited grant |
+
+Rules:
+
+- Blocking a group blocks it and its nested groups;
+- Blocking an Action affects only that Action;
+- Direct selections override blocks: after blocking a global group, a project can re-enable one nested group or Action by selecting it directly;
+- To block a group that is directly selected, first clear its blue check, then turn its grey check into a grey cross;
+- Built-in Actions are baseline grants and stay available by default. To exclude one, turn its own row into a grey cross; group-level blocks do not remove a built-in Action's baseline grant.
+
+Precedence, highest first:
+
+1. An Action directly selected by the project;
+2. A group directly selected by the project, including its nested groups;
+3. Grants inherited from global or parent groups;
+4. Per-project blocks.
+
+Example: mark `Common` global, then block `Common` in `P2`. P2 no longer sees Common Actions while other workspaces are unaffected. To restore just one Action in P2, select that Action directly in P2's list.
 
 ## Development
 
