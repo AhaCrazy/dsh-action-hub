@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.3.5 — 2026-10-26
+
+- Built-in Actions can now be assigned to groups; memberships persist in
+  `state.json` and built-ins are decorated with their saved groups.
+- Group dialog placeholder no longer mentions user-specific group names.
+
 ## 8.3.4 — 2026-10-26
 
 - When no conversation is retained in the main view (for example while the

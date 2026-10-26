@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.3.4';
+    const VERSION = '8.3.5';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -464,7 +464,7 @@ window.__ModuleLoader__.load({
         'groups.title': 'Action 分组',
         'config.title': 'Action 配置',
         'groups.hint': '分组是 Action 的集合；项目通过勾选分组获得其中所有 Action。',
-        'groups.namePlaceholder': '新分组名，如 Common、AgilityDog、漫剧',
+        'groups.namePlaceholder': '新分组名，如 工作、文档、研究',
         'groups.create': '创建分组',
         'groups.rename': '重命名',
         'groups.renamePrompt': '新的分组名',
@@ -720,7 +720,7 @@ window.__ModuleLoader__.load({
         'groups.title': 'Action groups',
         'config.title': 'Action configuration',
         'groups.hint': 'A group is a set of Actions; selecting it grants every Action in it to a project.',
-        'groups.namePlaceholder': 'New group name, e.g. Common, AgilityDog, Drama',
+        'groups.namePlaceholder': 'New group name, e.g. Work, Docs, Research',
         'groups.create': 'Create group',
         'groups.rename': 'Rename',
         'groups.renamePrompt': 'New group name',

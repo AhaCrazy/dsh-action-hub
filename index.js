@@ -240,7 +240,12 @@ async function handle(ctx, store, dataDir, req, res) {
     }
 
     if (route === '/groups/actions') {
-      const result = await store.setGroupActions(text(body.id), body.actions);
+      const builtins = await getBuiltins();
+      const result = await store.setGroupActions(
+        text(body.id),
+        body.actions,
+        builtins.map((action) => action.name),
+      );
       notifySkillCatalog(ctx);
       sendJson(res, 200, { ok: true, ...result });
       return;

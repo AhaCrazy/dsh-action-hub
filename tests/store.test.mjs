@@ -142,6 +142,18 @@ test('drops the legacy ungrouped group and its references', async () => {
   assert.equal(persisted.defaultGroup, '');
 });
 
+test('assigns built-in Action names to a group through extraNames', async () => {
+  const dataDir = await tempData();
+  const store = createStore({ dataDir });
+  const group = await store.createGroup('Builtins');
+  await store.setGroupActions(group.id, ['builtin-one'], ['builtin-one']);
+  let state = await store.readState();
+  assert.deepEqual(state.entries['builtin-one'].groups, [group.id]);
+  await store.setGroupActions(group.id, [], ['builtin-one']);
+  state = await store.readState();
+  assert.deepEqual(state.entries['builtin-one'].groups, []);
+});
+
 test('nests groups and keeps cycles as one shared pool', async () => {
   const dataDir = await tempData();
   const store = createStore({ dataDir });

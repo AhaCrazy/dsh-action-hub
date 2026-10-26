@@ -576,7 +576,7 @@ export function createStore(options = {}) {
         return state.entries[name];
       });
     },
-    async setGroupActions(id, actionNames) {
+    async setGroupActions(id, actionNames, extraNames = []) {
       return serialize(async () => {
         const state = await readState();
         state.groups = normalizeGroups(state.groups);
@@ -585,6 +585,9 @@ export function createStore(options = {}) {
         const wanted = new Set((Array.isArray(actionNames) ? actionNames : []).filter((name) => typeof name === 'string'));
         const known = new Set(skills.map((skill) => skill.name));
         for (const name of Object.keys(state.entries)) known.add(name);
+        for (const name of Array.isArray(extraNames) ? extraNames : []) {
+          if (typeof name === 'string' && name !== '') known.add(name);
+        }
         let changed = false;
         for (const name of known) {
           const hasEntry = state.entries[name] !== undefined;
