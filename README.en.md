@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.6.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.7.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -62,7 +62,7 @@ description: One sentence describing when to use it
 Body...
 ```
 
-Imported skills start as **Command**. Switch to **Skill** from the Action row's right-click menu before the model can invoke them; the cost is shown first.
+In the import preview, each new Action can be imported as a **new Command** or a **new Skill**; Command is the default. Choosing Skill makes it model-invocable, with the context cost shown first. Existing local copies can still be updated or skipped.
 
 ## Data
 

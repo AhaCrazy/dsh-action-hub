@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.7.0 — 2026-10-26
+
+- New items in the import preview now offer **Import as new Command** and
+  **Import as new Skill**; the chosen mode is applied on import instead of
+  always creating a Command.
+
 ## 8.6.1 — 2026-10-26
 
 - Removed the stale `←/→` switch-group hint from the palette footer; group

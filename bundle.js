@@ -56,8 +56,8 @@ async function collectFolderSkills(root) {
 function planItem(candidate, existing, key, allNames) {
   const duplicateName = allNames.get(candidate.name) > 1;
   let status = 'new';
-  let defaultMode = 'create';
-  let modes = ['create', 'skip'];
+  let defaultMode = 'create-command';
+  let modes = ['create-command', 'create-skill', 'skip'];
   if (duplicateName) {
     status = 'conflict';
     defaultMode = 'skip';
@@ -157,7 +157,9 @@ async function applyPlan(store, dataDir, candidates, decisions, reserved) {
     if (mode === undefined || mode === 'skip') { skipped += 1; continue; }
     if (reserved.has(candidate.name) || (names.get(candidate.name) ?? 0) > 1) { conflicts += 1; continue; }
     const existing = byName.get(candidate.name);
-    if (mode === 'create' && existing !== undefined) { skipped += 1; continue; }
+    const creating = mode === 'create' || mode === 'create-command' || mode === 'create-skill';
+    const createAsSkill = mode === 'create-skill';
+    if (creating && existing !== undefined) { skipped += 1; continue; }
     const target = path.join(dataDir, 'library', candidate.name);
     try {
       await copySkill(candidate.dir, target);
@@ -165,7 +167,7 @@ async function applyPlan(store, dataDir, candidates, decisions, reserved) {
       await store.update(candidate.name, {
         description: candidate.description,
         prompt: body,
-        ...(existing === undefined ? { mode: 'command' } : {}),
+        ...(existing === undefined ? { mode: createAsSkill ? 'skill' : 'command' } : {}),
       });
       if (existing === undefined) imported += 1; else updated += 1;
     } catch (error) {

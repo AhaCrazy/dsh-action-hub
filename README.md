@@ -7,7 +7,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.6.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.7.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -62,7 +62,7 @@ description: 一句话说明何时使用
 正文……
 ```
 
-导入后默认是 **Command**。需要在 Action 列表右键菜单中切换为 **Skill**，模型才能自行调用；切换前会提示上下文成本。
+导入预览中，每个新增 Action 可以选择 **导入为新 Command** 或 **导入为新 Skill**；默认是 Command。选择 Skill 后模型可直接调用，切换前会提示上下文成本。已有本地副本仍可选择更新或跳过。
 
 ## 数据
 

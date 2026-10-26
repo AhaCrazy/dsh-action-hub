@@ -23,6 +23,8 @@ test('previews and imports a standard skill folder', async () => {
   const preview = await previewFolder(store, dataDir, source);
   assert.equal(preview.items.length, 1);
   assert.equal(preview.items[0].status, 'new');
+  assert.equal(preview.items[0].defaultMode, 'create-command');
+  assert.deepEqual(preview.items[0].modes, ['create-command', 'create-skill', 'skip']);
   const result = await applyFolderPlan(store, dataDir, source, [{ key: 'standard-demo', mode: 'create' }], []);
   assert.equal(result.imported, 1);
   const action = (await store.read()).actions[0];
@@ -30,6 +32,17 @@ test('previews and imports a standard skill folder', async () => {
   assert.equal(action.mode, 'command');
   const skill = await fs.readFile(path.join(dataDir, 'library', 'standard-demo', 'SKILL.md'), 'utf8');
   assert.match(skill, /name: standard-demo/u);
+});
+
+test('imports a new Action as a Skill when requested', async () => {
+  const base = await fs.mkdtemp(path.join(os.tmpdir(), 'ah-bundle-'));
+  const dataDir = path.join(base, 'data');
+  const source = path.join(base, 'source');
+  await writeSkill(source, 'skill-demo');
+  const store = createStore({ dataDir });
+  const result = await applyFolderPlan(store, dataDir, source, [{ key: 'skill-demo', mode: 'create-skill' }], []);
+  assert.equal(result.imported, 1);
+  assert.equal((await store.read()).actions[0].mode, 'skill');
 });
 
 test('exports a standard directory and re-imports it', async () => {

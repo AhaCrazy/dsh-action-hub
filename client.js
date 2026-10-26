@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.6.1';
+    const VERSION = '8.7.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -400,7 +400,7 @@ window.__ModuleLoader__.load({
         'delete.title': '删除这个 Action？',
         'delete.copy': '「{name}」会从收藏夹永久移除。',
         'import.title': '导入 Actions',
-        'import.bundleHint': '选择文件夹或 ZIP 后先进入预览；可以为每个 Action 单独选择跳过、导入为新 Action 或更新本地副本。',
+        'import.bundleHint': '选择文件夹或 ZIP 后先进入预览；可以为每个 Action 单独选择跳过、导入为新 Command 或新 Skill，或更新本地副本。',
         'import.bundleFolder': '选择文件夹',
         'import.bundleZip': '选择 ZIP',
         'import.previewTitle': '导入预览',
@@ -412,6 +412,8 @@ window.__ModuleLoader__.load({
         'import.status.conflict': '冲突',
         'import.mode.skip': '跳过',
         'import.mode.create': '导入为新 Action',
+        'import.mode.create-command': '导入为新 Command',
+        'import.mode.create-skill': '导入为新 Skill',
         'import.mode.update': '更新本地 Action',
         'import.itemResources': '{count} 个资源文件',
         'import.itemExisting': '本地已有：{name}',
@@ -659,7 +661,7 @@ window.__ModuleLoader__.load({
         'delete.title': 'Delete this Action?',
         'delete.copy': '“{name}” leaves the shelf permanently.',
         'import.title': 'Import Actions',
-        'import.bundleHint': 'Choose a folder or ZIP to open a preview; set each Action to skip, import as new, or update the local copy.',
+        'import.bundleHint': 'Choose a folder or ZIP to open a preview; set each Action to skip, import as a new Command or Skill, or update the local copy.',
         'import.bundleFolder': 'Choose folder',
         'import.bundleZip': 'Choose ZIP',
         'import.previewTitle': 'Import preview',
@@ -671,6 +673,8 @@ window.__ModuleLoader__.load({
         'import.status.conflict': 'conflict',
         'import.mode.skip': 'Skip',
         'import.mode.create': 'Import as new Action',
+        'import.mode.create-command': 'Import as new Command',
+        'import.mode.create-skill': 'Import as new Skill',
         'import.mode.update': 'Update local Action',
         'import.itemResources': '{count} resource file(s)',
         'import.itemExisting': 'Local: {name}',
