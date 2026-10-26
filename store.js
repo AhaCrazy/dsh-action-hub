@@ -110,8 +110,17 @@ export function normalizeScope(scope) {
   return { mode, projects };
 }
 
+export const DEFAULT_GROUP_ID = 'common';
+export const DEFAULT_BUILTIN_ID = 'skill-import-assistant';
+
 export function defaultGroups() {
-  return [];
+  return [{
+    id: DEFAULT_GROUP_ID,
+    name: 'Common',
+    builtin: false,
+    global: true,
+    includes: [],
+  }];
 }
 
 export function normalizeGroupName(value) {
@@ -255,7 +264,12 @@ function emptyState() {
   return {
     format: STATE_FORMAT,
     groups: defaultGroups(),
-    entries: {},
+    entries: {
+      [DEFAULT_BUILTIN_ID]: {
+        ...defaultEntry(),
+        groups: [DEFAULT_GROUP_ID],
+      },
+    },
     projects: [],
     defaultGroup: '',
   };

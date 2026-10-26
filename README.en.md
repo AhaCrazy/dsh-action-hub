@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.5.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.6.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -18,6 +18,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 - **Skills are explicit**: enter the model catalog only after you switch them on; cost is shown at switch time.
 - **Project scope**: an entry can be limited to selected projects. Scope is local and never exported.
 - **Global groups**: mark any group as shared by every workspace; new workspaces inherit it without configuration.
+- **Works out of the box**: a fresh install includes a global `Common` group with the built-in `skill-import-assistant` already in it.
 - **Per-project blocks**: a project can block inherited groups or Actions without affecting other workspaces.
 - **Zero-conversion import**: import a downloaded SKILL.md directory/ZIP as-is; export the same standard directory.
 
@@ -95,6 +96,8 @@ Imported skills start as **Command**. Switch to **Skill** from the Action row's 
 ### Global groups
 
 In **Action groups**, right-click any group and choose **Make available in all workspaces**. A **Global** badge appears next to the name.
+
+On a fresh install (no previous `state.json`), the plugin creates a global **Common** group containing the built-in `skill-import-assistant`, so new workspaces can use it without any configuration. Existing `state.json` files are never rewritten automatically.
 
 - Every Action in the group and its nested groups becomes available to every workspace;
 - New and unconfigured workspaces inherit it automatically — no per-project setup;

@@ -4,11 +4,20 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { createStore, normalizeScope } from '../store.js';
+import { createStore, normalizeScope, DEFAULT_GROUP_ID, DEFAULT_BUILTIN_ID } from '../store.js';
 
 async function tempData() {
   return fs.mkdtemp(path.join(os.tmpdir(), 'dsh-action-hub-v6-'));
 }
+
+test('fresh install seeds the Common global group and its built-in Action', async () => {
+  const store = createStore({ dataDir: await tempData() });
+  const state = await store.readState();
+  assert.deepEqual(state.groups.map((group) => group.id), [DEFAULT_GROUP_ID]);
+  assert.equal(state.groups[0].name, 'Common');
+  assert.equal(state.groups[0].global, true);
+  assert.deepEqual(state.entries[DEFAULT_BUILTIN_ID].groups, [DEFAULT_GROUP_ID]);
+});
 
 test('creates a standard SKILL.md and keeps plugin state outside it', async () => {
   const dataDir = await tempData();
@@ -217,8 +226,8 @@ test('drops state entries when a skill is deleted outside the plugin', async () 
   const dataDir = await tempData();
   const store = createStore({ dataDir });
   await store.create({ name: 'orphan', description: 'Orphan', prompt: 'Body.' });
-  assert.deepEqual(Object.keys((await store.readState()).entries), ['orphan']);
+  assert.deepEqual(Object.keys((await store.readState()).entries).filter((name) => name !== DEFAULT_BUILTIN_ID), ['orphan']);
   await fs.rm(path.join(dataDir, 'library', 'orphan'), { recursive: true, force: true });
   await store.read({ prune: true });
-  assert.deepEqual(Object.keys((await store.readState()).entries), []);
+  assert.deepEqual(Object.keys((await store.readState()).entries).filter((name) => name !== DEFAULT_BUILTIN_ID), []);
 });

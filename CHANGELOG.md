@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.6.0 — 2026-10-26
+
+- A fresh install now starts with a **Common** group marked global, and the
+  built-in `skill-import-assistant` is already a member of it. New workspaces
+  inherit the group immediately; existing `state.json` data is left untouched.
+
 ## 8.5.0 — 2026-10-26
 
 - A project can now block inherited groups or Actions without removing the

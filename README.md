@@ -7,7 +7,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.5.0-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.6.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -18,6 +18,7 @@
 - **Skill 可被模型调用**：只有你显式切换后才会进入模型目录；切换会显示上下文成本。
 - **项目范围**：每个条目可以只允许在指定项目使用；范围存本地，不随分享包走。
 - **全局分组**：任意分组可标记为所有工作区通用，新工作区无需配置即可继承。
+- **开箱即用**：新安装默认带一个全局 `Common` 分组，其中已预置 `skill-import-assistant`。
 - **项目级屏蔽**：项目可以屏蔽继承来的分组或 Action，而不影响其他工作区。
 - **导入零转换**：网上下载的 SKILL.md 目录/ZIP 原样导入，导出也是原样标准目录。
 
@@ -95,6 +96,8 @@ description: 一句话说明何时使用
 ### 全局分组
 
 在 **Action 分组** 中右键任意分组，选择 **设为所有工作区通用**。分组名旁会出现 **全局** 徽标。
+
+首次安装（没有旧 `state.json`）时，插件会默认创建一个名为 **Common** 的全局分组，并把内置 Action `skill-import-assistant` 放进去。因此新用户装好插件后，新工作区无需配置就能看到它。已有 `state.json` 的用户不会被自动改写。
 
 - 该分组及其子分组里的所有 Action 自动对所有工作区可用；
 - 新建工作区、未配置工作区都会直接继承，不需要逐个配置；
