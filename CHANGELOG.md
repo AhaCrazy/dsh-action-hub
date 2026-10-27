@@ -1,5 +1,11 @@
 # Changelog
 
+## 8.8.0 — 2026-10-27
+
+- Every search field now has a regular-expression toggle at its right edge,
+  activated by the `.*` button or `Alt+R`; the shortcut is shown on hover.
+  Without the toggle, search remains the existing substring/token search.
+
 ## 8.7.1 — 2026-10-26
 
 - Switching projects in **Project scope** now keeps the current Action search

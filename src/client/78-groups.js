@@ -25,6 +25,7 @@
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
       const [drafts, setDrafts] = React.useState({});
       const [query, setQuery] = React.useState('');
+      const [regex, setRegex] = React.useState(false);
       const [filter, setFilter] = React.useState('all');
       const [renamingId, setRenamingId] = React.useState('');
       const [renameValue, setRenameValue] = React.useState('');
@@ -90,11 +91,12 @@
       React.useEffect(() => {
         props.onDirtyChange?.(dirtyCount);
       }, [dirtyCount, props.onDirtyChange]);
+      const matchesSearch = compileSearch(query, regex);
       const filtered = actions.filter((action) => {
         if (filter === 'selected' && !activeDirectSet.has(action.name)) return false;
         if (filter === 'unselected' && activeDirectSet.has(action.name)) return false;
         if (query.trim() === '') return true;
-        return `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase());
+        return matchesSearch(`${action.name} ${action.description}`);
       });
       const groupLabel = (id) => groups.find((group) => group.id === id)?.name ?? id;
 
@@ -296,7 +298,7 @@
           h(Button, { ghost: true, small: true, onClick: () => setFiltered(true) }, t('groups.selectAll')),
           h(Button, { ghost: true, small: true, onClick: () => setFiltered(false) }, t('groups.clear'))));
       const detailTools = active === null ? null : h('div', { className: 'ah-group-tools' },
-        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery }),
+        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }),
         h('div', { className: 'ah-group-filters' },
           [['all', t('groups.filterAll')], ['selected', t('groups.filterSelected')], ['unselected', t('groups.filterUnselected')]].map(([value, label]) => h('button', {
             key: value,
@@ -423,6 +425,7 @@
       const [projectPath, setProjectPath] = React.useState(initialPath);
       const [drafts, setDrafts] = React.useState({});
       const [query, setQuery] = React.useState('');
+      const [regex, setRegex] = React.useState(false);
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
 
@@ -531,9 +534,10 @@
       };
       const groupActionCount = (groupId) => collectGroupActions(groupId).size;
       const selectedActionCount = actions.filter((action) => actionAvailableNow(action)).length;
+      const matchesSearch = compileSearch(query, regex);
       const filtered = query.trim() === ''
         ? actions
-        : actions.filter((action) => `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase()));
+        : actions.filter((action) => matchesSearch(`${action.name} ${action.description}`));
 
       const selectProject = (path) => {
         setProjectPath(path);
@@ -662,7 +666,7 @@
 
       const actionTools = h('div', { className: 'ah-group-tools' },
         h('p', { className: 'ah-hint' }, t('scope.extraHint')),
-        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery }));
+        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }));
 
       const actionRows = h('div', { className: 'ah-group-actions' },
         filtered.length === 0

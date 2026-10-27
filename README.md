@@ -7,7 +7,7 @@
 [English](README.en.md) · [更新日志](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.7.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.8.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## 核心理念
@@ -29,6 +29,7 @@
 `Alt + A`（macOS `⌥ + A`）或输入框工具行按钮打开：
 
 - 中文名、描述、标签、正文均可搜索；
+- 搜索默认按子串匹配；输入框右侧 `.*` 按钮或 `Alt+R` 可切换为正则表达式搜索；
 - 每行显示 `[Command]` / `[Skill]` 与范围；
 - Command：无参数插入引用 chip，有参数插入展开后的正文；
 - Skill：插入技能正文；Agent 仍可按需自行调用，但 Action Hub 管理的条目不会出现在 `/` 菜单；

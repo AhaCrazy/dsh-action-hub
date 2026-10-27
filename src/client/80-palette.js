@@ -30,6 +30,7 @@
         const [selectedId, setSelectedId] = React.useState(null);
         const [args, setArgs] = React.useState('');
         const [sortBy, setSortBy] = React.useState('recent');
+        const [regex, setRegex] = React.useState(false);
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
@@ -38,8 +39,8 @@
           [actions],
         );
         const visible = React.useMemo(
-          () => visibleActions(available, { query: state.query, sortBy }),
-          [available, state.query, sortBy],
+          () => visibleActions(available, { query: state.query, sortBy, regex }),
+          [available, state.query, regex, sortBy],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
@@ -257,7 +258,7 @@
         ];
 
         const header = h('div', { className: 'ah-palette-search' },
-          h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
+          h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }),
           h('select', {
             className: 'ah-palette-sort',
             value: sortBy,

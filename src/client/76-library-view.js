@@ -3,6 +3,7 @@
         const t = translate(props);
         const snapshot = useHub(hub);
         const [query, setQuery] = React.useState('');
+        const [regex, setRegex] = React.useState(false);
         const [sortBy, setSortBy] = React.useState('recent');
         const [showGroupBar, setShowGroupBar] = React.useState(() => {
           try { return localStorage.getItem('action-hub.showGroupBar') !== '0'; } catch { return true; }
@@ -73,10 +74,10 @@
           return () => clearInterval(timer);
         }, [hub]);
         const visible = React.useMemo(() => {
-          const base = visibleActions(actions, { query, sortBy });
+          const base = visibleActions(actions, { query, sortBy, regex });
           if (!showGroupBar || groupFilter === '') return base;
           return base.filter((action) => groupMatches(action, groupFilter));
-        }, [actions, groupFilter, query, showGroupBar, sortBy]);
+        }, [actions, groupFilter, query, regex, showGroupBar, sortBy]);
 
         const toggleGroupBar = (next) => {
           setShowGroupBar(next);
@@ -199,7 +200,7 @@
                   h(Button, { primary: true, disabled: exportBusy || exportSelected.size === 0, onClick: () => { void runExport(); } },
                     exportBusy ? t('export.running') : t('export.run'))))
               : h('div', { className: 'ah-main-bar' },
-                h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
+                h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }),
                 h('div', { className: 'ah-sort' },
                   h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
                   Object.entries(sortLabels).map(([value, label]) => h('button', {

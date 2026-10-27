@@ -23,7 +23,7 @@ window.__ModuleLoader__.load({
     const PANEL_ID = 'dsh-action-hub';
     const API = '/api/dsh-action-hub';
     const PKG = 'dsh-action-hub';
-    const VERSION = '8.7.1';
+    const VERSION = '8.8.0';
     const PREFS_KEY = 'dsh-action-hub/prefs';
     const ARG_TOKENS = ['{{args}}', '{{ARGS}}', '$ARGUMENTS', '{{input}}'];
     const MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '');
@@ -50,9 +50,13 @@ window.__ModuleLoader__.load({
       .ah-btn-sm.ah-btn-icon { width: 28px; padding: 0; }
       .ah-btn[data-active="true"] { border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-brand-primary); background: transparent; }
       .ah-search { position: relative; flex: 1 1 260px; min-width: 200px; }
-      .ah-search input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 12px 0 32px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; outline: none; }
+      .ah-search input { width: 100%; box-sizing: border-box; height: 34px; padding: 0 42px 0 32px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font: inherit; font-size: 12.5px; outline: none; }
       .ah-search input:focus { border-color: var(--dsw-alias-brand-primary); }
       .ah-search-mark { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); display: flex; color: var(--dsw-alias-label-secondary); pointer-events: none; }
+      .ah-search-regex { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); min-width: 26px; height: 24px; padding: 0 5px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 11px; font-weight: 600; line-height: 1; cursor: pointer; }
+      .ah-search-regex:hover { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); }
+      .ah-search-regex[data-active="true"] { background: var(--dsw-alias-brand-primary); border-color: var(--dsw-alias-brand-primary); color: var(--dsw-alias-bg-overlay); }
+      .ah-search-regex:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
       .ah-chip { appearance: none; border: 1px solid var(--dsw-alias-border-l1); background: transparent; color: var(--dsw-alias-label-secondary); border-radius: 999px; height: 26px; padding: 0 10px; font: inherit; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
       .ah-chip:hover { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
       .ah-chip[data-active="true"] { background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
@@ -434,6 +438,7 @@ window.__ModuleLoader__.load({
         'category.name': '新名称',
         'palette.title': '选择一个 Action',
         'palette.search': '搜索 Action…',
+        'search.regexTitle': '正则表达式搜索（Alt+R）',
         'palette.empty': '还没有 Action',
         'palette.emptyCopy': '新建一条，或从管理页导入，之后在这里一搜即用。',
         'palette.noMatch': '没有匹配的 Action',
@@ -695,6 +700,7 @@ window.__ModuleLoader__.load({
         'category.name': 'New name',
         'palette.title': 'Pick an Action',
         'palette.search': 'Search Actions…',
+        'search.regexTitle': 'Regular expression search (Alt+R)',
         'palette.empty': 'No Actions yet',
         'palette.emptyCopy': 'Create one, or import from the library, and it is one search away from now on.',
         'palette.noMatch': 'No matching Action',
@@ -1043,6 +1049,28 @@ window.__ModuleLoader__.load({
 
     /* Search scoring: every token must match somewhere, and a name hit weighs far
        more than a body hit, so typing "code" lands on "Code review" first. */
+    function compileSearch(query, regex = false) {
+      const needle = typeof query === 'string' ? query.trim() : '';
+      if (needle === '') return () => true;
+      if (regex !== true) {
+        const lower = needle.toLowerCase();
+        return (text) => String(text ?? '').toLowerCase().includes(lower);
+      }
+      try {
+        const pattern = new RegExp(needle, 'i');
+        return (text) => pattern.test(String(text ?? ''));
+      } catch {
+        return () => false;
+      }
+    }
+
+    function regexSearchScore(action, matches) {
+      if (matches(action.name || '')) return 100;
+      if (matches(action.description || '')) return 30;
+      if (matches(action.prompt || '')) return 12;
+      return -1;
+    }
+
     function searchScore(action, query) {
       const needle = typeof query === 'string' ? query.trim().toLowerCase() : '';
       if (needle === '') return 0;
@@ -1100,10 +1128,11 @@ window.__ModuleLoader__.load({
       });
     }
 
-    function visibleActions(actions, { query = '', sortBy = 'recent' } = {}) {
+    function visibleActions(actions, { query = '', sortBy = 'recent', regex = false } = {}) {
+      const regexMatcher = regex === true ? compileSearch(query, true) : null;
       const scored = [];
       for (const action of actions) {
-        const score = searchScore(action, query);
+        const score = regexMatcher === null ? searchScore(action, query) : regexSearchScore(action, regexMatcher);
         if (score < 0) continue;
         scored.push({ action, score });
       }
@@ -1774,7 +1803,44 @@ window.__ModuleLoader__.load({
       }, props.children);
     }
 
+    const regexShortcutStack = [];
+    let regexShortcutBound = false;
+    function bindRegexShortcut() {
+      if (regexShortcutBound || typeof document === 'undefined') return;
+      regexShortcutBound = true;
+      document.addEventListener('keydown', (event) => {
+        if (!event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== 'r') return;
+        const toggle = regexShortcutStack[regexShortcutStack.length - 1];
+        if (toggle === undefined) return;
+        event.preventDefault();
+        event.stopPropagation();
+        toggle();
+      }, true);
+    }
+
     function SearchField(props) {
+      const toggleRef = React.useRef(props.onToggleRegex);
+      toggleRef.current = props.onToggleRegex;
+      const hasToggle = typeof props.onToggleRegex === 'function';
+      React.useEffect(() => {
+        if (!hasToggle) return undefined;
+        const toggle = () => toggleRef.current?.();
+        regexShortcutStack.push(toggle);
+        bindRegexShortcut();
+        return () => {
+          const index = regexShortcutStack.lastIndexOf(toggle);
+          if (index >= 0) regexShortcutStack.splice(index, 1);
+        };
+      }, [hasToggle]);
+      const handleKeyDown = (event) => {
+        if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'r') {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleRef.current?.();
+          return;
+        }
+        props.onKeyDown?.(event);
+      };
       return h('div', { className: 'ah-search' },
         h('span', { className: 'ah-search-mark' }, h(Icons.search, { size: 14 })),
         h('input', {
@@ -1783,8 +1849,19 @@ window.__ModuleLoader__.load({
           placeholder: props.placeholder,
           'aria-label': props.placeholder,
           onChange: (event) => props.onChange(event.target.value),
-          onKeyDown: props.onKeyDown,
-        }));
+          onKeyDown: handleKeyDown,
+        }),
+        hasToggle
+          ? h('button', {
+            type: 'button',
+            className: 'ah-search-regex',
+            title: props.regexTitle,
+            'aria-label': props.regexTitle,
+            'aria-pressed': props.regex === true,
+            'data-active': props.regex === true,
+            onClick: () => toggleRef.current?.(),
+          }, '.*')
+          : null);
     }
 
     function Modal(props) {
@@ -2344,6 +2421,7 @@ window.__ModuleLoader__.load({
         const t = translate(props);
         const snapshot = useHub(hub);
         const [query, setQuery] = React.useState('');
+        const [regex, setRegex] = React.useState(false);
         const [sortBy, setSortBy] = React.useState('recent');
         const [showGroupBar, setShowGroupBar] = React.useState(() => {
           try { return localStorage.getItem('action-hub.showGroupBar') !== '0'; } catch { return true; }
@@ -2414,10 +2492,10 @@ window.__ModuleLoader__.load({
           return () => clearInterval(timer);
         }, [hub]);
         const visible = React.useMemo(() => {
-          const base = visibleActions(actions, { query, sortBy });
+          const base = visibleActions(actions, { query, sortBy, regex });
           if (!showGroupBar || groupFilter === '') return base;
           return base.filter((action) => groupMatches(action, groupFilter));
-        }, [actions, groupFilter, query, showGroupBar, sortBy]);
+        }, [actions, groupFilter, query, regex, showGroupBar, sortBy]);
 
         const toggleGroupBar = (next) => {
           setShowGroupBar(next);
@@ -2540,7 +2618,7 @@ window.__ModuleLoader__.load({
                   h(Button, { primary: true, disabled: exportBusy || exportSelected.size === 0, onClick: () => { void runExport(); } },
                     exportBusy ? t('export.running') : t('export.run'))))
               : h('div', { className: 'ah-main-bar' },
-                h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery }),
+                h(SearchField, { value: query, placeholder: t('lib.search'), onChange: setQuery, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }),
                 h('div', { className: 'ah-sort' },
                   h('span', { className: 'ah-count' }, `${t('lib.sortLabel')}:`),
                   Object.entries(sortLabels).map(([value, label]) => h('button', {
@@ -2718,6 +2796,7 @@ window.__ModuleLoader__.load({
       const [selectedId, setSelectedId] = React.useState(() => groups[0]?.id ?? '');
       const [drafts, setDrafts] = React.useState({});
       const [query, setQuery] = React.useState('');
+      const [regex, setRegex] = React.useState(false);
       const [filter, setFilter] = React.useState('all');
       const [renamingId, setRenamingId] = React.useState('');
       const [renameValue, setRenameValue] = React.useState('');
@@ -2783,11 +2862,12 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         props.onDirtyChange?.(dirtyCount);
       }, [dirtyCount, props.onDirtyChange]);
+      const matchesSearch = compileSearch(query, regex);
       const filtered = actions.filter((action) => {
         if (filter === 'selected' && !activeDirectSet.has(action.name)) return false;
         if (filter === 'unselected' && activeDirectSet.has(action.name)) return false;
         if (query.trim() === '') return true;
-        return `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase());
+        return matchesSearch(`${action.name} ${action.description}`);
       });
       const groupLabel = (id) => groups.find((group) => group.id === id)?.name ?? id;
 
@@ -2989,7 +3069,7 @@ window.__ModuleLoader__.load({
           h(Button, { ghost: true, small: true, onClick: () => setFiltered(true) }, t('groups.selectAll')),
           h(Button, { ghost: true, small: true, onClick: () => setFiltered(false) }, t('groups.clear'))));
       const detailTools = active === null ? null : h('div', { className: 'ah-group-tools' },
-        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery }),
+        h(SearchField, { value: query, placeholder: t('groups.actionSearch'), onChange: setQuery, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }),
         h('div', { className: 'ah-group-filters' },
           [['all', t('groups.filterAll')], ['selected', t('groups.filterSelected')], ['unselected', t('groups.filterUnselected')]].map(([value, label]) => h('button', {
             key: value,
@@ -3116,6 +3196,7 @@ window.__ModuleLoader__.load({
       const [projectPath, setProjectPath] = React.useState(initialPath);
       const [drafts, setDrafts] = React.useState({});
       const [query, setQuery] = React.useState('');
+      const [regex, setRegex] = React.useState(false);
       const [error, setError] = React.useState('');
       const [busy, setBusy] = React.useState(false);
 
@@ -3224,9 +3305,10 @@ window.__ModuleLoader__.load({
       };
       const groupActionCount = (groupId) => collectGroupActions(groupId).size;
       const selectedActionCount = actions.filter((action) => actionAvailableNow(action)).length;
+      const matchesSearch = compileSearch(query, regex);
       const filtered = query.trim() === ''
         ? actions
-        : actions.filter((action) => `${action.name} ${action.description}`.toLowerCase().includes(query.trim().toLowerCase()));
+        : actions.filter((action) => matchesSearch(`${action.name} ${action.description}`));
 
       const selectProject = (path) => {
         setProjectPath(path);
@@ -3355,7 +3437,7 @@ window.__ModuleLoader__.load({
 
       const actionTools = h('div', { className: 'ah-group-tools' },
         h('p', { className: 'ah-hint' }, t('scope.extraHint')),
-        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery }));
+        h(SearchField, { value: query, placeholder: t('scope.searchActions'), onChange: setQuery, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }));
 
       const actionRows = h('div', { className: 'ah-group-actions' },
         filtered.length === 0
@@ -3448,6 +3530,7 @@ window.__ModuleLoader__.load({
         const [selectedId, setSelectedId] = React.useState(null);
         const [args, setArgs] = React.useState('');
         const [sortBy, setSortBy] = React.useState('recent');
+        const [regex, setRegex] = React.useState(false);
         const [toast, setToast] = React.useState({ text: '', kind: 'ok' });
 
         const actions = snapshot.actions ?? [];
@@ -3456,8 +3539,8 @@ window.__ModuleLoader__.load({
           [actions],
         );
         const visible = React.useMemo(
-          () => visibleActions(available, { query: state.query, sortBy }),
-          [available, state.query, sortBy],
+          () => visibleActions(available, { query: state.query, sortBy, regex }),
+          [available, state.query, regex, sortBy],
         );
         const selected = visible.find((action) => action.id === selectedId) ?? visible[0] ?? null;
         const currentProject = snapshot.currentProject ?? null;
@@ -3675,7 +3758,7 @@ window.__ModuleLoader__.load({
         ];
 
         const header = h('div', { className: 'ah-palette-search' },
-          h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey }),
+          h(SearchField, { inputRef: searchRef, value: state.query, placeholder: t('palette.search'), onChange: (value) => palette.update({ query: value }), onKeyDown: onSearchKey, regex, regexTitle: t('search.regexTitle'), onToggleRegex: () => setRegex((previous) => !previous) }),
           h('select', {
             className: 'ah-palette-sort',
             value: sortBy,

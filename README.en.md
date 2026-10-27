@@ -7,7 +7,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 [中文](README.md) · [Changelog](CHANGELOG.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![version](https://img.shields.io/badge/version-8.7.1-green.svg)](CHANGELOG.md)
+[![version](https://img.shields.io/badge/version-8.8.0-green.svg)](CHANGELOG.md)
 [![dsh](https://img.shields.io/badge/dsh-0.2.x-4f46e5.svg)](package.json)
 
 ## Principles
@@ -29,6 +29,7 @@ This README uses **Action** as the umbrella term for a Skill or a Command. Avail
 `Alt + A` (macOS `⌥ + A`) or the composer button:
 
 - Search by name, description, tags, body;
+- Search is substring-based by default; use the `.*` button at the right edge or `Alt+R` to switch to regular-expression search;
 - Each row shows `[Command]` / `[Skill]` and its scope;
 - Command: inserts a reference chip without arguments, or the expanded body with arguments;
 - Skill: inserts the skill body; the agent can still invoke it, but Action Hub entries stay out of the `/` menu;

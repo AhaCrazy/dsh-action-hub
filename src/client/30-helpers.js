@@ -231,6 +231,28 @@
 
     /* Search scoring: every token must match somewhere, and a name hit weighs far
        more than a body hit, so typing "code" lands on "Code review" first. */
+    function compileSearch(query, regex = false) {
+      const needle = typeof query === 'string' ? query.trim() : '';
+      if (needle === '') return () => true;
+      if (regex !== true) {
+        const lower = needle.toLowerCase();
+        return (text) => String(text ?? '').toLowerCase().includes(lower);
+      }
+      try {
+        const pattern = new RegExp(needle, 'i');
+        return (text) => pattern.test(String(text ?? ''));
+      } catch {
+        return () => false;
+      }
+    }
+
+    function regexSearchScore(action, matches) {
+      if (matches(action.name || '')) return 100;
+      if (matches(action.description || '')) return 30;
+      if (matches(action.prompt || '')) return 12;
+      return -1;
+    }
+
     function searchScore(action, query) {
       const needle = typeof query === 'string' ? query.trim().toLowerCase() : '';
       if (needle === '') return 0;
@@ -288,10 +310,11 @@
       });
     }
 
-    function visibleActions(actions, { query = '', sortBy = 'recent' } = {}) {
+    function visibleActions(actions, { query = '', sortBy = 'recent', regex = false } = {}) {
+      const regexMatcher = regex === true ? compileSearch(query, true) : null;
       const scored = [];
       for (const action of actions) {
-        const score = searchScore(action, query);
+        const score = regexMatcher === null ? searchScore(action, query) : regexSearchScore(action, regexMatcher);
         if (score < 0) continue;
         scored.push({ action, score });
       }

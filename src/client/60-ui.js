@@ -96,7 +96,44 @@
       }, props.children);
     }
 
+    const regexShortcutStack = [];
+    let regexShortcutBound = false;
+    function bindRegexShortcut() {
+      if (regexShortcutBound || typeof document === 'undefined') return;
+      regexShortcutBound = true;
+      document.addEventListener('keydown', (event) => {
+        if (!event.altKey || event.ctrlKey || event.metaKey || event.key.toLowerCase() !== 'r') return;
+        const toggle = regexShortcutStack[regexShortcutStack.length - 1];
+        if (toggle === undefined) return;
+        event.preventDefault();
+        event.stopPropagation();
+        toggle();
+      }, true);
+    }
+
     function SearchField(props) {
+      const toggleRef = React.useRef(props.onToggleRegex);
+      toggleRef.current = props.onToggleRegex;
+      const hasToggle = typeof props.onToggleRegex === 'function';
+      React.useEffect(() => {
+        if (!hasToggle) return undefined;
+        const toggle = () => toggleRef.current?.();
+        regexShortcutStack.push(toggle);
+        bindRegexShortcut();
+        return () => {
+          const index = regexShortcutStack.lastIndexOf(toggle);
+          if (index >= 0) regexShortcutStack.splice(index, 1);
+        };
+      }, [hasToggle]);
+      const handleKeyDown = (event) => {
+        if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'r') {
+          event.preventDefault();
+          event.stopPropagation();
+          toggleRef.current?.();
+          return;
+        }
+        props.onKeyDown?.(event);
+      };
       return h('div', { className: 'ah-search' },
         h('span', { className: 'ah-search-mark' }, h(Icons.search, { size: 14 })),
         h('input', {
@@ -105,8 +142,19 @@
           placeholder: props.placeholder,
           'aria-label': props.placeholder,
           onChange: (event) => props.onChange(event.target.value),
-          onKeyDown: props.onKeyDown,
-        }));
+          onKeyDown: handleKeyDown,
+        }),
+        hasToggle
+          ? h('button', {
+            type: 'button',
+            className: 'ah-search-regex',
+            title: props.regexTitle,
+            'aria-label': props.regexTitle,
+            'aria-pressed': props.regex === true,
+            'data-active': props.regex === true,
+            onClick: () => toggleRef.current?.(),
+          }, '.*')
+          : null);
     }
 
     function Modal(props) {

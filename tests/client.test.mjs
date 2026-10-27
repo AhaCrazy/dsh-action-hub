@@ -157,6 +157,18 @@ test('visibleActions filters, scores, and keeps pinned entries first', () => {
   assert.deepEqual(visibleActions(actions, { query: 'gamma' }).map((entry) => entry.id), ['c']);
 });
 
+test('regex search uses regular expressions and fails closed on bad patterns', () => {
+  const { visibleActions } = module.internals;
+  const actions = [
+    { id: 'aiart', name: 'aiart', description: 'image generator', pinned: false, usage: { lastAt: 2 } },
+    { id: 'explain', name: 'tool', description: 'explain features', pinned: false, usage: { lastAt: 1 } },
+    { id: 'other', name: 'other', description: 'misc', pinned: false, usage: { lastAt: 0 } },
+  ];
+  assert.deepEqual(visibleActions(actions, { query: '^ai', regex: true }).map((entry) => entry.id), ['aiart']);
+  assert.deepEqual(visibleActions(actions, { query: 'explain', regex: true }).map((entry) => entry.id), ['explain']);
+  assert.deepEqual(visibleActions(actions, { query: '[', regex: true }), []);
+});
+
 test('sortActions shapes the library', () => {
   const { sortActions } = module.internals;
   assert.deepEqual(
